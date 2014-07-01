@@ -254,7 +254,7 @@ public class EPICFitter {
             //store of and m in their current state!
             //we temporarily remove the biggest things to avoid running out of memory during deepCopy
             boolean[][] storeBondedMatrix = of.m.bondedMatrix;
-            int[] storeNonBonded = of.m.nonBonded;
+            ArrayList<Atom>[][] storeNonBonded = of.m.nonBonded;
             EnergyFunction storeEF = of.efunc;
             of.m.bondedMatrix = null;
             of.m.nonBonded = null;

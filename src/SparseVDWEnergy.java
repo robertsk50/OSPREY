@@ -205,18 +205,18 @@ public class SparseVDWEnergy extends EnergyFunction implements Serializable {
             double nbTerms[] = ((ForceFieldEnergy)ef).a96ff.nonBondedTerms;
             RotMatrix r = new RotMatrix();
             
-            for(int t=0; t<nbTerms.length/4; t++){
+            for(int t=0; t<nbTerms.length/Amber96ext.NBTOff; t++){
                 
-                int atom1 = (int)nbTerms[4*t];
-                int atom2 = (int)nbTerms[4*t+1];
+                int atom1 = (int)nbTerms[Amber96ext.NBTOff*t];
+                int atom2 = (int)nbTerms[Amber96ext.NBTOff*t+1];
                 
                 double dist = r.norm( r.subtract( m.getActualCoord(atom1), m.getActualCoord(atom2) ) );
                 
                 if( dist<distCutoff){
                     
                     int index = Math.min(atom1,atom2)*m.numberOfAtoms + Math.max(atom1,atom2);
-                    double coeff12 = coeff*V12*nbTerms[4*t+2];//coefficient for this term for r^-12
-                    double coeff6 = coeff*V6*nbTerms[4*t+3];
+                    double coeff12 = coeff*V12*nbTerms[Amber96ext.NBTOff*t+2];//coefficient for this term for r^-12
+                    double coeff6 = coeff*V6*nbTerms[Amber96ext.NBTOff*t+3];
                                         
                     
                     double coeffElec = coeff*m.atom[atom1].charge*m.atom[atom2].charge*coulombFactor;
