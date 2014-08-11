@@ -99,6 +99,7 @@ public class Amber96ext implements ForceField, Serializable {
 	private final int noMatchInt = 9999;
 
 	boolean doSolvationE = false; //should solvation energies be computed
+	boolean doHBondE = false; //should H-bond potential be computed
 
 	double dielectric = 1.0;	
 	boolean distDepDielect = true;
@@ -189,6 +190,8 @@ public class Amber96ext implements ForceField, Serializable {
 
 	double solvScale = 1.0; //the scale factor for the solvation energies
 
+	boolean refEnergy = false;
+	
 	//The solvation parameters object
 	EEF1 eef1parms = null;
 
@@ -202,8 +205,11 @@ public class Amber96ext implements ForceField, Serializable {
 
 	private boolean[] evalAtom;
 	int[] mapAtomToSolvTerm;
+	
+	
+	BakerHBond hbondPotential;
 
-	Amber96ext(Molecule m, boolean ddDielect, double dielectConst, boolean doSolv, double solvScFactor, double vdwMult){
+	private Amber96ext(Molecule m, boolean ddDielect, double dielectConst, boolean doSolv, double solvScFactor, double vdwMult){
 
 		this.m = m;
 		setForcefieldInputs();
@@ -261,6 +267,20 @@ public class Amber96ext implements ForceField, Serializable {
 
 		doSolvationE = doSolv;
 		solvScale = solvScFactor;
+	}
+	
+	//Baker H-function
+	Amber96ext(Molecule m, boolean ddDielect, double dielectConst, boolean doSolv, 
+			double solvScFactor, double vdwMult, HBondSettings hbonds){
+
+		this(m, ddDielect, dielectConst, doSolv, solvScFactor, vdwMult);
+
+		doHBondE = hbonds.doHbondE;
+		
+		if(doHBondE){
+			hbondPotential = new BakerHBond(hbonds.hbondScale,hbonds.dsspFile,m);
+		}
+
 	}
 
 	//************************************
@@ -1283,6 +1303,10 @@ public class Amber96ext implements ForceField, Serializable {
 		numberNonBonded = 0;
 		numHalfNonBondedTerms = 0;
 
+		if(doHBondE){
+			hbondPotential.initializeHbondTerms();
+		}
+		
 		if (debug)
 			System.out.println("Starting initializeEVCalculation");
 
@@ -1452,6 +1476,10 @@ public class Amber96ext implements ForceField, Serializable {
 								numberNonBonded++;
 							}
 						}
+						//KER: Get Hbond Terms
+						if(doHBondE){
+							hbondPotential.addIfValid(atom1,atom2,m);
+						}
 					}
 				}}
 		}
@@ -1567,7 +1595,7 @@ public class Amber96ext implements ForceField, Serializable {
 		if (res.getEnergyEvalBB()){
 			if (res.ffAssigned){
 				for(int j=0;j<res.numberOfAtoms;j++){
-					if (res.atom[j].getIsBBatom())
+					if (res.atom[j].getIsBBatom() && (!refEnergy || !res.atom[j].name.equals("OXT")))
 						evalAtom[res.atom[j].moleculeAtomNumber] = true;
 				}
 			}
@@ -1593,6 +1621,8 @@ public class Amber96ext implements ForceField, Serializable {
 
 		if (doSolvationE) //setup dihedral arrays
 			setupPartialSolvationArrays(numRows, maxNumColumns, atomList, numColumns);
+		if(doHBondE)
+			hbondPotential.setupPartialHBondArrays(numRows, maxNumColumns, atomList, numColumns,m);
 	}
 
 	// Sets up local datastructures to hold lists of the halfNonBonded and nonBonded
@@ -1724,7 +1754,7 @@ public class Amber96ext implements ForceField, Serializable {
 	//If (curIndex!=-1), then precomputed partial arrays  are used to quickly compute the specified energy terms
 	public double [] calculateTotalEnergy(double coordinates[], int curIndex){
 
-		double energyTerms[] = new double[4]; //total, electrostatics, vdW, and solvation
+		double energyTerms[] = new double[5]; //total, electrostatics, vdW, solvation, h-bond
 		for (int i=0; i<energyTerms.length; i++)
 			energyTerms[i] = 0.0;
 
@@ -1733,9 +1763,12 @@ public class Amber96ext implements ForceField, Serializable {
 
 		if (doSolvationE) //compute solvation energies
 			calculateSolvationEnergy(coordinates,curIndex,energyTerms);
-
-		//compute total energy (electrostatics + vdW + solvation)
-		energyTerms[0] = energyTerms[1] + energyTerms[2] + energyTerms[3];
+		if (doHBondE) //compute H-bond energies
+			hbondPotential.calculateBakerHBondEnergy(coordinates,curIndex,energyTerms,m);
+		
+		//compute total energy (electrostatics + vdW + solvation+hbond)
+		for(int i=1; i<energyTerms.length;i++)
+			energyTerms[0] += energyTerms[i];
 
 		if(Double.isNaN(energyTerms[0])){
 			for(int a=0; a<coordinates.length; a++){
@@ -1910,7 +1943,6 @@ public class Amber96ext implements ForceField, Serializable {
 			ix5 += NBTOff;
 			atomi = (int)nbTerms[ ix5 ];
 			atomj = (int)nbTerms[ ix5 + 1 ];
-
 			Aij = nbTerms[ ix5 + 2 ] * Amult;
 			Bij = nbTerms[ ix5 + 3 ] * Bmult;
 			chargeij = nbTerms[ ix5 + 4 ];
@@ -2082,8 +2114,11 @@ public class Amber96ext implements ForceField, Serializable {
 		calculateEVGradient(curIndex); //compute electrostatic and vdW energies
 
 		//Now computed in calculateEVGradient
-//		if (doSolvationE) //compute solvation energies
-//			calculateSolvationGradient(curIndex);
+		//if (doSolvationE) //compute solvation energies
+		//	calculateSolvationGradient(curIndex);
+		
+		if(doHBondE)
+			hbondPotential.calculateBakerHBondGradient(curIndex,m);
 	}
 
 	// This code computes the gradient of the electrostatic and vdw energy terms

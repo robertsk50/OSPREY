@@ -114,6 +114,10 @@ public class Molecule implements Serializable{
 	public static final int NB_INCREMENT_SIZE = 82000;
 	public static final int MAX_ATOM_CONNECTIONS = 7;
 
+	public static final int HELIX = 1;
+	public static final int STRAND = 2;
+	public static final int OTHER = 3;
+	
 	String	name;
 	int	numberOfStrands = 0;
 	int	numberOfResidues = 0;

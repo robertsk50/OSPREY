@@ -289,6 +289,8 @@ public class RotamerSearch implements Serializable
 	double pairSt = 100;
 	double templateSt = 30; 
 
+	HBondSettings hbonds;
+	
 
 	EPICSettings es = new EPICSettings();//turn off EPIC by default 
 	boolean compCETM = false;//Indicates we are currently computing EPIC fits
@@ -305,7 +307,7 @@ public class RotamerSearch implements Serializable
 			double dielectC, boolean doDihedral, boolean doSolv,double solvScFactor, 
 			double vdwMult, RotamerLibrary[] rotamerLibraries,
 			boolean doPerts, String pFile, boolean minPerts, boolean useTrips, boolean flagsAStar,
-			EPICSettings epics) {
+			EPICSettings epics,HBondSettings hbonds) {
 
 		hElect = hE;
 		hVDW = hV;
@@ -331,7 +333,7 @@ public class RotamerSearch implements Serializable
 		useFlagsAStar = flagsAStar;
 
 		m=theMolec;
-		a96ff = new Amber96ext(m, distDepDielect, dielectConst, doSolvationE, solvScale, vdwMultiplier);
+		a96ff = new Amber96ext(m, distDepDielect, dielectConst, doSolvationE, solvScale, vdwMultiplier,hbonds);
 		a96ff.calculateTypesWithTemplates(); //KER: Needed so that the N and C terminus flags are set correctly
 
 		numberOfStrands = strandsPresent;
@@ -360,6 +362,7 @@ public class RotamerSearch implements Serializable
 		}
 
 		es = epics;
+		this.hbonds = hbonds; 
 		//sysLR = new StrandRotamers(rl,m.strand[sysStrNum]);
 		/*if (ligStrNum>=0) { //there is a ligand
 			m.strand[ligStrNum].residue[0].flexible = true;
@@ -969,14 +972,17 @@ public class RotamerSearch implements Serializable
 			if (!minimizeBB) {//side-chain minimization, so the template is fixed	
 				for(int i=0; i<strandMut.length; i++){
 					for(int j=0;j<strandMut[i].length;j++){
-						String a = strandRot[i].getCurRotType(strandMut[i][j]);
-						if ((!a.equalsIgnoreCase("GLY"))&&(!a.equalsIgnoreCase("PRO"))){
-							String tmpAA = "gly";
-							//if (minimizeBB)
-							//	tmpAA = "ala";
-							if(m.strand[i].isProtein)
-								strandRot[i].changeResidueType(m,strandMut[i][j],tmpAA,addHydrogens,connectResidues);
-						}
+						
+						
+						//KER: Don't need to mutate if we turn energies off
+//						String a = strandRot[i].getCurRotType(strandMut[i][j]);
+//						if ((!a.equalsIgnoreCase("GLY"))&&(!a.equalsIgnoreCase("PRO"))){
+//							String tmpAA = "GLY";
+//							//if (minimizeBB)
+//							//	tmpAA = "ala";
+//							if(m.strand[i].isProtein)
+//								strandRot[i].changeResidueType(m,strandMut[i][j],tmpAA,addHydrogens,connectResidues);
+//						}
 
 						m.strand[i].residue[strandMut[i][j]].flexible = false;
 						if(isTemplateOn)
@@ -1005,15 +1011,17 @@ public class RotamerSearch implements Serializable
 					for(int j=0;j<strandMut[i].length;j++){
 						// Make this residue a "gly", if it is not already GLY or PRO;
 						//		If minimizeBB, then change to ALA, if not already GLY or PRO
-						String a = strandRot[i].getCurRotType(strandMut[i][j]);
-						if ((!a.equalsIgnoreCase("GLY"))&&(!a.equalsIgnoreCase("PRO"))){
-							String tmpAA = "gly";
-							//if (minimizeBB)
-							//	tmpAA = "ala";
-
-							if(m.strand[i].isProtein)
-								strandRot[i].changeResidueType(m,strandMut[i][j],tmpAA,addHydrogens,connectResidues);
-						}
+						
+						//KER: Don't need to mutate if we turn energies off
+//						String a = strandRot[i].getCurRotType(strandMut[i][j]);
+//						if ((!a.equalsIgnoreCase("GLY"))&&(!a.equalsIgnoreCase("PRO"))){
+//							String tmpAA = "GLY";
+//							//if (minimizeBB)
+//							//	tmpAA = "ala";
+//
+//							if(m.strand[i].isProtein)
+//								strandRot[i].changeResidueType(m,strandMut[i][j],tmpAA,addHydrogens,connectResidues);
+//						}
 
 						m.strand[i].residue[strandMut[i][j]].flexible = false;
 						if(isTemplateOn)
@@ -1101,7 +1109,11 @@ public class RotamerSearch implements Serializable
 			m.residue[i].setEnergyEval(false, false);
 			m.residue[i].flexible = false;
 		}*/
-
+		
+		a96ff.refEnergy = true;
+		for(int i=0;i<m.residue.length;i++)
+			m.residue[i].setEnergyEval(false,false);
+		
 		// Go through each active site residue, each AA type they could be and all their rotamers, 
 		// 	saving the computed energies to the appropriate place.
 		int curPos;
@@ -1130,7 +1142,7 @@ public class RotamerSearch implements Serializable
 					m.strand[str].residue[strResNum].flexible = true;
 
 					if(isTemplateOn&&(!doPerturbations))
-						m.strand[str].residue[strResNum].setSCEnergyEval(true);
+						m.strand[str].residue[strResNum].setEnergyEval(true,true);
 					else
 						m.strand[str].residue[strResNum].setEnergyEval(true,true);
 
@@ -1180,7 +1192,7 @@ public class RotamerSearch implements Serializable
 				}
 				m.strand[str].residue[strResNum].flexible = false;
 				if(isTemplateOn&&(!doPerturbations))
-					m.strand[str].residue[strResNum].setSCEnergyEval(false);
+					m.strand[str].residue[strResNum].setEnergyEval(false,false);
 				else
 					m.strand[str].residue[strResNum].setEnergyEval(false,false);
 			}
@@ -1447,23 +1459,25 @@ public class RotamerSearch implements Serializable
 				int strMutIndex = mutRes2StrandMutIndex[depth];
 				// Make this residue a "gly", if it is not already GLY or PRO;
 				//		If doing backbone minimization, then change to ALA, if not already GLY or PRO
-				String a = strandRot[str].getCurRotType(strandMut[str][strMutIndex]);
-				if ( (!a.equalsIgnoreCase("GLY")) &&
-						( (!a.equalsIgnoreCase("PRO")) || doPerturbations ) ){
-					//DEEPer can mutate prolines so it treats them like other residues
-					String tmpAA = "gly";
-					if (minimizeBB || doPerturbations)
-						tmpAA = "ala";
-
-					//TODO: KER: strandRot should have the changeResidueType should be able to mutate things other than proteins
-					if(m.strand[str].isProtein)
-						strandRot[str].changeResidueType(m,strandMut[str][strMutIndex],tmpAA,addHydrogens,connectResidues);
-				}
+				
+				//KER: Don't need to mutate if we turn energies off
+//				String a = strandRot[str].getCurRotType(strandMut[str][strMutIndex]);
+//				if ( (!a.equalsIgnoreCase("GLY")) &&
+//						( (!a.equalsIgnoreCase("PRO")) || doPerturbations ) ){
+//					//DEEPer can mutate prolines so it treats them like other residues
+//					String tmpAA = "GLY";
+//					if (minimizeBB || doPerturbations)
+//						tmpAA = "ala";
+//
+//					//TODO: KER: strandRot should have the changeResidueType should be able to mutate things other than proteins
+//					if(m.strand[str].isProtein)
+//						strandRot[str].changeResidueType(m,strandMut[str][strMutIndex],tmpAA,addHydrogens,connectResidues);
+//				}
 				int molResNumber = m.strand[str].residue[strandMut[str][strMutIndex]].moleculeResidueNumber;
 				curAANum[molResNumber] = -1;
 				m.strand[str].residue[strandMut[str][strMutIndex]].flexible = false;
 				if(isTemplateOn&&(!doPerturbations))
-					m.strand[str].residue[strandMut[str][strMutIndex]].setEnergyEval(false, true);
+					m.strand[str].residue[strandMut[str][strMutIndex]].setEnergyEval(false, false);
 				else
 					m.strand[str].residue[strandMut[str][strMutIndex]].setEnergyEval(false, false);
 			}
@@ -1507,7 +1521,7 @@ public class RotamerSearch implements Serializable
 			if(minimizePairwise){
 				a96ffmin = a96ff;
 			}else{
-				a96ffmin = new Amber96ext(m, distDepDielect, dielectConst, doSolvationE, solvScale, vdwMultiplier);
+				a96ffmin = new Amber96ext(m, distDepDielect, dielectConst, doSolvationE, solvScale, vdwMultiplier,hbonds);
 				a96ffmin.onlySingle = true;
 				a96ffmin.onlyPair = false;
 			}
@@ -4813,8 +4827,9 @@ public class RotamerSearch implements Serializable
 		for(int str=0; str<numberOfStrands;str++){
 			for (int i=0; i<strandMut[str].length; i++){
 				int strResNum = strandMut[str][i];
-				int molResNum = m.strand[str].residue[strResNum].moleculeResidueNumber;					
+				int molResNum = m.strand[str].residue[strResNum].moleculeResidueNumber;
 				totEref += eRef[ctr][strandRot[str].rl.getAARotamerIndex(m.residue[molResNum].name)];//curAANum[molResNum]];
+				
 				ctr++;
 			}
 		}

@@ -98,7 +98,7 @@ public class Residue implements Serializable {
 	boolean cterm =  false; //Is a cterminal residue
 	boolean nterm = false; //Is an nterminal residue
 	public boolean cofactor = false;
-
+	byte SStype; //Secondary structure type (Set by readDSSP for hbond functionality) Duplicate of the "secondaryStruct" int below that reads PDB entries
 
         //DEEPer stuff
         int perts[]=null;                    // Perturbations to which this unit is subject (may be empty; this array consists of indices in m.perts, in ascending order)

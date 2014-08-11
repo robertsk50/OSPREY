@@ -67,7 +67,6 @@ import java.lang.Runtime;
 import java.util.*;
 import java.lang.Integer;
 import java.math.*;
-// import com.neva.*;   // Not compatible with linux
 
 import mpi.MPI;
 import mpi.MPIException;
@@ -114,6 +113,8 @@ public class KSParser
 		double solvScale = 1.0;
 		double stericThresh = -10000.0f; // allowed overlap between the vdW radii of two atoms, steric clash if larger overlap
 		double softStericThresh = -10000.0f; // soft steric overlap threshold
+		
+		HBondSettings hbonds;
 		
 		//the rotamer library files
 		//String rl; //KER: Moved rl to a static rotamer library in EnvironmentVars
@@ -376,6 +377,11 @@ public class KSParser
 		EnvironmentVars.setForcefld(rParams.getValue("FORCEFIELD","AMBER"));
 		double entropyScale = (new Double((String)rParams.getValue("ENTROPYSCALE","0.0"))).doubleValue();
 		EnvironmentVars.setEntropyScale(entropyScale);
+		
+		
+		double hbondScale = (new Double((String)rParams.getValue("HBONDSCALE","0"))).doubleValue();
+	    String dsspFile = rParams.getValue("DSSPFILE","");
+		hbonds = new HBondSettings(hbondScale, dsspFile);
 		
 		EnvironmentVars.setAArotLib(EnvironmentVars.getDataDir().concat(rParams.getValue("ROTFILE","LovellRotamer.dat")));
 		/*numAAallowed = rl.getNumAAallowed();
@@ -813,7 +819,7 @@ public class KSParser
 			Molecule m = new Molecule();
 			m = setupMolSystem(m,sParams,mp.strandPresent,mp.strandLimits);
 			
-			Amber96ext a96ff = new Amber96ext(m, distDepDielect, dielectConst, doSolvationE, solvScale, softvdwMultiplier);
+			Amber96ext a96ff = new Amber96ext(m, distDepDielect, dielectConst, doSolvationE, solvScale, softvdwMultiplier,hbonds);
 			a96ff.calculateTypesWithTemplates();
 			a96ff.initializeCalculation();
 			a96ff.setNBEval(hElect,hVDW);
@@ -1011,7 +1017,7 @@ public class KSParser
 		System.out.print("Checking if precomputed energy matrix is already computed...");
 		RotamerSearch rs = new RotamerSearch(m,numberMutable, strandsPresent,hElect,hVDW,hSteric,true,true,
                         epsilon,stericThresh,softStericThresh,distDepDielect,dielectConst,doDihedE,doSolvationE,solvScale,
-                        softvdwMultiplier,grl, doPerturbations, pertFile, minimizePerts, false, false, es);
+                        softvdwMultiplier,grl, doPerturbations, pertFile, minimizePerts, false, false, es,hbonds);
 
 
                 if(doPerturbations)
@@ -1044,7 +1050,7 @@ public class KSParser
 				System.out.print("Checking if precomputed energy matrix (unbound) is already computed...");
 				rs = new RotamerSearch(m,numberMutable, strandsPresent,hElect,hVDW,hSteric,true,true,
                                         epsilon,stericThresh,softStericThresh,distDepDielect,dielectConst,doDihedE,doSolvationE,solvScale,
-                                        softvdwMultiplier,grl, doPerturbations, pertFile, minimizePerts, false, false, es);
+                                        softvdwMultiplier,grl, doPerturbations, pertFile, minimizePerts, false, false, es,hbonds);
 
                                 if(doPerturbations)
                                     rs.setupRCs(addWTRot);
@@ -1065,7 +1071,7 @@ public class KSParser
                                 if(rs==null || selectPerturbations){//MH: this can happen if we just handled a special unbound-strand structure
                                     rs = new RotamerSearch(m,numberMutable, strandsPresent,hElect,hVDW,hSteric,true,true,
                                         epsilon,stericThresh,softStericThresh,distDepDielect,dielectConst,doDihedE,doSolvationE,solvScale,
-                                        softvdwMultiplier,grl, doPerturbations, pertFile, minimizePerts, false, false, es);
+                                        softvdwMultiplier,grl, doPerturbations, pertFile, minimizePerts, false, false, es,hbonds);
 
                                     if(doPerturbations)
                                         rs.setupRCs(addWTRot);
@@ -1093,7 +1099,7 @@ public class KSParser
 		m = setupMolSystem(m,sParams,strandPresent,strandLimits);
 		rs = new RotamerSearch(m,numberMutable, strandsPresent,hElect,hVDW,hSteric,true,true,
                         epsilon,stericThresh,softStericThresh,distDepDielect,dielectConst,doDihedE,doSolvationE,solvScale,
-                        softvdwMultiplier,grl, doPerturbations, pertFile, minimizePerts, false, false, es);
+                        softvdwMultiplier,grl, doPerturbations, pertFile, minimizePerts, false, false, es,hbonds);
 		//Compute the matrices for all strands (-1 is for the complex)
 		//KER: Put this last so the correct Eref matrix is kept
 		rs.resetMatrices();
@@ -1265,7 +1271,7 @@ public class KSParser
 			RotamerSearch rs = new RotamerSearch(m, numMutable, strandsPresent, hElect, hVDW, hSteric, true,
 					true, 0.0f, stericThresh, softStericThresh, distDepDielect, dielectConst,doDihedE,
                                         doSolvationE,solvScale,softvdwMultiplier,grl,
-                                        false,null,false,false,false,new EPICSettings());//Not going to consider perturbations, etc. at this level of approximation
+                                        false,null,false,false,false,new EPICSettings(),hbonds);//Not going to consider perturbations, etc. at this level of approximation
 
 			//KER: load vol file for each rotamer library
 			for (int strNum=0; strNum<rs.strandRot.length; strNum++){
@@ -1777,7 +1783,7 @@ public class KSParser
 			RotamerSearch rs = new RotamerSearch(m,numberMutable,strandsPresent, hElect, hVDW, hSteric, true,
 					true, cObj.epsilon, cObj.stericThresh, cObj.softStericThresh, cObj.distDepDielect, 
                                         cObj.dielectConst,cObj.doDihedE,cObj.doSolvationE,cObj.solvScale,cObj.vdwMult,grl,
-                                        cObj.doPerturbations,strandPertFile, cObj.minimizePerts, false, false, cObj.es);
+                                        cObj.doPerturbations,strandPertFile, cObj.minimizePerts, false, false, cObj.es,hbonds);
 			
                         
                         rs.useCCD = (new Boolean((String)cObj.params.getValue("USECCD","true"))).booleanValue();
@@ -2206,7 +2212,8 @@ public class KSParser
 				
 		RotamerSearch rs = new RotamerSearch(m, numberMutable, strandsPresent, hElect, hVDW, hSteric, true,
 				true, 0.0f, stericThresh, softStericThresh, distDepDielect, dielectConst, doDihedE, 
-                                doSolvationE, solvScale, softvdwMultiplier, grl, doPerturbations, pertFile, minimizePerts, false, false, es);
+                                doSolvationE, solvScale, softvdwMultiplier, grl, doPerturbations, pertFile, 
+                                minimizePerts, false, false, es, hbonds);
 		
 		rs.initMutRes2Str(strandMut);
 		
@@ -2399,7 +2406,7 @@ public class KSParser
 		RotamerSearch rs = new RotamerSearch(m,cObj.mutableSpots, cObj.strandsPresent, hElect, hVDW, hSteric, true,
 				true, cObj.epsilon, cObj.stericThresh, cObj.softStericThresh, cObj.distDepDielect, cObj.dielectConst, 
                                 cObj.doDihedE,cObj.doSolvationE,cObj.solvScale,cObj.vdwMult,grl,
-                                cObj.doPerturbations,cObj.pertFile,cObj.minimizePerts,false,false,cObj.es);
+                                cObj.doPerturbations,cObj.pertFile,cObj.minimizePerts,false,false,cObj.es,hbonds);
 
                 rs.useCCD = cObj.useCCD;
                 rs.minimizePairwise = cObj.minimizePairwise;
@@ -2745,7 +2752,7 @@ public class KSParser
 
 			System.out.print("Starting minimization of result "+(curResult+1)+"..");
 			
-			Amber96ext a96ff = new Amber96ext(m, distDepDielect, dielectConst, doSolvationE, solvScale, softvdwMultiplier);
+			Amber96ext a96ff = new Amber96ext(m, distDepDielect, dielectConst, doSolvationE, solvScale, softvdwMultiplier,hbonds);
 			
 			StrandRotamers[] strandRot = new StrandRotamers[numOfStrands];
 			for(int i=0; i<numOfStrands;i++){
@@ -3336,7 +3343,7 @@ public class KSParser
 
 			RotamerSearch rs = new RotamerSearch(mp.m,mp.numberMutable, mp.strandsPresent, hElect, hVDW, hSteric, true,
 					true, 0.0f, stericThresh, softStericThresh, distDepDielect, dielectConst, doDihedE, doSolvationE, solvScale, softvdwMultiplier, grl,
-                                        doPerturbations, pertFile, minimizePerts, useTriples, useFlagsAStar, es);
+                                        doPerturbations, pertFile, minimizePerts, useTriples, useFlagsAStar, es,hbonds);
 
                         rs.useCCD = useCCD;
 			
@@ -4925,7 +4932,7 @@ public class KSParser
 		RotamerSearch rs = new RotamerSearch(m,cObj.mutableSpots,cObj.strandsPresent, hElect, hVDW, hSteric, true,
 					true, cObj.epsilon, cObj.stericThresh, cObj.softStericThresh, cObj.distDepDielect, 
                                         cObj.dielectConst, cObj.doDihedE, cObj.doSolvationE, cObj.solvScale, cObj.vdwMult, grl,
-                                        cObj.doPerturbations, cObj.pertFile, cObj.minimizePerts, false, false, new EPICSettings());
+                                        cObj.doPerturbations, cObj.pertFile, cObj.minimizePerts, false, false, new EPICSettings(),hbonds);
 		
 		System.out.print("Loading precomputed energy matrix...");
 
@@ -5356,7 +5363,7 @@ public class KSParser
 		
 		RotamerSearch rs = new RotamerSearch(mp.m,numberMutable,strandsPresent, hElect, hVDW, hSteric, true,
 					true, 0.0f, stericThresh, softStericThresh, distDepDielect, dielectConst, doDihedE, 
-                                        doSolvationE, solvScale, softvdwMultiplier, grl, false, null, false, false, false, new EPICSettings());
+                                        doSolvationE, solvScale, softvdwMultiplier, grl, false, null, false, false, false, new EPICSettings(),hbonds);
 		
 		rs.doGenBackbones(runName, numberMutable, strandMut, theta, alpha, numSamples, sysSampling);
 	}
@@ -5521,7 +5528,7 @@ public class KSParser
 		RotamerSearch rs = new RotamerSearch(m,numberMutable,strandsPresent, hElect, hVDW, hSteric, true,
 					true, 0.0f, stericThresh, softStericThresh, distDepDielect, dielectConst,
                                         doDihedE, doSolvationE, solvScale, softvdwMultiplier, grl,
-                                        false, null, false, false, false, new EPICSettings());
+                                        false, null, false, false, false, new EPICSettings(),hbonds);
 
 		
 		
@@ -6504,7 +6511,7 @@ public class KSParser
 			RotamerSearch rs = new RotamerSearch(m, cObj.mutableSpots, strandsPresent, hElect, hVDW, hSteric, true,
 						true, cObj.epsilon, cObj.stericThresh, cObj.softStericThresh, cObj.distDepDielect, 
                                                 cObj.dielectConst, cObj.doDihedE,cObj.doSolvationE,cObj.solvScale,cObj.vdwMult, grl,
-                                                false, null, false, false, false, new EPICSettings());
+                                                false, null, false, false, false, new EPICSettings(),hbonds);
 			
 			for(int j=0; j<cObj.mutableSpots; j++) {
 				for(int q=0;q<rs.strandRot[0].rl.getAAtypesAllowed().length;q++)
@@ -7105,7 +7112,7 @@ public class KSParser
 			}
 		}
 		
-		Amber96ext a96ff = new Amber96ext(mp.m, distDepDielect, dielectConst, doSolvationE, solvScale, softvdwMultiplier);
+		Amber96ext a96ff = new Amber96ext(mp.m, distDepDielect, dielectConst, doSolvationE, solvScale, softvdwMultiplier,hbonds);
 		a96ff.calculateTypesWithTemplates();
 		
 		BackrubMinimizer brMin = new BackrubMinimizer();
@@ -7260,7 +7267,7 @@ private int[] rotamersRemaining(int numRotForRes[], PrunedRotamers<Boolean> prun
 
                     RotamerSearch rs = new RotamerSearch(mp.m,mp.numberMutable, mp.strandsPresent, hElect, hVDW, hSteric, true,
 					true, 0.0f, stericThresh, softStericThresh, distDepDielect, dielectConst, doDihedE, doSolvationE,
-                                        solvScale, softvdwMultiplier, grl, doPerturbations, pertFile, minimizePerts, false, false,new EPICSettings());
+                                        solvScale, softvdwMultiplier, grl, doPerturbations, pertFile, minimizePerts, false, false,new EPICSettings(),hbonds);
 
                     rs.initMutRes2Str(mp.strandMut);
 
