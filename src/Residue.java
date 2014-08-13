@@ -38,7 +38,7 @@
 
 	<signature of Bruce Donald>, 12 Apr, 2009
 	Bruce Donald, Professor of Computer Science
-*/
+ */
 
 ////////////////////////////////////////////////////////////////////////////////////////////////
 // Residue.java
@@ -100,32 +100,34 @@ public class Residue implements Serializable {
 	public boolean cofactor = false;
 	byte SStype; //Secondary structure type (Set by readDSSP for hbond functionality) Duplicate of the "secondaryStruct" int below that reads PDB entries
 	public boolean lAmino = true;
+	double[] defaultCB; //Store the WT CB coordinates for when mutating back from Gly
+	boolean mutatedOnce = false;
 	
-        //DEEPer stuff
-        int perts[]=null;                    // Perturbations to which this unit is subject (may be empty; this array consists of indices in m.perts, in ascending order)
-        int pertStates[][]=null;      //Defines the perturbation states for this residue:
-        //pertStates[perturbation state #][perturbation #] gives which default param. value or interval of the given perturbation is in the given perturbation state of this residue
-        //Each residue conformation is defined by a rotameric state and a perturbation state
-        //pertStates[0] must contain the unperturbed state
+	//DEEPer stuff
+	int perts[]=null;                    // Perturbations to which this unit is subject (may be empty; this array consists of indices in m.perts, in ascending order)
+	int pertStates[][]=null;      //Defines the perturbation states for this residue:
+	//pertStates[perturbation state #][perturbation #] gives which default param. value or interval of the given perturbation is in the given perturbation state of this residue
+	//Each residue conformation is defined by a rotameric state and a perturbation state
+	//pertStates[0] must contain the unperturbed state
 
-        int affectedPerts[] = null;//Perturbations affected by the conformation of this residue
-        //(as opposed to perturbations that can affect by the conformation of this residue, which are in perts,
-        //A perturbation is in affectedPerts if it is not in perts but comes after one in perts and overlaps with it at some other residue (or so on recursively)
-
-
-        boolean pucker = false;//If the residue is a proline this will be ProlineFlip.UP or ProlineFlip.DOWN
-        boolean validConf = true;//This is true unless there's an uncloseable proline ring or some other conformational problem
+	int affectedPerts[] = null;//Perturbations affected by the conformation of this residue
+	//(as opposed to perturbations that can affect by the conformation of this residue, which are in perts,
+	//A perturbation is in affectedPerts if it is not in perts but comes after one in perts and overlaps with it at some other residue (or so on recursively)
 
 
+	boolean pucker = false;//If the residue is a proline this will be ProlineFlip.UP or ProlineFlip.DOWN
+	boolean validConf = true;//This is true unless there's an uncloseable proline ring or some other conformational problem
 
-        int secondaryStruct;
-        //Types of secondary structure
-        final static int HELIX = 0;
-        final static int SHEET = 1;
-        final static int LOOP = 2;
+
+
+	int secondaryStruct;
+	//Types of secondary structure
+	final static int HELIX = 0;
+	final static int SHEET = 1;
+	final static int LOOP = 2;
 
 	Residue(){
-                init();
+		init();
 	}
 
 	Residue(String resname){
@@ -133,12 +135,12 @@ public class Residue implements Serializable {
 		name = resname;
 	}
 
-        public void init(){
-            	atom = new Atom[1];
-                perts = new int[0];
-                affectedPerts = new int[0];
-                pertStates = new int[0][];
-        }
+	public void init(){
+		atom = new Atom[1];
+		perts = new int[0];
+		affectedPerts = new int[0];
+		pertStates = new int[0][];
+	}
 
 	// Displays some residue info to System.out for debugging
 	public void printResidueInfo(){
@@ -160,10 +162,10 @@ public class Residue implements Serializable {
 		int newAtomNumber = numberOfAtoms + 1;
 		int newAtomNumberx3 = newAtomNumber * 3;
 
-    Atom largerAtomArray[] = new Atom[newAtomNumber];
-    System.arraycopy(atom, 0, largerAtomArray, 0, atom.length);
-    atom = largerAtomArray;
-    atom[numberOfAtoms] = newAtom;
+		Atom largerAtomArray[] = new Atom[newAtomNumber];
+		System.arraycopy(atom, 0, largerAtomArray, 0, atom.length);
+		atom = largerAtomArray;
+		atom[numberOfAtoms] = newAtom;
 
 		newAtom.residueAtomNumber = numberOfAtoms;
 		newAtom.moleculeResidueNumber = moleculeResidueNumber;
@@ -193,10 +195,10 @@ public class Residue implements Serializable {
 			atom[i].residueAtomNumber -= 1;
 
 		Atom smallerAtomArray[] = new Atom[numberOfAtoms-1];
-    System.arraycopy(atom, 0, smallerAtomArray, 0, atomNumber);
+		System.arraycopy(atom, 0, smallerAtomArray, 0, atomNumber);
 		if (atomNumber<newAtomNumber)
-   	  System.arraycopy(atom, atomNumber+1, smallerAtomArray,
-                    	atomNumber, atom.length-atomNumber-1);
+			System.arraycopy(atom, atomNumber+1, smallerAtomArray,
+					atomNumber, atom.length-atomNumber-1);
 		atom = smallerAtomArray;
 
 		numberOfAtoms--;
@@ -244,7 +246,7 @@ public class Residue implements Serializable {
 		while (curNum < x) {
 			curNum++;
 			if (st.hasMoreTokens())
-			  st.nextToken();
+				st.nextToken();
 			else {
 				System.out.println("ERROR: Unable to access parameter " + x);
 				return(new String(""));
@@ -259,11 +261,11 @@ public class Residue implements Serializable {
 	// This function returns the residue number (not the sequential one,
 	//  but the 'true' one from the pdb file).  If the pdb doesn't have
 	//  one (unlikely) then use the sequential numbering
-        //  PGC 2013: Residue number from the BD is now a String
-        public String getResNumber() {
+	//  PGC 2013: Residue number from the BD is now a String
+	public String getResNumber() {
 		if (fullName.length() > 5)
-                        return( (getToken(fullName.substring(5),1)) );
-                return Integer.toString(moleculeResidueNumber+1);
+			return( (getToken(fullName.substring(5),1)) );
+		return Integer.toString(moleculeResidueNumber+1);
 	}
 
 	// This function rotates the specified atoms in the residue
@@ -273,7 +275,7 @@ public class Residue implements Serializable {
 	// atomList is a list of atom numbers to rotate
 	// numAtoms is the number of atoms to rotate (size of atomList)
 	public void rotateResidue(Atom at1, double dx, double dy,
-		double dz, double thetaDeg, int atomList[], int numAtoms) {
+			double dz, double thetaDeg, int atomList[], int numAtoms) {
 
 		double fx,fy,fz, tx,ty,tz;
 		fx = (new Double(dx)).doubleValue();
@@ -391,10 +393,10 @@ public class Residue implements Serializable {
 	}
 
 
-        //DEEPer functions
+	//DEEPer functions
 
-        //Returns the first (and thus presumably the only) atom in the unit named n
-        //Return null if there is no atom with this name
+	//Returns the first (and thus presumably the only) atom in the unit named n
+	//Return null if there is no atom with this name
 	public Atom getAtomByName(String n){
 
 		for (int i=0; i<numberOfAtoms; i++){
@@ -405,250 +407,250 @@ public class Residue implements Serializable {
 	}
 
 
-        //Get an array of molecule atom numbers for the specified parts of the residue
-        //SC (sidechain) classified as in Atom.setIsBBAtom() (so alpha hydrogens are counted as sidechain)
-        //CA is just the alpha carbon
-        //Proline is different: we treat the amide group and the CD and its hydrogens together as a rigid
-        //body during perturbations, so the CD and its hydrogens are included in the amide atom list
-        public int[] getAtomList(boolean includeAmide, boolean includeSC,
-                boolean includeCA, boolean includeCarbonyl){
+	//Get an array of molecule atom numbers for the specified parts of the residue
+	//SC (sidechain) classified as in Atom.setIsBBAtom() (so alpha hydrogens are counted as sidechain)
+	//CA is just the alpha carbon
+	//Proline is different: we treat the amide group and the CD and its hydrogens together as a rigid
+	//body during perturbations, so the CD and its hydrogens are included in the amide atom list
+	public int[] getAtomList(boolean includeAmide, boolean includeSC,
+			boolean includeCA, boolean includeCarbonyl){
 
-            int listSize = 0;
+		int listSize = 0;
 
-            if( getAtomByName("H3") != null ){//Checking if N-terminal 
-                if(includeAmide)
-                    listSize += 4;
-                if(includeSC)
-                    listSize += atom.length - 7;
-                if(includeCarbonyl)
-                    listSize += 2;
-            }
-            else if( getAtomByName("OXT") != null ){//Checking if C-terminal
-                if(includeAmide)
-                    listSize += 2;
-                if(includeSC)
-                    listSize += atom.length - 6;
-                if(includeCarbonyl)
-                    listSize += 3;
-            }
-            else{
-                if(includeAmide)
-                    listSize += 2;
-                if(includeSC)
-                    listSize += atom.length - 5;
-                if(includeCarbonyl)
-                    listSize += 2;
-            }
-            if(includeCA)
-                listSize += 1;//Same for any kind of residue
+		if( getAtomByName("H3") != null ){//Checking if N-terminal 
+			if(includeAmide)
+				listSize += 4;
+			if(includeSC)
+				listSize += atom.length - 7;
+			if(includeCarbonyl)
+				listSize += 2;
+		}
+		else if( getAtomByName("OXT") != null ){//Checking if C-terminal
+			if(includeAmide)
+				listSize += 2;
+			if(includeSC)
+				listSize += atom.length - 6;
+			if(includeCarbonyl)
+				listSize += 3;
+		}
+		else{
+			if(includeAmide)
+				listSize += 2;
+			if(includeSC)
+				listSize += atom.length - 5;
+			if(includeCarbonyl)
+				listSize += 2;
+		}
+		if(includeCA)
+			listSize += 1;//Same for any kind of residue
 
-            if( name.equalsIgnoreCase("PRO") ){
-                //Two more amide atoms; thus also two less sidechain atoms since the
-                //number of SC atoms was calculated using atom.length
-                if(includeAmide)
-                    listSize+=2;
-                if(includeSC)
-                    listSize-=2;
-            }
+		if( name.equalsIgnoreCase("PRO") ){
+			//Two more amide atoms; thus also two less sidechain atoms since the
+			//number of SC atoms was calculated using atom.length
+			if(includeAmide)
+				listSize+=2;
+			if(includeSC)
+				listSize-=2;
+		}
 
-            int atomList[] = new int[listSize];
-            int a=0;//Index in atomList
+		int atomList[] = new int[listSize];
+		int a=0;//Index in atomList
 
-            if(includeAmide){
-                for(int b=0;b<atom.length;b++){
-                    if( ( atom[b].name.equalsIgnoreCase("N") ) || ( atom[b].name.equalsIgnoreCase("H") )
-                            || ( atom[b].name.equalsIgnoreCase("H1") ) || ( atom[b].name.equalsIgnoreCase("H2") )
-                            || ( atom[b].name.equalsIgnoreCase("H3") ) ){
-                        atomList[a] = atom[b].moleculeAtomNumber;
-                        a++;
-                    }
-
-                    else if( name.equalsIgnoreCase("PRO") ){
-                        if( ( atom[b].name.equalsIgnoreCase("CD") ) || ( atom[b].name.contains("HD") ) ){
-                            atomList[a] = atom[b].moleculeAtomNumber;
-                            a++;
-                        }
-                    }
-
-                }
-            }
-            if(includeSC){
-                for(int b=0;b<atom.length;b++){
-
-                    if( !atom[b].isBBatom ){
-
-                        if( name.equalsIgnoreCase("PRO") ){
-                            if( ( atom[b].name.equalsIgnoreCase("CD") ) || ( atom[b].name.contains("HD") ) )
-                                continue;//Don't count CD or HD's in the sidechain for proline
-                        }
-
-                        atomList[a] = atom[b].moleculeAtomNumber;
-                        a++;
-                    }
-                }
-            }
-            if(includeCA){
-                atomList[a] = getAtomByName("CA").moleculeAtomNumber;
-                a++;
-            }
-            if(includeCarbonyl){
-                for(int b=0;b<atom.length;b++){
-                    if( ( atom[b].name.equalsIgnoreCase("C") ) || ( atom[b].name.equalsIgnoreCase("O") )
-                            || ( atom[b].name.equalsIgnoreCase("OXT") ) ){
-                        atomList[a] = atom[b].moleculeAtomNumber;
-                        a++;
-                    }
-                }
-            }
-
-            return atomList;
-
-        }
-
-        // PGC 2013: The following methods will allow the comparison of two residues by their
-        //      PDB number even if they have Kabat numbering.
-        // Returns true if "r2_pdbResNum" precedes r1 anywhere in the PDB chain. Used for helix purposes.
-        public static boolean lessThanInPDBChain(String r2_pdbResNum, Residue r1){
-                String r1_pdbResNum = r1.getResNumber();
-                int r1_integerPart = getResNumIntegerPart(r1_pdbResNum);//Integer.valueOf(r1_pdbResNum.split("[0-9]")[0]);
-                String r1_kabatCharacter = getResNumKabatLetter(r1_pdbResNum);//r1_pdbResNum.split("[A-Z]*")[1];
-                int r2_integerPart = getResNumIntegerPart(r2_pdbResNum);//Integer.valueOf(r2_pdbResNum.split("[0-9]")[0]);
-                String r2_kabatCharacter = getResNumKabatLetter(r2_pdbResNum);//r1_pdbResNum.split("[A-Z]*")[1];
-                if(r2_integerPart < r1_integerPart){
-                        return true;
-                }
-                else if(r1_integerPart < r2_integerPart){
-                        return false;
-                }
-                else if( r2_kabatCharacter.compareTo(r1_kabatCharacter) == -1){
-                        return true;
-                }
-                else{
-                        return false;
-                }
-
-        }
-     // Returns true if r2_pdbResNum precedes r1 in the PDB chain. (e.g. residue 19 precedes residue 20g)
-        public static boolean lessThanOrEqualInPDBChain(String r2_pdbResNum, Residue r1){
-                String r1_pdbResNum = r1.getResNumber();
-                if (r2_pdbResNum.compareTo(r1_pdbResNum)  == 0){
-                        return true;
-                }
-                else{
-                        return lessThanInPDBChain(r2_pdbResNum, r1);
-                }
-        }
-
-        //splitting a residue number in string form into integer and character parts
-        public static int getResNumIntegerPart(String resNumString){
-            String resNumTrimmed = resNumString.trim();
-            if( Character.isDigit( resNumTrimmed.charAt(resNumTrimmed.length()-1) ) )//resNumTrimmed ends with a digit
-                return Integer.valueOf(resNumTrimmed);//so it's all the integer part
-            else//remove last character, take the rest as integer part
-                return Integer.valueOf( resNumTrimmed.substring(0, resNumTrimmed.length()-1) );
-        }
-        
-        public static String getResNumKabatLetter(String resNumString){
-            String resNumTrimmed = resNumString.trim();
-            if( Character.isDigit( resNumTrimmed.charAt(resNumTrimmed.length()-1) ) )//resNumTrimmed ends with a digit
-                return "";
-            else//remove last character, take the rest as integer part
-                return resNumTrimmed.substring(resNumTrimmed.length()-1, resNumTrimmed.length());
-        }
-        
-        public void assignHandedness() {
-    		
-    		//Find the CA,N,C,CB atoms and calculate the dihedral between them
-    		Atom CA = null;
-    		Atom N = null;
-    		Atom C = null;
-    		Atom CB = null;
-			for(Atom a: atom){
-				if(a.name.equalsIgnoreCase("CA")){
-					CA = a;
+		if(includeAmide){
+			for(int b=0;b<atom.length;b++){
+				if( ( atom[b].name.equalsIgnoreCase("N") ) || ( atom[b].name.equalsIgnoreCase("H") )
+						|| ( atom[b].name.equalsIgnoreCase("H1") ) || ( atom[b].name.equalsIgnoreCase("H2") )
+						|| ( atom[b].name.equalsIgnoreCase("H3") ) ){
+					atomList[a] = atom[b].moleculeAtomNumber;
+					a++;
 				}
-				else if(a.name.equalsIgnoreCase("N")){
-					N = a;
+
+				else if( name.equalsIgnoreCase("PRO") ){
+					if( ( atom[b].name.equalsIgnoreCase("CD") ) || ( atom[b].name.contains("HD") ) ){
+						atomList[a] = atom[b].moleculeAtomNumber;
+						a++;
+					}
 				}
-				else if(a.name.equalsIgnoreCase("C")){
-					C = a;
-				}
-				else if(a.name.equalsIgnoreCase("CB")){
-					CB = a;
-				}else if( (name.equalsIgnoreCase("GLY") || name.equalsIgnoreCase("DGLY")) && (a.name.equalsIgnoreCase("HA3") || a.name.equalsIgnoreCase("3HA"))){
-					CB = a;
+
+			}
+		}
+		if(includeSC){
+			for(int b=0;b<atom.length;b++){
+
+				if( !atom[b].isBBatom ){
+
+					if( name.equalsIgnoreCase("PRO") ){
+						if( ( atom[b].name.equalsIgnoreCase("CD") ) || ( atom[b].name.contains("HD") ) )
+							continue;//Don't count CD or HD's in the sidechain for proline
+					}
+
+					atomList[a] = atom[b].moleculeAtomNumber;
+					a++;
 				}
 			}
-    			
-    			double torsion = 1;
-    			if(CA != null && N != null && C != null)
-    				torsion = CB.torsion(CA, N, C);
+		}
+		if(includeCA){
+			atomList[a] = getAtomByName("CA").moleculeAtomNumber;
+			a++;
+		}
+		if(includeCarbonyl){
+			for(int b=0;b<atom.length;b++){
+				if( ( atom[b].name.equalsIgnoreCase("C") ) || ( atom[b].name.equalsIgnoreCase("O") )
+						|| ( atom[b].name.equalsIgnoreCase("OXT") ) ){
+					atomList[a] = atom[b].moleculeAtomNumber;
+					a++;
+				}
+			}
+		}
 
-    			if(torsion > 0)
-    				lAmino  = true;
-    			else{
-    				lAmino = false; //dAmino acid
-//    				System.out.println("Residue: "+fullName+" is a d-amino acid!!");
-    				
-    				if(name.length() ==3){
-    					name = "D" + name;
-    				}
-    			}
-    	}
-    	
+		return atomList;
 
-		public void reflect(){
+	}
+
+	// PGC 2013: The following methods will allow the comparison of two residues by their
+	//      PDB number even if they have Kabat numbering.
+	// Returns true if "r2_pdbResNum" precedes r1 anywhere in the PDB chain. Used for helix purposes.
+	public static boolean lessThanInPDBChain(String r2_pdbResNum, Residue r1){
+		String r1_pdbResNum = r1.getResNumber();
+		int r1_integerPart = getResNumIntegerPart(r1_pdbResNum);//Integer.valueOf(r1_pdbResNum.split("[0-9]")[0]);
+		String r1_kabatCharacter = getResNumKabatLetter(r1_pdbResNum);//r1_pdbResNum.split("[A-Z]*")[1];
+		int r2_integerPart = getResNumIntegerPart(r2_pdbResNum);//Integer.valueOf(r2_pdbResNum.split("[0-9]")[0]);
+		String r2_kabatCharacter = getResNumKabatLetter(r2_pdbResNum);//r1_pdbResNum.split("[A-Z]*")[1];
+		if(r2_integerPart < r1_integerPart){
+			return true;
+		}
+		else if(r1_integerPart < r2_integerPart){
+			return false;
+		}
+		else if( r2_kabatCharacter.compareTo(r1_kabatCharacter) == -1){
+			return true;
+		}
+		else{
+			return false;
+		}
+
+	}
+	// Returns true if r2_pdbResNum precedes r1 in the PDB chain. (e.g. residue 19 precedes residue 20g)
+	public static boolean lessThanOrEqualInPDBChain(String r2_pdbResNum, Residue r1){
+		String r1_pdbResNum = r1.getResNumber();
+		if (r2_pdbResNum.compareTo(r1_pdbResNum)  == 0){
+			return true;
+		}
+		else{
+			return lessThanInPDBChain(r2_pdbResNum, r1);
+		}
+	}
+
+	//splitting a residue number in string form into integer and character parts
+	public static int getResNumIntegerPart(String resNumString){
+		String resNumTrimmed = resNumString.trim();
+		if( Character.isDigit( resNumTrimmed.charAt(resNumTrimmed.length()-1) ) )//resNumTrimmed ends with a digit
+			return Integer.valueOf(resNumTrimmed);//so it's all the integer part
+		else//remove last character, take the rest as integer part
+			return Integer.valueOf( resNumTrimmed.substring(0, resNumTrimmed.length()-1) );
+	}
+
+	public static String getResNumKabatLetter(String resNumString){
+		String resNumTrimmed = resNumString.trim();
+		if( Character.isDigit( resNumTrimmed.charAt(resNumTrimmed.length()-1) ) )//resNumTrimmed ends with a digit
+			return "";
+		else//remove last character, take the rest as integer part
+			return resNumTrimmed.substring(resNumTrimmed.length()-1, resNumTrimmed.length());
+	}
+
+	public void assignHandedness() {
+
+		//Find the CA,N,C,CB atoms and calculate the dihedral between them
+		Atom CA = null;
+		Atom N = null;
+		Atom C = null;
+		Atom CB = null;
+		for(Atom a: atom){
+			if(a.name.equalsIgnoreCase("CA")){
+				CA = a;
+			}
+			else if(a.name.equalsIgnoreCase("N")){
+				N = a;
+			}
+			else if(a.name.equalsIgnoreCase("C")){
+				C = a;
+			}
+			else if(a.name.equalsIgnoreCase("CB")){
+				CB = a;
+			}else if( (name.equalsIgnoreCase("GLY") || name.equalsIgnoreCase("DGLY")) && (a.name.equalsIgnoreCase("HA3") || a.name.equalsIgnoreCase("3HA"))){
+				CB = a;
+			}
+		}
+
+		double torsion = 1;
+		if(CA != null && N != null && C != null)
+			torsion = CB.torsion(CA, N, C);
+
+		if(torsion > 0)
+			lAmino  = true;
+		else{
+			lAmino = false; //dAmino acid
+			//    				System.out.println("Residue: "+fullName+" is a d-amino acid!!");
+
+			if(name.length() ==3){
+				name = "D" + name;
+			}
+		}
+	}
+
+
+	public void reflect(){
 		Atom C = null;
 		Atom CA = null;
 		Atom N = null;
-		
+
 		//if(!name.equalsIgnoreCase("GLY")){
-			for(Atom a: atom){
-				if(a.name.equalsIgnoreCase("CA")){
-					CA = a;
-				}
-				else if(a.name.equalsIgnoreCase("N")){
-					N = a;
-				}
-				else if(a.name.equalsIgnoreCase("C")){
-					C = a;
-				}
+		for(Atom a: atom){
+			if(a.name.equalsIgnoreCase("CA")){
+				CA = a;
 			}
-			
-			double[] C_CA = new double[3];
-			double[] N_CA = new double[3];
-			
-			C_CA[0] = C.coord[0] - CA.coord[0];
-			C_CA[1] = C.coord[1] - CA.coord[1];
-			C_CA[2] = C.coord[2] - CA.coord[2];
-			
-			N_CA[0] = N.coord[0] - CA.coord[0];
-			N_CA[1] = N.coord[1] - CA.coord[1];
-			N_CA[2] = N.coord[2] - CA.coord[2];
-			
-			double[] normal = MathUtils.cross(C_CA, N_CA);
-			
-			double denom = normal[0]*normal[0]+normal[1]*normal[1]+normal[2]*normal[2];
-			//denom = (float) Math.sqrt(denom);
-			
-			double d = -1 * (normal[0]*CA.coord[0]+normal[1]*CA.coord[1]+normal[2]*CA.coord[2]);
-			
-			
-			double[] tmpCoord = new double[3];
-			for(Atom a: atom){
-				if(!a.isBBatom || a.name.equals("HA")){
-					
-					tmpCoord[0] = a.coord[0] - normal[0]*2*(normal[0]*a.coord[0]+normal[1]*a.coord[1]+normal[2]*a.coord[2]+d)/denom;
-					tmpCoord[1] = a.coord[1] - normal[1]*2*(normal[0]*a.coord[0]+normal[1]*a.coord[1]+normal[2]*a.coord[2]+d)/denom;
-					tmpCoord[2] = a.coord[2] - normal[2]*2*(normal[0]*a.coord[0]+normal[1]*a.coord[1]+normal[2]*a.coord[2]+d)/denom;
-					a.coord[0] = tmpCoord[0];
-					a.coord[1] = tmpCoord[1];
-					a.coord[2] = tmpCoord[2];
-				}
+			else if(a.name.equalsIgnoreCase("N")){
+				N = a;
 			}
-			
+			else if(a.name.equalsIgnoreCase("C")){
+				C = a;
+			}
+		}
+
+		double[] C_CA = new double[3];
+		double[] N_CA = new double[3];
+
+		C_CA[0] = C.coord[0] - CA.coord[0];
+		C_CA[1] = C.coord[1] - CA.coord[1];
+		C_CA[2] = C.coord[2] - CA.coord[2];
+
+		N_CA[0] = N.coord[0] - CA.coord[0];
+		N_CA[1] = N.coord[1] - CA.coord[1];
+		N_CA[2] = N.coord[2] - CA.coord[2];
+
+		double[] normal = MathUtils.cross(C_CA, N_CA);
+
+		double denom = normal[0]*normal[0]+normal[1]*normal[1]+normal[2]*normal[2];
+		//denom = (float) Math.sqrt(denom);
+
+		double d = -1 * (normal[0]*CA.coord[0]+normal[1]*CA.coord[1]+normal[2]*CA.coord[2]);
+
+
+		double[] tmpCoord = new double[3];
+		for(Atom a: atom){
+			if(!a.isBBatom || a.name.equals("HA")){
+
+				tmpCoord[0] = a.coord[0] - normal[0]*2*(normal[0]*a.coord[0]+normal[1]*a.coord[1]+normal[2]*a.coord[2]+d)/denom;
+				tmpCoord[1] = a.coord[1] - normal[1]*2*(normal[0]*a.coord[0]+normal[1]*a.coord[1]+normal[2]*a.coord[2]+d)/denom;
+				tmpCoord[2] = a.coord[2] - normal[2]*2*(normal[0]*a.coord[0]+normal[1]*a.coord[1]+normal[2]*a.coord[2]+d)/denom;
+				a.coord[0] = tmpCoord[0];
+				a.coord[1] = tmpCoord[1];
+				a.coord[2] = tmpCoord[2];
+			}
+		}
+
 		//}
-			
+
 	}
 
 	public String threeLet(){
@@ -657,6 +659,6 @@ public class Residue implements Serializable {
 		}
 		return name;
 	}
-	
-        
+
+
 }

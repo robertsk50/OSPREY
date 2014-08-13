@@ -1341,7 +1341,7 @@ public class Molecule implements Serializable{
                 
                 //working with sines and cosines is faster
                 
-                double originalTorsionSC[] = a4.torsionSinCos(a1, a2, a3);
+				double originalTorsionSC[] = a4.torsionSinCos(a1, a2, a3);
                 double sinTorsion = Math.sin(Math.PI*torsion/180);
                 double cosTorsion = Math.cos(Math.PI*torsion/180);
                 double sinDeltaTorsion = sinTorsion*originalTorsionSC[1] - cosTorsion*originalTorsionSC[0];

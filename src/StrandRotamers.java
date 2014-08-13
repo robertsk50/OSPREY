@@ -510,16 +510,16 @@ public class StrandRotamers implements Serializable {
 	//  to a residue with name newResType
 	// If addHydrogens is true then hydrogens are added to the new
 	//  residue
-	public void changeResidueType(Molecule m, int resNum, String newResType, boolean addHydrogens) {
+	public boolean changeResidueType(Molecule m, int resNum, String newResType, boolean addHydrogens) {
 
-		// call with connectResidue = true and useOldBBatoms = false
-		changeResidueType(m,resNum,newResType,addHydrogens,true,false);
+		// call with connectResidue = true and useOldBBatoms = true
+		return changeResidueType(m,resNum,newResType,addHydrogens,true,true);
 	}
 
-	public void changeResidueType(Molecule m, int resNum, String newResType, boolean addHydrogens, boolean connectResidue) {
+	public boolean changeResidueType(Molecule m, int resNum, String newResType, boolean addHydrogens, boolean connectResidue) {
 
-		// call with useOldBBatoms = false
-		changeResidueType(m,resNum,newResType,addHydrogens,connectResidue,false);
+		// call with useOldBBatoms = true
+		return changeResidueType(m,resNum,newResType,addHydrogens,connectResidue,true);
 	}
 
 	// This function changes the residue type (it performs a mutation)
@@ -546,8 +546,9 @@ public class StrandRotamers implements Serializable {
 	//
 	// This function is rather complicated due to the bookkeeping
 	//  required to maintain our messy molecule datastructure.
-	public void changeResidueType(Molecule m, int resNum, String newResType, boolean addHydrogens, boolean connectResidue, boolean useOldBBatoms) {
-
+	// Returns true if mutation was done otherwise returns false
+	public boolean changeResidueType(Molecule m, int resNum, String newResType, boolean addHydrogens, boolean connectResidue, boolean useOldBBatoms) {
+		
 		Residue localResidue = m.strand[strandNumber].residue[resNum];
 
 		RotMatrix rm = new RotMatrix();
@@ -584,8 +585,11 @@ public class StrandRotamers implements Serializable {
 		}
 		
 		if (oldResGly && newResGly)// Nothing to do here, a null mutation
-			return;
-
+			return false;
+		else if(newResType.equalsIgnoreCase(localResidue.name) && localResidue.mutatedOnce){
+			return false;
+		}
+		
 		glyMutation = newResGly || oldResGly;
 		proMutation = newResPro || oldResPro;
 
@@ -611,31 +615,55 @@ public class StrandRotamers implements Serializable {
 		// First get a handle on the backbone N, CA, C, O, H, and CB atoms
 		Atom at[] = null;
 		at = getBBatoms(r); //for the new residue
-		Atom NNew = at[0]; Atom CANew = at[1]; Atom CNew = at[2]; Atom ONew = at[3]; Atom HNew = at[4]; Atom CBNew = at[5];
+		Atom NNew = at[0]; Atom CANew = at[1]; Atom CNew = at[2]; Atom ONew = at[3]; Atom HNew = at[4]; Atom CBNew = at[5]; Atom HANew = at[6];
 
 		at = getBBatoms(localResidue); //for the old residue
-		Atom NOld = at[0]; Atom CAOld = at[1]; Atom COld = at[2]; Atom OOld = at[3]; Atom HOld = at[4]; Atom CBOld = at[5];
+		Atom NOld = at[0]; Atom CAOld = at[1]; Atom COld = at[2]; Atom OOld = at[3]; Atom HOld = at[4]; Atom CBOld = at[5]; Atom HAOld = at[6];
 
-		if (oldResGly){ // we didn't find CBOld as Gly doesn't have it; find HA3 and point CBOld to it
-			for(int q=0;q<localResidue.numberOfAtoms;q++) {
-				if ( (localResidue.atom[q].name.equalsIgnoreCase("HA3")) || (localResidue.atom[q].name.equalsIgnoreCase("3HA")) )
-					CBOld = localResidue.atom[q];
-			}
-			if(CBOld == null){
-				System.out.println("HA3 on "+localResidue.fullName+" couldn't be found. Please check labelling.");
-				System.out.println("Going to assume we want HA2");
-				for(int q=0;q<localResidue.numberOfAtoms;q++) {
-					if ( (localResidue.atom[q].name.equalsIgnoreCase("HA2")) || (localResidue.atom[q].name.equalsIgnoreCase("2HA")) )
-						CBOld = localResidue.atom[q];
+//		if (oldResGly){ // we didn't find CBOld as Gly doesn't have it; find HA3 and point CBOld to it
+//			for(int q=0;q<localResidue.numberOfAtoms;q++) {
+//				if ( (localResidue.atom[q].name.equalsIgnoreCase("HA3")) || (localResidue.atom[q].name.equalsIgnoreCase("3HA")) )
+//					CBOld = localResidue.atom[q];
+//			}
+//			if(CBOld == null){
+//				System.out.println("HA3 on "+localResidue.fullName+" couldn't be found. Please check labelling.");
+//				System.out.println("Going to assume we want HA2");
+//				for(int q=0;q<localResidue.numberOfAtoms;q++) {
+//					if ( (localResidue.atom[q].name.equalsIgnoreCase("HA2")) || (localResidue.atom[q].name.equalsIgnoreCase("2HA")) )
+//						CBOld = localResidue.atom[q];
+//				}
+//			}
+//		}
+		
+		//If never been mutated we store the default CB and HA values
+		if(!localResidue.mutatedOnce){
+			//Set the default CB value that we will use
+			if(localResidue.defaultCB == null){
+				if(localResidue.name.equalsIgnoreCase("GLY")){
+					moveCBOldGly(CBOld,CBNew,CAOld,CANew);
 				}
+			
+				localResidue.defaultCB = new double[3];
+				localResidue.defaultCB[0] = CBOld.coord[0];
+				localResidue.defaultCB[1] = CBOld.coord[1];
+				localResidue.defaultCB[2] = CBOld.coord[2];
 			}
+			
+			localResidue.mutatedOnce = true;
 		}
+		
 		
 		if(oldDaa!=newDaa){ //if we are switching a L-aa with a D-aa
 			System.out.println("Switching from D-L or L-D has not been fully tested...Exiting");
 			System.exit(0);
 			// if we are replacing a L-aa with a D-aa we need to align the new CB with the old HA
 			// CBOld = localResidue.atom[HA];				
+		}
+		
+		if (oldResGly){ //mutation from Gly
+			CBOld.coord[0] = localResidue.defaultCB[0];
+			CBOld.coord[1] = localResidue.defaultCB[1];
+			CBOld.coord[2] = localResidue.defaultCB[2];
 		}
 
 		double newNHLength = rm.norm( rm.subtract( HNew.coord, NNew.coord ) );//New amide NH or N-CD bond length
@@ -674,21 +702,19 @@ public class StrandRotamers implements Serializable {
 		}
 
 		// Rotate CBs to overlap - now the residue backbones should be aligned
-		try{
-		if ( (!glyMutation) && (CBOld.distance(CBNew) > 0.0001) ) { //not a to- or from- Gly mutation
+		if ( (!newResGly) && (CBOld.distance(CBNew) > 0.0001) ) { //not a to- or from- Gly mutation
 			getRotationInfoB(CBOld, CAOld, NOld, CBNew, thetaDeg, rotAxis);
 			for(int q=0;q<r.numberOfAtoms;q++)
 				atomList[q] = q;
 			r.rotateResidue(CANew,rotAxis[0],rotAxis[1],rotAxis[2],-thetaDeg[0],atomList,numAtoms);
-		}}catch(Exception E){
-			System.out.println("Error");
 		}
 
-		if (oldResGly) //mutation from Gly
-			alignCBOldGly(CBOld,CBNew,CAOld,CANew,NOld,r);
+//		if (oldResGly) //mutation from Gly
+//			alignCBOldGly(CBOld,CBNew,CAOld,CANew,NOld,r);
 		if (newResGly) //mutation to Gly
 			alignCBNewGly(CBOld,CBNew,CAOld,CANew,NOld,r,localResidue);
 
+		
 
 		// Remove hydrogens if we don't want them
 		if (!addHydrogens) {
@@ -706,8 +732,10 @@ public class StrandRotamers implements Serializable {
 		// 	the CAs, CBs, and CBs are already aligned, but may differ due to differences between the template PPR and the residue backbone in the PDB
 		if (useOldBBatoms){
 			setAtomCoord(CANew,CAOld);
-			if ( (CBNew!=null) && (CBOld!=null) ) //not a from/to Gly mutation (Gly does not have a CB)
-				setAtomCoord(CBNew,CBOld);
+			if ( !newResGly ){ //not a from/to Gly mutation (Gly does not have a CB)
+				moveCB(m2.residue[0],CBNew,CBOld);
+				//setAtomCoord(CBNew,CBOld);
+			}
 		}
 		setAtomCoord(CNew,COld);
 		setAtomCoord(ONew,OOld);
@@ -718,9 +746,12 @@ public class StrandRotamers implements Serializable {
 			NVec = rm.scale(NVec, newNHLength/rm.norm(NVec) );
 			HNew.coord = rm.add(NVec, NNew.coord);
 		}
-		else if(addHydrogens && (HOld != null))
-			setAtomCoord(HNew,HOld);
-
+		else if(addHydrogens){
+			if(HOld != null)
+				setAtomCoord(HNew,HOld);
+			if(HAOld!=null && HANew!=null)
+				setAtomCoord(HANew,HAOld);
+		}
 
 		//////////////////////////////////////////////////////////////////////////////////
 		if (localResidue.nterm){ //we are changing the nterm residue
@@ -891,6 +922,7 @@ public class StrandRotamers implements Serializable {
 			if(!newResPro)//No longer proline, so ring closure is no longer an issue
 				localResidue.validConf = true;
 		}
+		return true;
 
 	}
 	//Checks if residue res is a form of histidine
@@ -905,7 +937,7 @@ public class StrandRotamers implements Serializable {
 	//Returns a handle on the backbone N, CA, C, O, H, and CB atoms for residue res
 	private static Atom [] getBBatoms(Residue res){
 
-		Atom at[] = new Atom[6];
+		Atom at[] = new Atom[7];
 
 		for(int q=0;q<res.numberOfAtoms;q++) {
 			if (res.atom[q].name.equalsIgnoreCase("N"))
@@ -918,8 +950,10 @@ public class StrandRotamers implements Serializable {
 				at[O] = res.atom[q];
 			else if ( res.atom[q].name.equalsIgnoreCase("H") || ( res.atom[q].name.equalsIgnoreCase("CD") && res.name.equalsIgnoreCase("PRO") ) )
 				at[H] = res.atom[q];
-			else if (res.atom[q].name.equalsIgnoreCase("CB"))
+			else if (res.atom[q].name.equalsIgnoreCase("CB") || res.atom[q].name.equalsIgnoreCase("HA3")||res.atom[q].name.equalsIgnoreCase("3HA")) //HA3 for gly
 				at[CB] = res.atom[q];
+			else if (res.atom[q].name.equalsIgnoreCase("HA")||res.atom[q].name.equalsIgnoreCase("HA2")||res.atom[q].name.equalsIgnoreCase("2HA")) //HA2 for gly
+				at[HA] = res.atom[q];
 		}
 
 		return at;
@@ -1105,5 +1139,58 @@ public class StrandRotamers implements Serializable {
 			System.out.println("DEBUG: ALREADY ADDED ROTAMERS");
 		}
 	}
+	
+	private static void moveCBOldGly(Atom CBOld, Atom CBNew, Atom CAOld, Atom CANew){
+		double magOld = CBOld.distance(CAOld);
+		double magNew = CBNew.distance(CANew);
+		
+		double distToMove = magNew - magOld;
+		
+		double[] dirToMove = new double[3];
+		
+		dirToMove[0] = CBOld.coord[0] - CAOld.coord[0];
+		dirToMove[1] = CBOld.coord[1] - CAOld.coord[1];
+		dirToMove[2] = CBOld.coord[2] - CAOld.coord[2];
+		
+		double scale = distToMove / magOld;
+		
+		dirToMove[0] *= scale;
+		dirToMove[1] *= scale;
+		dirToMove[2] *= scale;
+		
+		CBOld.coord[0] += dirToMove[0];
+		CBOld.coord[1] += dirToMove[1];
+		CBOld.coord[2] += dirToMove[2];
+		
+	}
+	
+	/**
+	 * Move the CB atom and all atoms that are downstream of the CB atom
+	 * 
+	 * @param cBNew
+	 * @param cBOld
+	 */
+	private static void moveCB(Residue r, Atom CBNew, Atom CBOld) {
+		
+		double[] delta = new double[3];
+		
+		delta[0] = CBOld.coord[0] - CBNew.coord[0];
+		delta[1] = CBOld.coord[1] - CBNew.coord[1];
+		delta[2] = CBOld.coord[2] - CBNew.coord[2];
+		
+		for(Atom a:r.atom){
+			if(!a.isBBatom){
+				translateAtomCoord(a, delta);
+			}
+		}
+		
+	}
+	
+	//Translates the atom by delta
+		private static void translateAtomCoord(Atom a, double[] delta){
+			a.coord[0] += delta[0];
+			a.coord[1] += delta[1];
+			a.coord[2] += delta[2];
+		}
 
 }

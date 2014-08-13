@@ -794,8 +794,9 @@ public class KSParser
 
 		ParamSet sParams = new ParamSet();
 		sParams.addParamsFromFile(getToken(s,2)); //read system parameters
-
+		sParams.addParamsFromFile(getToken(s,3)); //read mutation search parameters
 		
+		String runName = ((String)sParams.getValue("RUNNAME"));
 		MolParameters mp = new MolParameters();
 		loadStrandParams(sParams, mp, COMPLEX);
 		
@@ -818,7 +819,7 @@ public class KSParser
 			//Setup the molecule system
 			Molecule m = new Molecule();
 			m = setupMolSystem(m,sParams,mp.strandPresent,mp.strandLimits);
-			
+			mp.m = m;
 			Amber96ext a96ff = new Amber96ext(m, distDepDielect, dielectConst, doSolvationE, solvScale, softvdwMultiplier,hbonds);
 			a96ff.calculateTypesWithTemplates();
 			a96ff.initializeCalculation();
@@ -842,8 +843,39 @@ public class KSParser
 				System.out.println(""+pdbFiles[q]+": Energy: "+energy);
 			}
 			else{*/
+			
+			double eRef[][] = null;
+			boolean useEref = (new Boolean((String)sParams.getValue("USEEREF","true"))).booleanValue();
+			if (useEref) { //add the reference energies to the min (and max) intra-energies
+				String eRefName = sParams.getValue("EREFMATRIXNAME", "Eref"+runName);
+				eRef = RotamerSearch.loadErefMatrix(eRefName+".dat");
+				//eRef = getResEntropyEmatricesEref(useEref,rs.getMinMatrix(),rs.strandRot,mp.strandMut,null,mp.numberMutable,mp.mutRes2Strand,mp.mutRes2StrandMutIndex);
+				//rs.addEref(eRef, doMinimize, mp.strandMut);
+				//rs.getTotSeqEntropy
+			}
+			
+			double totEref = 0.0;
+			double totEntropy = 0.0;
+			if(useEref || EnvironmentVars.useEntropy){
+				loadMutationParams(sParams, mp);
+				RotamerSearch rs = new RotamerSearch(m,mp.numberMutable, mp.strandsPresent,hElect,hVDW,hSteric,true,true,
+                        0.0f,stericThresh,softStericThresh,distDepDielect,dielectConst,doDihedE,doSolvationE,solvScale,
+                        softvdwMultiplier,grl, false, "", false, false, false, null,hbonds);				
+				if(useEref)
+					totEref = rs.getTotSeqEref(eRef, mp.numberMutable, mp.strandMut);
+				if(EnvironmentVars.useEntropy)
+					totEntropy = rs.getTotSeqEntropy(mp.strandMut);
+				
+				
+			}
+			
+			
+			
+			
+			
 				double energy[] = a96ff.calculateTotalEnergy(m.actualCoordinates,-1);
-				System.out.println("System energy: " + energy[0]+" (elect: "+energy[1]+" vdW: "+energy[2]+" solvation: "+energy[3]+")");
+				energy[0] -= (totEref - totEntropy);
+				System.out.println("System energy: " + energy[0]+" (elect: "+energy[1]+" vdW: "+energy[2]+" solvation: "+energy[3]+") Eref: "+totEref+" Entropy: "+totEntropy);
 			//}
 			
 		}
@@ -3203,6 +3235,12 @@ public class KSParser
 		boolean preprocPairs = (new Boolean((String)sParams.getValue("PREPROCPAIRS", "true"))).booleanValue();
 		boolean scaleInt = (new Boolean((String)sParams.getValue("SCALEINT", "false"))).booleanValue();
 		String runNameEMatrixMin = (String)(sParams.getValue("MINENERGYMATRIXNAME",runName+"minM" ));
+		//runNameEMatrixMin = outDir+"/PEM/"+runNameEMatrixMin;
+		File tmpFile = new File(runNameEMatrixMin);
+		File ematDir = tmpFile.getParentFile();
+		if(ematDir != null && !ematDir.exists()){
+			ematDir.mkdirs();
+		}
 		String runNameEMatrixMax = (String)(sParams.getValue("MAXENERGYMATRIXNAME",runName+"maxM" ));
 		double initEw = (new Double((String)sParams.getValue("INITEW","0"))).doubleValue();
 		double lambda = (new Double((String)sParams.getValue("LAMBDA", "0"))).doubleValue();

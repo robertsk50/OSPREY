@@ -4697,26 +4697,28 @@ public class RotamerSearch implements Serializable
 						}
 						m.updateCoordinates();
 						m.revertPertParamsToCurState();
+						
+						double totEref = 0.0f;
+						double totEntropy = 0.0f;
+						if (useEref)
+							totEref = getTotSeqEref(eRef,numMutable,strandMut);
+						if (EnvironmentVars.useEntropy)
+							totEntropy = getTotSeqEntropy(strandMut);
+						unMinE += totEntropy - totEref;
+						minE += totEntropy - totEref;
+
+						if(es.checkEPIC)//record different conformational energy estimates
+							CETRecord.add(new double[]{minELowerBound,polyE,minE,minTime,minTimeEPIC});
+
+						checkminE += totEntropy - totEref;
+						
 					}
 					else if (computeEVEnergy){ //no minimization, so traditional DEE
-						minE = calcTotalSnapshotEnergy(); //the sum of the precomputed energy terms
+						//minE = calcTotalSnapshotEnergy(); //the sum of the precomputed energy terms
+						minE = minELowerBound;
 						unMinE = minE;
 						m.updateCoordinates();
 					}
-
-					double totEref = 0.0f;
-					double totEntropy = 0.0f;
-					if (useEref)
-						totEref = getTotSeqEref(eRef,numMutable,strandMut);
-					if (EnvironmentVars.useEntropy)
-						totEntropy = getTotSeqEntropy(strandMut);
-					unMinE += totEntropy - totEref;
-					minE += totEntropy - totEref;
-
-					if(es.checkEPIC)//record different conformational energy estimates
-						CETRecord.add(new double[]{minELowerBound,polyE,minE,minTime,minTimeEPIC});
-
-					checkminE += totEntropy - totEref;
 
 					if(es.useEPIC && es.useSVE)
 						System.out.println("Full energy function evaluated at EPIC minimum: "+checkminE);
@@ -4797,7 +4799,7 @@ public class RotamerSearch implements Serializable
 
 
 	//Returns the reference energy for the current amino acid sequence assignment (for the mutatable positions only)
-	private double getTotSeqEntropy(int [][] strandMut){
+	public double getTotSeqEntropy(int [][] strandMut){
 
 		double totEref = 0.0f;
 
@@ -4835,7 +4837,7 @@ public class RotamerSearch implements Serializable
 
 		return totEref;
 	}
-
+	
 	private int getAAIndex(int rotIndex, int curRes, String strandDefault[][], int strandMut[][]){
 
 		int rotSum = 0;
