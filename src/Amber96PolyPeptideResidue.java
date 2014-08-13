@@ -110,6 +110,11 @@ public class Amber96PolyPeptideResidue implements Serializable {
 
 	Residue getResidue( String residueName ){
 		
+		//Strip D off of D amino acids
+		if(residueName.length() == 4){
+			residueName = residueName.substring(1);
+		}
+		
 		int numAtoms = 0;
 		int aaResIndex = -1;
 		for(int i=0; i<aat.numAAs;i++){

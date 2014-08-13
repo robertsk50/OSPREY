@@ -506,7 +506,7 @@ public class StrandRCs extends StrandRotamers {
 
 
     @Override
-        public void changeResidueType(Molecule m, int resNum, String newResType, boolean addHydrogens, boolean connectResidue, boolean useOldBBatoms) {
+        public boolean changeResidueType(Molecule m, int resNum, String newResType, boolean addHydrogens, boolean connectResidue, boolean useOldBBatoms) {
 
             Residue localRes = m.strand[strandNumber].residue[resNum];
 
@@ -566,6 +566,8 @@ public class StrandRCs extends StrandRotamers {
                     }
                 }
             }
+            
+            return true;
 
         }
 

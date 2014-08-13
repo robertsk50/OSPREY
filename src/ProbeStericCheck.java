@@ -1,3 +1,5 @@
+import java.util.Iterator;
+
 /*
 	This file is part of OSPREY.
 
@@ -117,23 +119,24 @@ public class ProbeStericCheck {
 			
 			else { //the two atoms are either exactly 4 bonds apart or more than 4 bonds apart
 				
-				int i = 0;
-				while ( i < m.connected14.length ){
+				Iterator<Integer> i = m.connected14.get(a1num).iterator(); 
+				while ( i.hasNext() ){
+					i.next();i.next();
+					int connect4 = i.next(); 
 					
-					if ( (m.connected14[i]==a1num) && (m.atom[m.connected14[i+3]].bondedTo(a2num)) ) //exactly 4 bonds apart
+					if(m.atom[connect4].bondedTo(a2num))
 						return false;
-					
-					else if ( (m.connected14[i+3]==a1num) && (m.atom[m.connected14[i]].bondedTo(a2num)) ) //exactly 4 bonds apart
-						return false;
-					
-					else if ( (m.connected14[i]==a2num) && (m.atom[m.connected14[i+3]].bondedTo(a1num)) ) //exactly 4 bonds apart
-						return false;
-					
-					else if ( (m.connected14[i+3]==a2num) && (m.atom[m.connected14[i]].bondedTo(a1num)) ) //exactly 4 bonds apart
-						return false;
-					
-					i = i+4;
+
 				}
+				i = m.connected14.get(a2num).iterator(); 
+				while ( i.hasNext() ){
+					i.next();i.next();
+					int connect4 = i.next(); 
+					
+					if(m.atom[connect4].bondedTo(a1num))
+						return false;
+
+				}	
 				
 				//if reached here, then the two atoms are not exactly 4 bonds apart, so they must be more than 4 bonds apart
 				return true;

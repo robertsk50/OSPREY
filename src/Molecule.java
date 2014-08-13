@@ -114,6 +114,10 @@ public class Molecule implements Serializable{
 	public static final int NB_INCREMENT_SIZE = 82000;
 	public static final int MAX_ATOM_CONNECTIONS = 7;
 
+	public static final int HELIX = 1;
+	public static final int STRAND = 2;
+	public static final int OTHER = 3;
+	
 	String	name;
 	int	numberOfStrands = 0;
 	int	numberOfResidues = 0;
@@ -129,9 +133,9 @@ public class Molecule implements Serializable{
 	boolean connectivity12Valid = false;	// Are connected and connected12 up to date
 	int	connected[][] = null;		// 2D array of connected atoms
 	int	connected12[] = null;		// 1D array of atoms directly connected
-	int	connected13[] = null;		// 1D array of atoms 1-3 connected (1 atom between)
-	int	connected14[] = null;		// 1D array of atoms 1-4 connected (2 atoms between)
-	int	nonBonded[] = null;			// List of non bonded pairs
+	ArrayList<LinkedList<Integer>>	connected13 = null; 	// 2D array of atoms 1-3 connected (1 atom between) First dimension is atom, second holds flat 2-3 pairs
+	ArrayList<LinkedList<Integer>>	connected14 = null;		// 2D array of atoms 1-4 connected (2 atoms between) First dimension is atom, second holds flat 2-3-4 pairs
+	ArrayList<Atom>[][] nonBonded  = null;			// List of non bonded pairs
 	boolean bondedMatrix[][] = null;
 		// entries are only in half of bondedMatrix
 		// so bondedMatrix{i][j] is only valid where i<j
@@ -777,6 +781,9 @@ public class Molecule implements Serializable{
 	// If updatedBonds is true, then the bonds[] array for each atom in newResidue is computed
 	public void addResidue(int strandNumber, Residue newResidue, boolean updateBonds){
 
+		//KER: assign handedness of the amino acid
+		newResidue.assignHandedness();
+		
 		if (strandNumber>=numberOfStrands){
 			addStrand();
 			strandNumber = numberOfStrands-1;
@@ -1334,7 +1341,7 @@ public class Molecule implements Serializable{
                 
                 //working with sines and cosines is faster
                 
-                double originalTorsionSC[] = a4.torsionSinCos(a1, a2, a3);
+				double originalTorsionSC[] = a4.torsionSinCos(a1, a2, a3);
                 double sinTorsion = Math.sin(Math.PI*torsion/180);
                 double cosTorsion = Math.cos(Math.PI*torsion/180);
                 double sinDeltaTorsion = sinTorsion*originalTorsionSC[1] - cosTorsion*originalTorsionSC[0];
@@ -2049,10 +2056,8 @@ public class Molecule implements Serializable{
 	// Marks the bondedMatrix for atoms i and j
 	// If i < j an entry is put at [i][j] else it's added at [j][i]
 	private void markBonded(int i, int j){
-		if(i<j)
-			bondedMatrix[i][j]=true;
-		else
-			bondedMatrix[j][i]=true;
+		bondedMatrix[i][j]=true;
+		bondedMatrix[j][i]=true;
 	}
 
 	// This function updates the connected, connected12, connected13,
@@ -2064,12 +2069,22 @@ public class Molecule implements Serializable{
 		connected = new int[numberOfAtoms][MAX_ATOM_CONNECTIONS];
 		connected12 = new int[1];
 		numberOf12Connections = 0;
-		connected13 = new int[1];
+		connected13 = new ArrayList<LinkedList<Integer>>(numberOfAtoms);
 		numberOf13Connections = 0;
-		connected14 = new int[1];
+		connected14 = new ArrayList<LinkedList<Integer>>(numberOfAtoms);
+		for(int i=0; i<numberOfAtoms;i++){
+			connected13.add(new LinkedList<Integer>());
+			connected14.add(new LinkedList<Integer>());
+		}
 		numberOf14Connections = 0;
 		numberNonBonded = 0;
-		nonBonded = new int[NB_INCREMENT_SIZE];
+		nonBonded = new ArrayList[residue.length][residue.length];
+		for(int r1=0; r1<nonBonded.length;r1++){
+			for(int r2=0;r2<nonBonded.length;r2++){
+				nonBonded[r1][r2] = new ArrayList<Atom>();
+			}
+		}
+		
 		int atomi = -1, atomj = -1, atomk = -1, atomx = -1;
 
 		if(!just12){
@@ -2133,17 +2148,12 @@ public class Molecule implements Serializable{
 			}
 		}
 
-		// trim down the connected array to the actual size used
-		smallerConnectArray = new int[numberOf13Connections * 3];
-		System.arraycopy(connected13, 0, smallerConnectArray, 0, numberOf13Connections * 3);
-		connected13 = smallerConnectArray;
-
 		// update 1-4 connections
-		int numberOf13Connectionsx3 = numberOf13Connections * 3 - 2;
-		for(int i=0; i<numberOf13Connectionsx3; i=i+3){
-			atomi = connected13[i];
-			atomj = connected13[i+1];
-			atomk = connected13[i+2];
+		for(atomi = 0; atomi < connected13.size();atomi++){
+			Iterator<Integer> iter = connected13.get(atomi).iterator();
+			while(iter.hasNext()){
+				atomj = iter.next();//i+1;
+				atomk = iter.next();//i+2;
 			for(int l=1;l<connected[atomi][0]+1;l++){
 				atomx = connected[atomi][l];
 				if ((atomx != atomj) && (atomx != atomk)){
@@ -2162,36 +2172,27 @@ public class Molecule implements Serializable{
 					}
 				}
 			}
-		}
+			}
+			}
 
-		// trim down the connected array to the actual size used
-		smallerConnectArray = new int[numberOf14Connections * 4];
-		System.arraycopy(connected14, 0, smallerConnectArray, 0, numberOf14Connections * 4);
-		connected14 = smallerConnectArray;
-
+	
 		// Search through all pairs for nonbonded pairs
 		int numberOfNBConnectionsx2 = 0;
 		for(int i=0; i<numberOfAtoms; i++) {
+			Atom a1 = this.atom[i];
 			for(int j=i+1; j<numberOfAtoms; j++) {
+				Atom a2 = this.atom[j];
 				if (bondedMatrix[i][j] == false) {
 					numberNonBonded++;
-					numberOfNBConnectionsx2 = numberNonBonded*2;
-					if (numberOfNBConnectionsx2 >= nonBonded.length) {
-						int largerConnectArray[] = new int[numberOfNBConnectionsx2 + NB_INCREMENT_SIZE*2];
-						System.arraycopy(nonBonded, 0, largerConnectArray, 0, nonBonded.length);
-						nonBonded = largerConnectArray;
+					if (nonBonded[a1.moleculeResidueNumber][a2.moleculeResidueNumber] == null) {
+						nonBonded[a1.moleculeResidueNumber][a2.moleculeResidueNumber] = new ArrayList<Atom>();
 					}
-					nonBonded[numberOfNBConnectionsx2 - 2] = i;
-					nonBonded[numberOfNBConnectionsx2 - 1] = j;
+					nonBonded[a1.moleculeResidueNumber][a2.moleculeResidueNumber].add(a1);
+					nonBonded[a1.moleculeResidueNumber][a2.moleculeResidueNumber].add(a2);
 				}
 			}
 		}
-
-		// trim down the nonbonded array to the actual size used
-		smallerConnectArray = new int[numberOfNBConnectionsx2];
-		System.arraycopy(nonBonded, 0, smallerConnectArray, 0, numberOfNBConnectionsx2);
-		nonBonded = smallerConnectArray;
-
+		
 		connectivityValid = true;
 	}
 
@@ -2237,163 +2238,147 @@ public class Molecule implements Serializable{
 	}
 
 	// Returns true if atom1 and atom2 are not 1-4 connected
-	// Here we can't look through three levels of direct connectivity
-	//  because we essentially just want to know if these atoms
-	//  are already in the 1-4 connected array, we know that they are
-	//  1-4 connected, but have they been found yet
-	private boolean isNOTAlready14Connected(int atom1, int atom2){
-		int ix4=0;
-		for(int i=0;i<numberOf14Connections;i++){
-			if(atom1 == connected14[ix4]){
-				if(atom2 == connected14[ix4+3])
+		// Here we can't look through three levels of direct connectivity
+		//  because we essentially just want to know if these atoms
+		//  are already in the 1-4 connected array, we know that they are
+		//  1-4 connected, but have they been found yet
+		private boolean isNOTAlready14Connected(int atom1, int atom2){
+			//Only store relationship of lower atom to higher atom
+			if(atom2<atom1){
+				int tmp = atom1;
+				atom1 = atom2;
+				atom2 = tmp;
+			}
+
+
+			Iterator<Integer> i=connected14.get(atom1).iterator();
+			while(i.hasNext()){
+				i.next();i.next();
+				if(atom2 == i.next())
 					return false;
 			}
-			else if(atom2 == connected14[ix4]){
-				if(atom1 == connected14[ix4+3])
-					return false;
+			return true;
+		}
+
+		// Adds an entry in the connected12 table for the bond
+		//  between atom1 and atom2
+		private void connect12(int atom1, int atom2){
+			numberOf12Connections++;
+			int numberOf12Connectionsx2 = numberOf12Connections * 2;
+
+			if(numberOf12Connectionsx2 > connected12.length){
+				// if we've run out of space, expand the connected12 array
+				int largerConnectArray[] = new int[numberOf12Connectionsx2 + CONNECT_INCREMENT_SIZE*2];
+				System.arraycopy(connected12, 0, largerConnectArray, 0, connected12.length);
+				connected12 = largerConnectArray;
 			}
-			ix4+=4;
+			if (atom1>atom2){
+				int temp = atom2;
+				atom2 = atom1;
+				atom1 = temp;
+			}
+			connected12[numberOf12Connectionsx2 - 2] = atom1;
+			connected12[numberOf12Connectionsx2 - 1] = atom2;
 		}
-		return true;
-	}
 
-	// Adds an entry in the connected12 table for the bond
-	//  between atom1 and atom2
-	private void connect12(int atom1, int atom2){
-		numberOf12Connections++;
-		int numberOf12Connectionsx2 = numberOf12Connections * 2;
-
-		if(numberOf12Connectionsx2 > connected12.length){
-			// if we've run out of space, expand the connected12 array
-			int largerConnectArray[] = new int[numberOf12Connectionsx2 + CONNECT_INCREMENT_SIZE*2];
-			System.arraycopy(connected12, 0, largerConnectArray, 0, connected12.length);
-			connected12 = largerConnectArray;
-		}
-		if (atom1>atom2){
-			int temp = atom2;
-			atom2 = atom1;
-			atom1 = temp;
-		}
-		connected12[numberOf12Connectionsx2 - 2] = atom1;
-		connected12[numberOf12Connectionsx2 - 1] = atom2;
-	}
-
-	// Adds an entry in the connected13 table for the connection
-	//  between atom1, atom2, and atom3
-	private void connect13(int atom1, int atom2, int atom3){
-		if (atom1 > atom3){
-			int temp = atom3;
-			atom3 = atom1;
-			atom1 = temp;
-		}
-		// check for duplicate entries
-		for(int i=0; i<numberOf13Connections; i++){
-			int ix3 = i * 3;
-			if (connected13[ix3] == atom1)
-				if ((connected13[ix3 + 1] == atom2) &&
-					(connected13[ix3 + 2] == atom3))
+		// Adds an entry in the connected13 table for the connection
+		//  between atom1, atom2, and atom3
+		private void connect13(int atom1, int atom2, int atom3){
+			if (atom1 > atom3){
+				int temp = atom3;
+				atom3 = atom1;
+				atom1 = temp;
+			}  
+			// check for duplicate entries
+			Iterator<Integer> iter = connected13.get(atom1).iterator();
+			while(iter.hasNext()){
+				int a2 = iter.next();
+				int a3 = iter.next();
+				if ((a2 == atom2) &&
+						(a3 == atom3))
 					return;
-		}
-		numberOf13Connections++;
-		int numberOf13Connectionsx3 = numberOf13Connections * 3;
+			}
 
-		if(numberOf13Connectionsx3 > connected13.length){
-			// if we've run out of space, expand the connected13 array
-			int largerConnectArray[] = new int[numberOf13Connectionsx3 + CONNECT_INCREMENT_SIZE*3];
-			System.arraycopy(connected13, 0, largerConnectArray, 0, connected13.length);
-			connected13 = largerConnectArray;
-		}
+			numberOf13Connections++;
+			//		int numberOf13Connectionsx3 = numberOf13Connections * 3;
+			//
+			//		if(numberOf13Connectionsx3 > connected13.length){
+			//			// if we've run out of space, expand the connected13 array
+			//			int largerConnectArray[] = new int[numberOf13Connectionsx3 + CONNECT_INCREMENT_SIZE*3];
+			//			System.arraycopy(connected13, 0, largerConnectArray, 0, connected13.length);
+			//			connected13 = largerConnectArray;
+			//		}
 
-		connected13[numberOf13Connectionsx3 - 3] = atom1;
-		connected13[numberOf13Connectionsx3 - 2] = atom2;
-		connected13[numberOf13Connectionsx3 - 1] = atom3;
-	}
+			connected13.get(atom1).add(atom2);
+			connected13.get(atom1).add(atom3);
 
-	// Adds an entry in the connected14 table for the connection
-	//  between atom1, atom2, atom3, and atom4
-	private void connect14(int atom1, int atom2, int atom3, int atom4){
-		if (atom1 > atom4){
-			int temp = atom4;
-			atom4 = atom1;
-			atom1 = temp;
-			temp = atom3;
-			atom3 = atom2;
-			atom2 = temp;
-		}
-		// check for duplicate entries
-		for(int i=0; i<numberOf14Connections; i++){
-			int ix4 = i * 4;
-			if (connected14[ix4] == atom1)
-				if (connected14[ix4 + 1] == atom2)
-					if ((connected14[ix4 + 2] == atom3) &&
-						(connected14[ix4 + 3] == atom4))
-						return;
-		}
-		numberOf14Connections++;
-		int numberOf14Connectionsx4 = numberOf14Connections * 4;
-
-		if(numberOf14Connectionsx4 > connected14.length){
-			// if we've run out of space, expand the connected14 array
-			int largerConnectArray[] = new int[numberOf14Connectionsx4 + CONNECT_INCREMENT_SIZE*4];
-			System.arraycopy(connected14, 0, largerConnectArray, 0, connected14.length);
-			connected14 = largerConnectArray;
 		}
 
-		connected14[numberOf14Connectionsx4 - 4] = atom1;
-		connected14[numberOf14Connectionsx4 - 3] = atom2;
-		connected14[numberOf14Connectionsx4 - 2] = atom3;
-		connected14[numberOf14Connectionsx4 - 1] = atom4;
-	}
+		// Adds an entry in the connected14 table for the connection
+		//  between atom1, atom2, atom3, and atom4
+		private void connect14(int atom1, int atom2, int atom3, int atom4){
+			if (atom1 > atom4){
+				int temp = atom4;
+				atom4 = atom1;
+				atom1 = temp;
+				temp = atom3;
+				atom3 = atom2;
+				atom2 = temp;
+			}
+			// check for duplicate entries
+			// previous function already checks for duplicates
 
-	//Determines if the two atoms are 1-2 connected (directly)
-	public boolean are12connected(int atom1, int atom2){
+			numberOf14Connections++;
 
-		for (int i=0; i<numberOf12Connections; i++){
-			int ix2 = i*2;
-			if (connected12[ix2]==atom1){
-				if (connected12[ix2+1]==atom2)
+
+			connected14.get(atom1).add(atom2);
+			connected14.get(atom1).add(atom3);
+			connected14.get(atom1).add(atom4);
+
+		}
+
+		//Determines if the two atoms are 1-2 connected (directly)
+		public boolean are12connected(int atom1, int atom2){
+
+			for (int i=0; i<numberOf12Connections; i++){
+				int ix2 = i*2;
+				if (connected12[ix2]==atom1){
+					if (connected12[ix2+1]==atom2)
+						return true;
+				}
+				else if (connected12[ix2]==atom2){
+					if (connected12[ix2+1]==atom1)
+						return true;
+				}
+			}
+			return false;
+		}
+
+		//Determines if the two atoms are 1-3 connected (1 atom between)
+		public boolean are13connected(int atom1, int atom2){
+
+			if(atom1 > atom2){
+				int tmp = atom1;
+				atom1 = atom2;
+				atom2 = tmp;
+			}
+
+			Iterator<Integer> iter = connected13.get(atom1).iterator();
+			while(iter.hasNext()){
+				iter.next();
+				int a3 = iter.next();
+				if(atom2 == a3)
 					return true;
 			}
-			else if (connected12[ix2]==atom2){
-				if (connected12[ix2+1]==atom1)
-					return true;
-			}
-		}
-		return false;
-	}
 
-	//Determines if the two atoms are 1-3 connected (1 atom between)
-	public boolean are13connected(int atom1, int atom2){
-
-		for (int i=0; i<numberOf13Connections; i++){
-			int ix3 = i*3;
-			if (connected13[ix3]==atom1){
-				if (connected13[ix3+2]==atom2)
-					return true;
-			}
-			else if (connected13[ix3]==atom2){
-				if (connected13[ix3+2]==atom1)
-					return true;
-			}
+			return false;
 		}
-		return false;
-	}
 
 	//Determines if the two atoms are non-bonded: uses the nonBonded[] array;
 	//NOTE: nonBonded[] is only valid if connectivityValid is true;
 	//NOTE: nonBonded[] contains all pairs of atoms that are more than 3 bonds apart
 	public boolean areNonBonded(int atom1, int atom2){
-
-		int i=0;
-		while ( i<(nonBonded.length-1) ){
-			if ( (nonBonded[i]==atom1) && (nonBonded[i+1]==atom2) )
-				return true;
-			else if ( (nonBonded[i]==atom2) && (nonBonded[i+1]==atom1) )
-				return true;
-
-			i = i+2;
-		}
-		return false;
+		return !bondedMatrix[atom1][atom2];
 	}
 
 	// This function returns the moleculeAtomNumber for the atom named atomName
