@@ -539,7 +539,7 @@ class PDBChemModel {
 
                 for( Residue cand : AATemplRes ){
                     if( cand != null ){//Some of the templates may be null
-                        if( cand.name.equalsIgnoreCase(res.name) ){
+                        if( cand.name.equalsIgnoreCase(res.name) || (!res.lAmino && res.name.substring(1).equalsIgnoreCase(cand.name))){
                             templ=cand;
                             isTemplAA = true;
                             break;

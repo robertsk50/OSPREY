@@ -99,7 +99,8 @@ public class Residue implements Serializable {
 	boolean nterm = false; //Is an nterminal residue
 	public boolean cofactor = false;
 	byte SStype; //Secondary structure type (Set by readDSSP for hbond functionality) Duplicate of the "secondaryStruct" int below that reads PDB entries
-
+	public boolean lAmino = true;
+	
         //DEEPer stuff
         int perts[]=null;                    // Perturbations to which this unit is subject (may be empty; this array consists of indices in m.perts, in ascending order)
         int pertStates[][]=null;      //Defines the perturbation states for this residue:
@@ -554,5 +555,108 @@ public class Residue implements Serializable {
             else//remove last character, take the rest as integer part
                 return resNumTrimmed.substring(resNumTrimmed.length()-1, resNumTrimmed.length());
         }
+        
+        public void assignHandedness() {
+    		
+    		//Find the CA,N,C,CB atoms and calculate the dihedral between them
+    		Atom CA = null;
+    		Atom N = null;
+    		Atom C = null;
+    		Atom CB = null;
+			for(Atom a: atom){
+				if(a.name.equalsIgnoreCase("CA")){
+					CA = a;
+				}
+				else if(a.name.equalsIgnoreCase("N")){
+					N = a;
+				}
+				else if(a.name.equalsIgnoreCase("C")){
+					C = a;
+				}
+				else if(a.name.equalsIgnoreCase("CB")){
+					CB = a;
+				}else if( (name.equalsIgnoreCase("GLY") || name.equalsIgnoreCase("DGLY")) && (a.name.equalsIgnoreCase("HA3") || a.name.equalsIgnoreCase("3HA"))){
+					CB = a;
+				}
+			}
+    			
+    			double torsion = 1;
+    			if(CA != null && N != null && C != null)
+    				torsion = CB.torsion(CA, N, C);
+
+    			if(torsion > 0)
+    				lAmino  = true;
+    			else{
+    				lAmino = false; //dAmino acid
+//    				System.out.println("Residue: "+fullName+" is a d-amino acid!!");
+    				
+    				if(name.length() ==3){
+    					name = "D" + name;
+    				}
+    			}
+    	}
+    	
+
+		public void reflect(){
+		Atom C = null;
+		Atom CA = null;
+		Atom N = null;
+		
+		//if(!name.equalsIgnoreCase("GLY")){
+			for(Atom a: atom){
+				if(a.name.equalsIgnoreCase("CA")){
+					CA = a;
+				}
+				else if(a.name.equalsIgnoreCase("N")){
+					N = a;
+				}
+				else if(a.name.equalsIgnoreCase("C")){
+					C = a;
+				}
+			}
+			
+			double[] C_CA = new double[3];
+			double[] N_CA = new double[3];
+			
+			C_CA[0] = C.coord[0] - CA.coord[0];
+			C_CA[1] = C.coord[1] - CA.coord[1];
+			C_CA[2] = C.coord[2] - CA.coord[2];
+			
+			N_CA[0] = N.coord[0] - CA.coord[0];
+			N_CA[1] = N.coord[1] - CA.coord[1];
+			N_CA[2] = N.coord[2] - CA.coord[2];
+			
+			double[] normal = MathUtils.cross(C_CA, N_CA);
+			
+			double denom = normal[0]*normal[0]+normal[1]*normal[1]+normal[2]*normal[2];
+			//denom = (float) Math.sqrt(denom);
+			
+			double d = -1 * (normal[0]*CA.coord[0]+normal[1]*CA.coord[1]+normal[2]*CA.coord[2]);
+			
+			
+			double[] tmpCoord = new double[3];
+			for(Atom a: atom){
+				if(!a.isBBatom || a.name.equals("HA")){
+					
+					tmpCoord[0] = a.coord[0] - normal[0]*2*(normal[0]*a.coord[0]+normal[1]*a.coord[1]+normal[2]*a.coord[2]+d)/denom;
+					tmpCoord[1] = a.coord[1] - normal[1]*2*(normal[0]*a.coord[0]+normal[1]*a.coord[1]+normal[2]*a.coord[2]+d)/denom;
+					tmpCoord[2] = a.coord[2] - normal[2]*2*(normal[0]*a.coord[0]+normal[1]*a.coord[1]+normal[2]*a.coord[2]+d)/denom;
+					a.coord[0] = tmpCoord[0];
+					a.coord[1] = tmpCoord[1];
+					a.coord[2] = tmpCoord[2];
+				}
+			}
+			
+		//}
+			
+	}
+
+	public String threeLet(){
+		if(!lAmino){
+			return name.substring(1);
+		}
+		return name;
+	}
+	
         
 }

@@ -4799,17 +4799,14 @@ public class RotamerSearch implements Serializable
 	//Returns the reference energy for the current amino acid sequence assignment (for the mutatable positions only)
 	private double getTotSeqEntropy(int [][] strandMut){
 
-		double[] entropy = EnvironmentVars.getEntropyTerms();
-
 		double totEref = 0.0f;
-
 
 		for(int str=0; str<numberOfStrands;str++){
 			if(m.strand[str].isProtein){
 				for (int i=0; i<strandMut[str].length; i++){
 					int strResNum = strandMut[str][i];
-					int molResNum = m.strand[str].residue[strResNum].moleculeResidueNumber;
-					totEref += entropy[curAANum[molResNum]];
+					String resName = m.strand[str].residue[strResNum].name;
+					totEref += EnvironmentVars.getEntropyTerm(resName);
 				}
 			}
 		}
@@ -5343,8 +5340,6 @@ public class RotamerSearch implements Serializable
 
 	public void addEntropyTerm(boolean doMinimize, int[][] strandMut){
 
-		double[] entropy = EnvironmentVars.getEntropyTerms();
-
 		//NumMutRes (Don't count non-protein strands)
 		int numMutRes = 0;
 		for(int i=0;i<strandMut.length;i++){
@@ -5358,11 +5353,12 @@ public class RotamerSearch implements Serializable
 			if(m.strand[str].isProtein){
 				for (int j=0; j<strandRot[str].getNumAllowable(strResNum); j++){
 					int aaInd = strandRot[str].getIndexOfNthAllowable(strResNum,j);
+					String AAname = strandRot[str].rl.getAAName(aaInd);
 					int numRot = getNumRot(str, strResNum, aaInd);
 					for (int k=0; k<numRot; k++){
-						arpMatrix.addToIntraE( i, aaInd, k, (double) entropy[aaInd] );
+						arpMatrix.addToIntraE( i, aaInd, k, (double) EnvironmentVars.getEntropyTerm(AAname) );
 						if (doMinimize)
-							arpMatrixMax.addToIntraE( i, aaInd, k, (double) entropy[aaInd] );
+							arpMatrixMax.addToIntraE( i, aaInd, k, (double) EnvironmentVars.getEntropyTerm(AAname) );
 						ind++;
 					}
 				}

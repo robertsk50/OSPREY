@@ -173,8 +173,8 @@ public class EEF1 implements Serializable {
 	private int getSolvGroupIndex(Atom at1){
 		
 		String elementType = at1.elementType;
-		String AAname = m.residue[at1.moleculeResidueNumber].name; //the AA name to which this atom belongs
-		boolean aromatic = isAromatic(at1);
+		String AAname = m.residue[at1.moleculeResidueNumber].threeLet(); //the AA name to which this atom belongs
+		boolean aromatic = isAromatic(at1, AAname);
 		int numBoundH = getNumBoundH(at1);
 		
 		if (elementType.equalsIgnoreCase("C")) {
@@ -308,9 +308,7 @@ public class EEF1 implements Serializable {
 	}
 	
 	//Determines if the given heavy atom is aromatic
-	private boolean isAromatic(Atom at1){
-		
-		String AAname = m.residue[at1.moleculeResidueNumber].name; //the AA name of the residue to which this atom belongs
+	private boolean isAromatic(Atom at1, String AAname){
 		
 		boolean isHis = (AAname.equalsIgnoreCase("HIS") || AAname.equalsIgnoreCase("HIP") || AAname.equalsIgnoreCase("HID") || AAname.equalsIgnoreCase("HIE"));
 		

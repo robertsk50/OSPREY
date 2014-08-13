@@ -781,6 +781,9 @@ public class Molecule implements Serializable{
 	// If updatedBonds is true, then the bonds[] array for each atom in newResidue is computed
 	public void addResidue(int strandNumber, Residue newResidue, boolean updateBonds){
 
+		//KER: assign handedness of the amino acid
+		newResidue.assignHandedness();
+		
 		if (strandNumber>=numberOfStrands){
 			addStrand();
 			strandNumber = numberOfStrands-1;

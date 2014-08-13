@@ -898,7 +898,8 @@ public class Amber96ext implements ForceField, Serializable {
 
 		// Attempt to find the resiude name in the residue assigner
 		for (int i=0;i<aat.numAAs;i++) {
-			if (aat.aaResidues[i].name.equalsIgnoreCase(res.name)) {
+			if (aat.aaResidues[i].name.equalsIgnoreCase(res.name) || 
+					(!res.lAmino && aat.aaResidues[i].name.regionMatches(true,0,res.name,1,3))) {
 				if (d!=noMatchInt)
 					System.out.println("** Residue already matched to nonterm template, this should not happen **");
 				templateRes = aat.aaResidues[i];
@@ -907,7 +908,8 @@ public class Amber96ext implements ForceField, Serializable {
 		}
 
 		for (int i=0;i<aat.numAANTs;i++) {
-			if (aat.aaNTResidues[i].name.equalsIgnoreCase(res.name)) {
+			if (aat.aaNTResidues[i].name.equalsIgnoreCase(res.name) ||
+					(!res.lAmino && aat.aaNTResidues[i].name.regionMatches(true,0,res.name,1,3))) {
 				if (dNT!=noMatchInt)
 					System.out.println("** Residue already matched to NT template, this should not happen **");
 				templateResNT = aat.aaNTResidues[i];
@@ -916,7 +918,8 @@ public class Amber96ext implements ForceField, Serializable {
 		}
 
 		for (int i=0;i<aat.numAACTs;i++) {
-			if (aat.aaCTResidues[i].name.equalsIgnoreCase(res.name)) {
+			if (aat.aaCTResidues[i].name.equalsIgnoreCase(res.name) ||
+					(!res.lAmino && aat.aaCTResidues[i].name.regionMatches(true,0,res.name,1,3))) {
 				if (dCT!=noMatchInt)
 					System.out.println("** Residue already matched to CT template, this should not happen **");
 				templateResCT = aat.aaCTResidues[i];
