@@ -104,7 +104,7 @@ public class Residue implements Serializable {
 	boolean mutatedOnce = false;
 	
 	//DEEPer stuff
-	int perts[]=null;                    // Perturbations to which this unit is subject (may be empty; this array consists of indices in m.perts, in ascending order)
+	int perts[]=null;             // Perturbations to which this unit is subject (may be empty; this array consists of indices in m.perts, in ascending order)
 	int pertStates[][]=null;      //Defines the perturbation states for this residue:
 	//pertStates[perturbation state #][perturbation #] gives which default param. value or interval of the given perturbation is in the given perturbation state of this residue
 	//Each residue conformation is defined by a rotameric state and a perturbation state

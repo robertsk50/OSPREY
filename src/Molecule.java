@@ -152,6 +152,8 @@ public class Molecule implements Serializable{
 
         DegreeOfFreedom DOFs[] = null;//Degrees of freedom affecting this molecule.  Ordered by DOFNum
 
+        boolean[][] neighborList = null; //(i,j) is true if resi and resj are neighbors (molecule based numbering)
+        
         boolean validBB = true;//Indicates no perturbation messes up the backbone (indicated by Perturbation.validState)
         boolean validSC = true;//Indicates sidechains are all valid (an uncloseable proline ring, indicated by Residue.validConf, would invalidate this)
 
@@ -3178,6 +3180,22 @@ public class Molecule implements Serializable{
                     r.setEnergyEval(true, true);
 
     }
+
+	/**
+	 * Checks to see if two residues are neighbors based on the current neighbor list
+	 * @param moleculeResidueNumber
+	 * @param moleculeResidueNumber2
+	 * @return
+	 */
+	public boolean areNeighbors(int molResNum1, int molResNum2) {
+
+		if(neighborList == null)
+			return true; //If we don't have a neighbor list everything is a neighbor
+		else{
+			return neighborList[molResNum1][molResNum2];
+		}
+
+	}
 
 
 

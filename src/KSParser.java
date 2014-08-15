@@ -7376,6 +7376,25 @@ private int[] rotamersRemaining(int numRotForRes[], PrunedRotamers<Boolean> prun
             saveMolecule(m, fileOut, Double.NaN);
         }
 
+        static public Object loadObject(String fileName) {
+    		Object o;
+
+    		try{
+    			//			ObjectInputStream in = new ObjectInputStream(new GZIPInputStream(new FileInputStream(fileName)));
+    			ObjectInputStream in = new ObjectInputStream(new FileInputStream(fileName));
+    			o = in.readObject();
+    			in.close();
+    		}
+    		catch (Exception e){
+    			//e.printStackTrace();
+    			System.out.println("Couldn't find file "+fileName);
+    			return null;
+    		}		
+
+    		return o;
+    		//arpMatrix.reconnect(m);
+
+    	}
 
 
 	
