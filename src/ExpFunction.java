@@ -73,6 +73,9 @@ public class ExpFunction {
 	final int maxPrecision = 8; //the number of decimal digits to which the BigDecimal numbers must be accurate
 
 	static MathContext mc = new MathContext(100, RoundingMode.HALF_EVEN);
+	final static double eDoub = 2.71828182845904523536;
+	final static double log10ofE = Math.log10(eDoub);
+	MathContext powOfTen = new MathContext(1);
 	
 	//constructor
 	ExpFunction(){
@@ -96,13 +99,13 @@ public class ExpFunction {
 			int integerPart = (int)Math.floor(x);
 			double fractionPart = x - integerPart;
 			
-			BigDecimal intPartExp = pow(exp,integerPart);
-			BigDecimal fractPartExp = new BigDecimal(Math.exp(fractionPart));
+			BigDecimal intPartExp = exp.pow(integerPart,mc);
+			BigDecimal fractPartExp = new BigDecimal(Math.exp(fractionPart),mc);
 			
-			expX = intPartExp.multiply(fractPartExp);
+			expX = intPartExp.multiply(fractPartExp,mc);
 		}
 		
-		expX = expX.setScale(maxPrecision,4); //rounding is ROUND_HALF_UP (standard rounding: up for next digit >=5, down otherwise)
+//		expX = expX.setScale(maxPrecision,4); //rounding is ROUND_HALF_UP (standard rounding: up for next digit >=5, down otherwise)
 		
 		return expX;
 	}
@@ -112,13 +115,13 @@ public class ExpFunction {
 		
 		BigDecimal expPow = new BigDecimal("1.0");
 		for (int i=0; i<a; i++)
-			expPow = expPow.multiply(num);
+			expPow = expPow.multiply(num,mc);
 		
 		return expPow;
 	}
 	
 	//Returns an approximation to the natural logarithm of the BigDecimal number num
-	public BigDecimal log(BigDecimal num){
+	public BigDecimal log1(BigDecimal num){
 		
 		if (num.compareTo(new BigDecimal("0.0"))<0){ //num is negative
 			System.out.println("ERROR: log of a negative number..");
@@ -153,4 +156,21 @@ public class ExpFunction {
 		
 		return sum;
 	}
+	
+    public double log(BigDecimal num){
+		if (num.compareTo(new BigDecimal("0.0"))<0){ //num is negative
+			System.out.println("ERROR: log of a negative number..");
+			System.exit(1);
+		}
+
+		int powerOfTen = num.round(powOfTen).scale() * -1;
+		double fract = num.movePointLeft(powerOfTen).doubleValue();
+		double returnVal = (double) (powerOfTen + Math.log10(fract)) / log10ofE;
+
+		//double realVal = Math.log(num.doubleValue());
+		//System.out.println(returnVal-realVal);
+		return returnVal;
+
+	}
+	
 }

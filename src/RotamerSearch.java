@@ -2935,7 +2935,7 @@ public class RotamerSearch implements Serializable
 		//		k_const = k_const.subtract(numConfsPrunedMinDEESteric); //only the non-steric prunings are used in the computation of k_const
 
 		//Bound the contribution of the conformations pruned by MinDEE
-		BigDecimal pStar = ef.exp(-Ec_const/constRT).multiply(new BigDecimal(k_const));
+		BigDecimal pStar = ef.exp(-Ec_const/constRT).multiply(new BigDecimal(k_const),ExpFunction.mc);
 
 		final double ro = (double)KSepsilon /(double)(1-KSepsilon);
 
@@ -2947,9 +2947,9 @@ public class RotamerSearch implements Serializable
 				allPruned = true;
 				BigDecimal e = ef.exp(-Ec_const/constRT);
 				if ( (!k_const.equals(BigInteger.ZERO)) && (e.compareTo(BigDecimal.ZERO)!=0) ) { //some non-sterics pruned but accuracy not achieved, so search must be repeated
-					BigDecimal psi = initial_q.max(partial_q.multiply(new BigDecimal(ro)));
+					BigDecimal psi = initial_q.max(partial_q.multiply(new BigDecimal(ro),ExpFunction.mc));
 
-					BigDecimal f = psi.divide(e,4); //rounding is ROUND_HALF_UP
+					BigDecimal f = psi.divide(e,ExpFunction.mc); //rounding is ROUND_HALF_UP
 					BigInteger l_const = k_const.subtract( BigInteger.valueOf( (long)Math.ceil(f.doubleValue()) ) );
 					//					setupRepeatRun(l_const, numRotForResNonPruned, treeLevels, numMutable); //accuracy not achieved, so repeat the search with reduced num pruned conf MinDEE
 					//					repeatSearch = true;
@@ -3159,12 +3159,12 @@ public class RotamerSearch implements Serializable
 
 			//double curThreshold = -constRT * (Math.log(psi)+Math.log(ro/numConfsLeft));
 			double curThreshold = stericE;
-			BigDecimal diff_qp = psi.subtract(pStar);
+			BigDecimal diff_qp = psi.subtract(pStar,ExpFunction.mc);
 			if (diff_qp.compareTo(new BigDecimal(0.0))<0) { //the contribution of the pruned confs is bigger than ro*partial_q, so the search cannot be halted
 
-				BigDecimal qBound = partial_q.add(ef.exp(-minELowerBound/constRT).multiply(new BigDecimal(numConfsLeft))); //an upper bound on what partial_q can be
+				BigDecimal qBound = partial_q.add(ef.exp(-minELowerBound/constRT).multiply(new BigDecimal(numConfsLeft),ExpFunction.mc),ExpFunction.mc); //an upper bound on what partial_q can be
 
-				if (pStar.compareTo(initial_q.max(qBound.multiply(new BigDecimal(ro))))>0 && 
+				if (pStar.compareTo(initial_q.max(qBound.multiply(new BigDecimal(ro),ExpFunction.mc)))>0 && 
 						(!useMaxKSconfs || (useMaxKSconfs && numConfsLeft.add(numConfsEvaluated).compareTo(maxKSconfs) < 0))){ //approximation accuracy cannot be achieved
 
 					BigDecimal e = ef.exp(-Ec_const/constRT);
@@ -3187,7 +3187,7 @@ public class RotamerSearch implements Serializable
 					curThreshold = stericE;
 			}
 			else
-				curThreshold = -constRT * (ef.log(diff_qp).doubleValue()-Math.log(numConfsLeft.doubleValue()));
+				curThreshold = -constRT * (ef.log(diff_qp)-Math.log(numConfsLeft.doubleValue()));
 
 			System.out.println("conf: "+numConfsEvaluated.add(BigInteger.ONE)+" minELowerBound: "+minELowerBound+" curThreshold: "+curThreshold);
 			System.out.println("pStar: "+printBigNum(pStar,3)+" qStar: "+printBigNum(partial_q,3)+" rho*qStar: "+printBigNum(partial_q.multiply(new BigDecimal(ro)),3));
@@ -3238,7 +3238,7 @@ public class RotamerSearch implements Serializable
 			}
 		}
 		if ((numConfsLeft.equals(BigInteger.ZERO))&&(!k_const.equals(BigInteger.ZERO))){ //no conformations remaining, non-sterics pruned			
-			if (partial_q.multiply(new BigDecimal(ro)).compareTo(pStar)<0){ //approximation accuracy not achieved, so repeat search
+			if (partial_q.multiply(new BigDecimal(ro),ExpFunction.mc).compareTo(pStar)<0){ //approximation accuracy not achieved, so repeat search
 				BigDecimal psi = initial_q.max(partial_q.multiply(new BigDecimal(ro)));
 				BigDecimal e = ef.exp(-Ec_const/constRT);
 				if (e.compareTo(BigDecimal.ZERO)!=0){

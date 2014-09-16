@@ -308,7 +308,16 @@ public class KSParser
 			makeStericShell(s);
 		else if (firstToken.equalsIgnoreCase("fixStruct"))
 			fixStruct(s);
-
+		else{
+			String output = "The function "+firstToken+" was not recognized\n"
+					+ "The available functions are: \n"
+					+ "doResEntropy, selectResidues, compStericOverlap, precomputeBackrubs,\n"
+					+ "doDEE, genStructDEE, generateRandConfs, fitEparams, computeEnergyMol,\n"
+					+ "KSMaster, computeEmats, genBackbones, identifyRots, makeStericShell,\n"
+					+ "and fixStruct.\n"
+					+ "Exiting...";
+			System.out.println(output);	
+		}
 		//exit from all slave nodes
 		cleanUpNodes();
 

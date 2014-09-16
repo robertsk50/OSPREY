@@ -327,6 +327,10 @@ public class PGAStar extends AStar{
 			}
 		}
 		
+		//Get the emat indices for the current conformation to return
+		EMatrixEntryWIndex[] actualConf = getActualConf(expNode.confSoFar, emat);
+		expNode.actualConf = actualConf;
+		
 		//outPS.println("Number of A* nodes inserted in the queue: "+countNodes);
 		outPS.println("A* returning conformation; lower bound = "+expNode.fScore+" nodes expanded: "+numExpanded+" FS terms evaluated: "+numFS);
 		return expNode;
