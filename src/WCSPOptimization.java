@@ -13,18 +13,24 @@ import java.util.concurrent.PriorityBlockingQueue;
 
 
 
-public class ToulbarOptimization {
+public class WCSPOptimization {
 
 	static final long MAXUPPER = 1537228672809129301L;
 	
-	static final String toulbar2preprocLoc = "/usr/project/dlab/Users/kroberts/toulbar/toulbar2.0.9.6.0-kro/build_release/bin/Linux/toulbar2";
-	static final String toulbar2optLoc = "/usr/project/dlab/Users/kroberts/toulbar/toulbar2.0.9.6.0-kro/build_release/bin/Linux/toulbar2";
+	static final String[] toulbar2preprocLoc = {EnvironmentVars.dataDir+"/exe/toulbar2"};
+	static final String[] toulbar2optLoc     = {EnvironmentVars.dataDir+"/exe/toulbar2"};
 	
-	//static final String toulbar2preprocLoc = "/home/home1/kroberts/Downloads/toulbar2.0.9.5.0-Release-sources/build_release/bin/Linux/toulbar2";
-	//static final String toulbar2optLoc = "/home/home1/kroberts/Downloads/toulbar2.0.9.5.0-Release-sources/build_release/bin/Linux/toulbar2";
+	
+//	static final String[] toulbar2preprocLoc = {"/usr/project/dlab/Users/kroberts/toulbar/toulbar2.0.9.6.0-kro/build_release/bin/Linux/toulbar2"};
+												//"/home/home1/kroberts/Downloads/toulbar2.0.9.5.0-Release-sources/build_release/bin/Linux/toulbar2"};
+//	static final String[] toulbar2optLoc = {"/usr/project/dlab/Users/kroberts/toulbar/toulbar2.0.9.6.0-kro/build_release/bin/Linux/toulbar2"};
+											//"/home/home1/kroberts/Downloads/toulbar2.0.9.5.0-Release-sources/build_release/bin/Linux/toulbar2"};
+	
+	//	static final String toulbar2preprocLocBack = "/home/home1/kroberts/Downloads/toulbar2.0.9.5.0-Release-sources/build_release/bin/Linux/toulbar2";
+	//	static final String toulbar2optLocBack = "/home/home1/kroberts/Downloads/toulbar2.0.9.5.0-Release-sources/build_release/bin/Linux/toulbar2";
 	//static final String toulbar2optLoc = "/usr/project/dlab/Users/kroberts/Troubleshooting/toulbar2/SpeedUp/example.1MJC/bin/toulbar2";
 	//static final String toulbar2preprocLoc = "/usr/project/dlab/Users/kroberts/Troubleshooting/toulbar2/SpeedUp/example.1MJC/bin/toulbar2";
-	String outDir = "/var/tmp/local/kroberts/";
+	String outDir = EnvironmentVars.localDir;
 	String filename = "";
 	long upperBound = MAXUPPER;
 	//map of pos and index to arrayIndex
@@ -41,7 +47,7 @@ public class ToulbarOptimization {
 	PriorityBlockingQueue<RotConf> allConfs;
 	
 	//For by sequence nodes
-	public ToulbarOptimization(PGQueueNode node,
+	public WCSPOptimization(PGQueueNode node,
 			Emat emat,int[][] seqIndicesPerLevel,
 			int numRotRemainingBySeq[][],
 			int numNodesForLevel[],double upperE) {
@@ -212,7 +218,7 @@ public class ToulbarOptimization {
 	}
 	
 	//For subrotamer nodes
-	public ToulbarOptimization(PGQueueNode node,
+	public WCSPOptimization(PGQueueNode node,
 			Emat emat,int[] numParentRotPerLvl,
 			int[][] parentRotIndexPerLvl, int[][] numSubRotPerParentRot,
 			ArrayList<HashMap<Integer,ArrayList<Index3>>> subRotsPerLvlPerParent,
@@ -381,7 +387,7 @@ public class ToulbarOptimization {
 	}
 	
 	//For Normal A* Bounds
-	public ToulbarOptimization(PGQueueNode node,
+	public WCSPOptimization(PGQueueNode node,
 			Emat emat, int numNodesForLevel[],double upperE,Index3[][] twoDTo3D) {
 	
 		this.emat = emat;
@@ -547,17 +553,22 @@ public class ToulbarOptimization {
 		if(additionalCommands != null)
 			commandLength = additionalCommands.length;
 			
-		String[] commands = new String[3+commandLength];
-		commands[0] = toulbar2optLoc;
+		String[] commands = new String[5+commandLength];
+		
 		for(int i=0; i<commandLength;i++){
 			commands[i+1] = additionalCommands[i];
 		}
 		commands[commandLength+1] = "-s";
-		commands[commandLength+2] = outDir+File.separator+filename;
+		commands[commandLength+2] = "-e:";
+		commands[commandLength+3] = "-f:";
+		commands[commandLength+4] = outDir+File.separator+filename;
 		
 		String sol = "";
-			
-		try {
+		boolean solFound = false;
+		int ctr=0;
+		while(!solFound && ctr<toulbar2optLoc.length){	
+			commands[0] = toulbar2optLoc[ctr++];
+			try {
 			Process p = Runtime.getRuntime().exec(commands);
 			// any error message?
 //			StreamGobbler errorGobbler = new 
@@ -581,6 +592,7 @@ public class ToulbarOptimization {
 				
 				if(newSolution){
 					sol = line;
+					solFound = true;
 				}
 				
 				if(line.contains("New solution")){
@@ -609,7 +621,7 @@ public class ToulbarOptimization {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
-		
+		}
 		//Find Solution
 		if(sol.equals(""))
 			return Double.POSITIVE_INFINITY;
@@ -627,62 +639,69 @@ public class ToulbarOptimization {
 		if(additionalCommands != null)
 			commandLength = additionalCommands.length;
 			
-		String[] commands = new String[4+commandLength];
-		commands[0] = toulbar2preprocLoc;
+		String[] commands = new String[6+commandLength];
+		
 		for(int i=0; i<commandLength;i++){
 			commands[i+1] = additionalCommands[i];
 		}
 		commands[commandLength+1] = "-s";
-		commands[commandLength+2] = "-preproconly";
-		commands[commandLength+3] = outDir+File.separator+filename;
+		commands[commandLength+2] = "-e:";
+		commands[commandLength+3] = "-f:";
+		commands[commandLength+4] = "-preproconly";
+		commands[commandLength+5] = outDir+File.separator+filename;
 		
 		String sol = "";
 		long lowerBound = Long.MAX_VALUE;
-			
+		boolean solFound = false;
+		int ctr = 0;
+		while(!solFound && ctr < toulbar2preprocLoc.length){
+			commands[0] = toulbar2preprocLoc[ctr++];
 		try {
 			Process p = Runtime.getRuntime().exec(commands);
-			// any error message?
-//			StreamGobbler errorGobbler = new 
-//                StreamGobbler(p.getErrorStream(), "ERROR");            
-
-            // any output?
-//            StreamGobbler outputGobbler = new 
-//                StreamGobbler(p.getInputStream(), "OUTPUT");
-
-            // kick them off
-//            errorGobbler.start();
-//            outputGobbler.start();
-
-			ArrayList<String> output = new ArrayList<String>();
-			InputStreamReader isr = new InputStreamReader(p.getInputStream());
-			BufferedReader br = new BufferedReader(isr);
-			String line = null;
-			boolean newSolution = false;
-			while( (line = br.readLine()) != null){
-				output.add(line);
-
-				//Initial lower and upper bounds: [10,1537228672809129301[
-				if(line.contains("Initial lower and upper bounds")){
-					String[] aLine = line.split("[ \\[,]");
-					lowerBound = new Long( aLine[6] );
-				}
-				
-
-				
+				// any error message?
+	//			StreamGobbler errorGobbler = new 
+	//                StreamGobbler(p.getErrorStream(), "ERROR");            
+	
+	            // any output?
+	//            StreamGobbler outputGobbler = new 
+	//                StreamGobbler(p.getInputStream(), "OUTPUT");
+	
+	            // kick them off
+	//            errorGobbler.start();
+	//            outputGobbler.start();
+	
+				ArrayList<String> output = new ArrayList<String>();
+				InputStreamReader isr = new InputStreamReader(p.getInputStream());
+				BufferedReader br = new BufferedReader(isr);
+				String line = null;
+				boolean newSolution = false;
+				while( (line = br.readLine()) != null){
+					output.add(line);
+	
+					//Initial lower and upper bounds: [10,1537228672809129301[
+					if(line.contains("Initial lower and upper bounds")){
+						String[] aLine = line.split("[ \\[,]");
+						lowerBound = new Long( aLine[6] );
+						solFound = true;
+					}
 					
-			}
+	
+					
+						
+				}
+					
 				
-			
-            // any error???
-            int exitVal = p.waitFor();
-//            System.out.println("ExitValue: " + exitVal); 
-            
-		} catch (IOException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		} catch (InterruptedException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
+	            // any error???
+	            int exitVal = p.waitFor();
+	//            System.out.println("ExitValue: " + exitVal); 
+	            
+			} catch (IOException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			} catch (InterruptedException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
 		}
 		
 		//Find Solution
@@ -695,10 +714,13 @@ public class ToulbarOptimization {
 		long costL = getCostForFullConf(Ew+bestE, upperBound);
 		String cost = (new Long(costL)).toString();
 		
-		String[] commands = {toulbar2optLoc,"-s","-a","-ub="+cost,outDir+File.separator+filename};
+		String[] commands = {toulbar2optLoc[0],"-s","-a","-e:","-f:","-ub="+cost,outDir+File.separator+filename};
 		
 		String sol = "";
-			
+		boolean solFound = false;
+		int ctr=0;
+		while(!solFound && ctr < toulbar2optLoc.length){
+			commands[0] = toulbar2optLoc[ctr++];
 		try {
 			Process p = Runtime.getRuntime().exec(commands);
 			// any error message?
@@ -724,6 +746,7 @@ public class ToulbarOptimization {
 					//Found Solution
 					sol = line.substring(line.indexOf(":")+2, line.length());
 					toulbarSol2ospreyConf(sol);
+					solFound = true;
 				}
 	
 					
@@ -740,6 +763,7 @@ public class ToulbarOptimization {
 		} catch (InterruptedException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
+		}
 		}
 		
 	}

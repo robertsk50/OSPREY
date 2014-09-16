@@ -31,17 +31,19 @@ public class SuperRotamer implements Serializable{
 		if(needsMutation(residues,m)){
 			neededMut = true;
 			for(Integer resID:residues){
-				MutUtils.changeResidueType(m, resID, m.residue[resID].rl.getRot(rotamers[ctr]).aaType.name, addHydrogens,connectResidues);
+				Residue r = m.residue[resID];
+				MutUtils.changeResidueType(m, resID, m.strand[r.strandNumber].rcl.getRC(rotamers[ctr]).rot.aaType.name, addHydrogens,connectResidues);
 				ctr++;
 			}
 		}
 		return neededMut;
 	}
 
-	public void applyRotamer(ArrayList<Integer> residues, Molecule m) {
+	public void applyRC(ArrayList<Integer> residues, Molecule m) {
 		int ctr=0;
 		for(int resID:residues){
-			MutUtils.applyRotamer(m, m.residue[resID].rl.getRot(rotamers[ctr]),resID);
+			Residue r = m.residue[resID];
+			MutUtils.applyRC(m, m.residue[resID],m.strand[r.strandNumber].rcl.getRC(rotamers[ctr]));
 			ctr++;
 		}	
 	}
@@ -50,7 +52,8 @@ public class SuperRotamer implements Serializable{
 		int ctr = 0;
 		double retEref = 0;
 		for(int resID: residues){
-			retEref += eRef.get(m.residue[resID].getResNumberString())[m.residue[resID].rl.getRot(rotamers[ctr]).aaType.index];
+			Residue r = m.residue[resID];
+			retEref += eRef.get(r.getResNumberString())[m.strand[r.strandNumber].rcl.getRC(rotamers[ctr]).rot.aaType.index];
 			ctr++;
 		}
 		return retEref;
@@ -60,7 +63,7 @@ public class SuperRotamer implements Serializable{
 		int ctr = 0;
 		double retEntropy = 0;
 		for(int resID: residues){
-			retEntropy += m.residue[resID].rl.getRot(rotamers[ctr]).aaType.entropy;
+			retEntropy += m.strand[m.residue[resID].strandNumber].rl.getRot(rotamers[ctr]).aaType.entropy;
 			ctr++;
 		}
 		return retEntropy;
@@ -71,8 +74,9 @@ public class SuperRotamer implements Serializable{
 		boolean mutOnce = false;
 		for(Integer resID:residues){
 			Residue r = m.residue[resID];
+			ResidueConformationLibrary rcl = m.strand[r.strandNumber].rcl;
 			try{
-			if(! r.isSameAA(m.residue[resID].rl.getRot(rotamers[ctr]).aaType.name))
+			if(! r.isSameAA(rcl.getRC(rotamers[ctr]).rot.aaType.name))
 				return true;
 			else if(!r.mutatedOnce && m.residue[resID].canMutate){
 				mutOnce = true;
@@ -101,8 +105,10 @@ public class SuperRotamer implements Serializable{
 		String resStr = "";
 		int ctr=0;
 		for(int resID: residues){
-			Rotamer r = m.residue[resID].rl.getRot(rotamers[ctr]);
-			resStr += m.residue[resID].getResNumberString()+" "+r.aaType.name+" "+r.aaIndex+" ";
+			Residue res = m.residue[resID];
+			ResidueConformation rc = m.strand[res.strandNumber].rcl.getRC(rotamers[ctr]);
+			Rotamer rot = rc.rot;
+			resStr += m.residue[resID].getResNumberString()+" "+rot.aaType.name+" "+rc.id+" "+rot.aaIndex+" ";
 			ctr++;
 		}
 		return resStr;

@@ -233,7 +233,7 @@ public class SimpleMinimizer implements Serializable {
 		
 	// Initializes the Minimizer for use with a system without a ligand
 	public void initialize(Molecule theM, int numStrands, Amber96ext theA96ff,
-		StrandRotamers strandRotamers[], int curAANum[], boolean doDihedral){
+		StrandRotamers strandRotamers[], boolean doDihedral){
 	
 		
 		
@@ -267,7 +267,7 @@ public class SimpleMinimizer implements Serializable {
 		for(int i=0;i<numberOfStrands;i++){
 			for(int j=0;j<m.strand[i].numberOfResidues;j++){
 				if(m.strand[i].residue[j].flexible)
-					numStrDihedrals[i] += strandRot[i].rl.getNumDihedrals(curAANum[m.strand[i].residue[j].moleculeResidueNumber]);
+					numStrDihedrals[i] += m.strand[i].residue[j].curRC.rot.aaType.numDihedrals();
 			}
 		}		
 			
@@ -344,8 +344,8 @@ public class SimpleMinimizer implements Serializable {
 				}
 				prevNumAtoms += localRes.numberOfAtoms;
 				if(localRes.flexible){
-					
-					for(int j=0;j<strandRot[str].rl.getNumDihedrals(curAANum[theM.strand[str].residue[i].moleculeResidueNumber]);j++){
+					Rotamer curRotamer = localRes.curRC.rot;
+					for(int j=0;j<curRotamer.aaType.numDihedrals();j++){
 						strDihedToResNum[str][numDihed] = curNumFlex;
 						atoms = strandRot[str].rl.getDihedralInfo(m,str,i,j);
 					// note: atoms are residue relative numbering

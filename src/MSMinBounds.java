@@ -1,35 +1,40 @@
 import java.util.Arrays;
 import java.util.Iterator;
 
+///////////////////////////////////////////////////////////////////////////////////////////////
+//	MSMinBounds.java
+//
+//	Version:           0.3
+//
+//
+//	  authors:
+// 	  initials    name                 organization                email
+//	---------   -----------------    ------------------------    ----------------------------
+//	  ISG		 Ivelin Georgiev	  Duke University			  ivelin.georgiev@duke.edu
+//
+///////////////////////////////////////////////////////////////////////////////////////////////
+
+/**
+* Written by Ivelin Georgiev (2004-2006)
+* 
+*/
+
 /*
-This file is part of OSPREY.
-
-OSPREY Protein Redesign Software Version 2.1 beta
-Copyright (C) 2001-2012 Bruce Donald Lab, Duke University
-
-OSPREY is free software: you can redistribute it and/or modify
-it under the terms of the GNU Lesser General Public License as 
-published by the Free Software Foundation, either version 3 of 
-the License, or (at your option) any later version.
-
-OSPREY is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU Lesser General Public License for more details.
-
-You should have received a copy of the GNU Lesser General Public
-License along with this library; if not, see:
-      <http://www.gnu.org/licenses/>.
+	This library is free software; you can redistribute it and/or
+	modify it under the terms of the GNU Lesser General Public
+	License as published by the Free Software Foundation; either
+	version 2.1 of the License, or (at your option) any later version.
+	This library is distributed in the hope that it will be useful,
+	but WITHOUT ANY WARRANTY; without even the implied warranty of
+	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+	Lesser General Public License for more details.
 	
-There are additional restrictions imposed on the use and distribution
-of this open-source code, including: (A) this header must be included
-in any modification or extension of the code; (B) you are required to
-cite our papers in any publications that use this code. The citation
-for the various different modules of our software, together with a
-complete list of requirements and restrictions are found in the
-document license.pdf enclosed with this distribution.
-
-Contact Info:
+	You should have received a copy of the GNU Lesser General Public
+	License along with this library; if not, write to the Free Software
+	Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307
+	USA
+	
+	Contact Info:
 		Bruce Donald
 		Duke University
 		Department of Computer Science
@@ -37,44 +42,32 @@ Contact Info:
 		Durham
 		NC 27708-0129 
 		USA
-		e-mail:   www.cs.duke.edu/brd/
-
-<signature of Bruce Donald>, Mar 1, 2012
-Bruce Donald, Professor of Computer Science
+		brd@cs.duke.edu
+	
+	If you use or publish any results derived from the use of this
+	program please cite:
+	Georgiev I, Lilien R, Donald B. "Improved Pruning Algorithms and
+	Divide-and-Conquer Strategies for Dead-End Elimination, with Application
+	to Protein Design" Bioinformatics, 22(14): e174-e183, 2006.
+	
+	Copyright (C) 2006 Ivelin Georgiev, Ryan H. Lilien, and Bruce R. Donald
+		
+	<signature of Bruce Donald>, 23 Aug, 2006
+	Bruce Donald, Professor of Computer Science
 */
 
-///////////////////////////////////////////////////////////////////////////////////////////////
-//	MSMinBounds.java
-//
-//	Version:           2.1 beta
-//
-//
-//	  authors:
-// 	  initials    name                 organization                email
-//	---------   -----------------    ------------------------    ----------------------------
-//	  ISG		 Ivelin Georgiev	  Duke University			  ivelin.georgiev@duke.edu
-//	  KER        Kyle E. Roberts       Duke University         ker17@duke.edu
-//	  PGC        Pablo Gainza C.       Duke University         pablo.gainza@duke.edu
-//        MAH        Mark A. Hallen        Duke University         mah43@duke.edu
-///////////////////////////////////////////////////////////////////////////////////////////////
-
-/**
-* Written by Ivelin Georgiev (2004-2009)
-* 
-*/
-
-/** 
- * Performs two different operations, depending on the input parameters:
+/* Performs two separate operations:
+ * 
  * 1) Applies the Bounds/MinBounds pruning criteria: computes a lower bound on the energy of all
- * 		conformations that contain a given rotamer i_r, for each rotamer;
- * 2) Computes:
- *      (a) a lower bound on the energy of all conformations that contain a pruned rotamer, and
- * 		(b) all conformations that are pruned due to unallowed sterics
+ * 		conformations that contain a given rotamer i_r, for each rotamer (boundKStar is false);
+ * 
+ * 2) Compute Ec, a lower bound on the energy of all conformations that contain a pruned rotamer, and
+ * 		prunedIsSteric[], all conformations that are pruned due to unallowed sterics (boundKStar is true)
  * 
  */
-public class MSMinBounds extends DEE {
+public class MSMinBounds {
 	
-	private class MSRotBounds implements Comparable,RyanComparable {
+	private class MSRotBounds implements Comparable{
 		Index3 index;
 		double Ec; //min bound for rot index
 		
@@ -85,10 +78,50 @@ public class MSMinBounds extends DEE {
 			return 0;
 		}
 	}
-		
+	
+
+	
+	//pairwise energy matrix for the min energies
+	private Emat pairwiseMinEnergyMatrix = null;
+	
+	//eliminated rotamers at position i, for all positions
+	//private PrunedRotamers<Boolean> eliminatedRotAtPos = null;
+	
+	//number of residues under consideration
+	//private int numSiteResidues;
+	private int numMutable;
+	
+	//for each residue, number of possible amino acids
+	//private int numTotalRot;
+	
+	//number of possible rotamers for the ligand
+	//int numLigRot;
+	
+	//offset of the given rotamer in the total rotamer set (?152?)
+	//int rotIndOffset[];
+	
+	//the number of AA tyes allowed for each AS residue
+	//int numAAtypes[] = null;
+	
+	//number of rotamers for the current AA type at the given residue
+	//int numRotForAAtypeAtRes[];
+	
+	//this value depends on the particular value specified in the pairwise energy matrices;
+	//		in KSParser, this value is 10^38;
+	//entries with this particular value will not be examined, as they are not allowed;
+	//note that when computing E intervals, if a steric is not allowed, (maxE-minE)=0,
+	//		so no comparison with stericE is necessary there
+	private float bigE = (float)Math.pow(10,38);
+	
+	//steric energy that determines incompatibility of a rotamer with the template
+	float stericE = bigE;
+	
+	//private double curEw = 0.0f;	//the max allowable difference from the GMEC (checkSum<=curEw should not be pruned)
+	
+	//PrintStream logPS = null;
 	
 	//stores the min bound for each rotamer
-	PrunedRotamers<MSRotBounds> indBounds = null;
+	//PrunedRotamers<MSRotBounds> indBounds = null;
 	
 	//the minimum lower energy bound for all pruned conformations
 	double Ec = bigE;
@@ -102,9 +135,19 @@ public class MSMinBounds extends DEE {
 	int numRotForMut = 0;
 	
 	//determines if a rotamer index is a part of the current mutation sequence
-	PrunedRotamers<Boolean> rotInMutInd;
+	//PrunedRotamers<Boolean> rotInMutInd;
 	
-		//determines if Ec and prunedIsSteric are computed for the ensemble-based bound to the total
+	//the rotamer library
+	//RotamerLibrary rl = null;
+	
+	//The system rotamer handler
+	//StrandRotamers sysLR = null;
+	//StrandRotamers strandRot[] = null;
+	
+	//The mapping from AS position to actual residue numbers
+	//int residueMap[] = null;
+	int strandMut[][]=null;
+	//determines if Ec and prunedIsSteric are computed for the ensemble-based bound to the total
 	//		contribution of all pruned conformations
 	boolean boundKStar = false;
 	
@@ -112,7 +155,7 @@ public class MSMinBounds extends DEE {
 	boolean onlyBound = false;
 	
 	//flag that a rotamer is pruned because of a steric clash, and not because of energy difference
-	PrunedRotamers<Boolean> prunedIsSteric = null;
+	//PrunedRotamers<Boolean> prunedIsSteric = null;
 	
 	double pruningE = bigE; //the lower-bound energy cutoff for pruning
 	
@@ -122,43 +165,62 @@ public class MSMinBounds extends DEE {
 	double indInt[] = null;
 	double pairInt[] = null;
 	
+	//split flags for all rotamer pairs
+	boolean splitFlags[][][][][][] = null;
+	
+	//determines if split flags are used
+	boolean useFlags = false;
+	
+	//the percent of pruned non-steric rotamers
+	//final double lambda = 0.3;//0.08;
+	
+	//int ligAANum = -1; //the ligand amino acid index
+//	int mutRes2Strand[] = null;
+//	int mutRes2MutIndex[] = null;
 
 	//constructor
-	MSMinBounds(PairwiseEnergyMatrix arpMatrix, int numResMutable,
-			int strMut[][], StrandRotamers strRot[], double pruneE, 
-			PrunedRotamers<Boolean> prunedRotAtRes, boolean spFlags[][][][][][], boolean useSF, double initEw, boolean boundKS, 
-			boolean onlyCompBound,int mutRes2StrandP[], int mutRes2MutIndexP[], boolean doPerts) {
-
-            init(arpMatrix, null, numResMutable,
-			strMut, initEw, strRot, prunedRotAtRes, false, null, null,
-                        spFlags, useSF, false, mutRes2StrandP, mutRes2MutIndexP, false, false, 0,
-                        false, false, null, null, doPerts);
-
-
-
+	MSMinBounds(Emat arpMatrix, double pruneE, 
+			boolean useSF, double initEw, boolean boundKS, 
+			boolean onlyCompBound) {
+		
+		
+		pairwiseMinEnergyMatrix = arpMatrix;
+		
+		useFlags = useSF;
 		boundKStar = boundKS;
 		onlyBound = onlyCompBound;
-		
+				
+		//numSiteResidues = numResInActiveSite;		// tested with 9 AS
+		numMutable = arpMatrix.numMutPos();
+				
 		pruningE = pruneE;
 		Ew = initEw;
 		
-		rotInMutInd = new PrunedRotamers<Boolean>(eliminatedRotAtPos,false);
-		indBounds = new PrunedRotamers<MSRotBounds>(eliminatedRotAtPos, null);
+//		rotInMutInd = new PrunedRotamers<Boolean>(eliminatedRotAtPos,false);
+//		indBounds = new PrunedRotamers<MSRotBounds>(eliminatedRotAtPos, null);
 		
-		Iterator<RotInfo<MSRotBounds>> iter = indBounds.iterator();
-		while(iter.hasNext()){
-		//for (int i=0; i<eliminatedRotAtPos.length; i++){
-			//Already Initialized
-			//rotInMutInd[i] = false; //true only if the given rotamer index is used in the current mutation sequence
-			RotInfo<MSRotBounds> ri = iter.next();
-			indBounds.set(ri, new MSRotBounds());
-			indBounds.get(ri).index = new Index3(ri.curPos, ri.curAA, ri.curRot);
-			indBounds.get(ri).Ec = bigE;
-		}
+//		Iterator<RotInfo<MSRotBounds>> iter = indBounds.iterator();
+//		while(iter.hasNext()){
+//		//for (int i=0; i<eliminatedRotAtPos.length; i++){
+//			//Already Initialized
+//			//rotInMutInd[i] = false; //true only if the given rotamer index is used in the current mutation sequence
+//			RotInfo<MSRotBounds> ri = iter.next();
+//			indBounds.set(ri, new MSRotBounds());
+//			indBounds.get(ri).index = new Index3(ri.curPos, ri.curAA, ri.curRot);
+//			indBounds.get(ri).Ec = bigE;
+//		}
+//		
+//		numAAtypes = new int[numMutable];
 		
-		
-		
-		prunedIsSteric = new PrunedRotamers<Boolean>(eliminatedRotAtPos,false);
+//		int ctr=0;
+//		for(int str=0;str<strandMut.length;str++){ //the number of AAs allowed for each AS residue
+//			for(int i=0;i<strandMut[str].length;i++){
+//				numAAtypes[ctr] = strandRot[str].getNumAllowable(strandMut[str][i]);
+//				ctr++;
+//			}
+//		}
+//		
+//		prunedIsSteric = new PrunedRotamers<Boolean>(eliminatedRotAtPos,false);
 		/*for (int i=0; i<prunedIsSteric.length; i++)
 			prunedIsSteric[i] = false;*/
 		
@@ -170,9 +232,9 @@ public class MSMinBounds extends DEE {
 		return Ec;
 	}
 	
-	public PrunedRotamers<Boolean> getPrunedSteric(){
-		return prunedIsSteric;
-	}
+//	public PrunedRotamers<Boolean> getPrunedSteric(){
+//		return prunedIsSteric;
+//	}
 	
 	//Precompute the terms for indInt[] and pairInt[]
 	private void precomputeInt() {
@@ -198,17 +260,10 @@ public class MSMinBounds extends DEE {
 		}
 	}
 
-	/*
-	 * Performs two separate operations, depending on the input parameters:
-	 * 1) Applies the Bounds/MinBounds pruning criteria: computes a lower bound on the energy of all
-	 * 		conformations that contain a given rotamer i_r, for each rotamer (boundKStar is false); 
-	 *    Return a boolean matrix in which an element is true if the corresponding r at i can be eliminated, and false otherwise.
-	 * 2) Computes:
-	 *      (a) Ec, a lower bound on the energy of all conformations that contain a pruned rotamer, and;
-	 * 		(b) prunedIsSteric[], all conformations that are pruned due to unallowed sterics (boundKStar is true).
-	 * 
-	 */
-	public PrunedRotamers ComputeEliminatedRotConf (){
+	//Compute the conformations that can be eliminated
+	//Return a boolean matrix in which an element is true if
+	//the corresponding r at i can be eliminated, and false otherwise
+	public void ComputeEliminatedRotConf (){
 		
 		//precompute the terms for indInt[] and pairInt[]
 		precomputeInt();
@@ -217,7 +272,7 @@ public class MSMinBounds extends DEE {
 		int prunedCurRun = 0;
 		int numRuns = 1;
 		
-		while (!done) {
+		//while (!done) {
 			
 			prunedCurRun = 0;
 			
@@ -228,38 +283,46 @@ public class MSMinBounds extends DEE {
 			//Compute for the AS residues first
 			for (int curPos=0; curPos<numMutable; curPos++){
 				
-				int str=mutRes2Strand[curPos];
-				int strResNum=strandMut[str][mutRes2MutIndex[curPos]];
-								
-				//System.out.print("Starting AS residue "+curPos);
-								
-				for (int AA=0; AA<numAAtypes[curPos]; AA++){
-					
+				SinglesIterator iter = pairwiseMinEnergyMatrix.singlesIterator(curPos);
+				while(iter.hasNext()){				
+				//for (int AA=0; AA<numAAtypes[curPos]; AA++){
+					EMatrixEntryWIndex rot = iter.next();
 					//System.out.print(".");
 					
-					int curAA = strandRot[str].getIndexOfNthAllowable(strResNum,AA);
+					//int curAA = strandRot[str].getIndexOfNthAllowable(strResNum,AA);
 				
 					//find how many rotamers are allowed for the current AA type at the given residue;
 					//note that ala and gly have 0 possible rotamers
-					numRotForCurAAatPos = getNumRot( str, strResNum, curAA );
+					//numRotForCurAAatPos = strandRot[str].getNumRotForAAtype(curAA,strResNum);
+					//if (numRotForCurAAatPos==0)	//ala or gly
+					//	numRotForCurAAatPos = 1;
 					
-					for(int curRot=0; curRot<numRotForCurAAatPos; curRot++){
+					//for(int curRot=0; curRot<numRotForCurAAatPos; curRot++){
 						
 						numRotForMut++;
 						
 						//int index = curPos*numTotalRot + rotIndOffset[curAA] + curRot;
-						rotInMutInd.set(curPos,curAA,curRot, true); //rot index is in cur mut sequence
+						//rotInMutInd.set(curPos,curAA,curRot, true); //rot index is in cur mut sequence
 						
-						if ((boundKStar)||(!eliminatedRotAtPos.get(curPos,curAA,curRot))){ //boundKStar or not already pruned
+						if ((boundKStar)||(!rot.eme.isPruned())){ //boundKStar or not already pruned
 						
 							//logPS.println((curPos*numTotalRot + rotIndOffset[curAA] + curRot));logPS.flush();
-							curEc = pairwiseMinEnergyMatrix.getShellShellE();//pairwiseMinEnergyMatrix[pairwiseMinEnergyMatrix.length-1][0][0][0][0][0]; //initialize to Et' for each rotamer
+							curEc = pairwiseMinEnergyMatrix.templ_E; //RotamerSearch.getShellShellEMin(pairwiseMinEnergyMatrix);//pairwiseMinEnergyMatrix[pairwiseMinEnergyMatrix.length-1][0][0][0][0][0]; //initialize to Et' for each rotamer
 							
-							CanEliminate(curPos, curAA, curRot, numRotForCurAAatPos);
-							indBounds.get(curPos, curAA, curRot).Ec = Math.min(indBounds.get(curPos,curAA,curRot).Ec, curEc); //update the lowest energy bound if necessary
+							CanEliminate(rot);
+							//indBounds.get(curPos, curAA, curRot).Ec = Math.min(indBounds.get(curPos,curAA,curRot).Ec, curEc); //update the lowest energy bound if necessary
+							
+							if(curEc > pruningE+Ew){
+								pairwiseMinEnergyMatrix.setPruned(rot.index, true);
+							}
+							
+							if(rot.eme.isPruned()){
+								Ec = Math.min(Ec, curEc);
+							}
+							
 						}
-					}
-				}
+					//}
+				//}
 				//System.out.println("done");
 			}
 			
@@ -291,134 +354,136 @@ public class MSMinBounds extends DEE {
 			//rqs.Sort(indBounds);
 			//Arrays.sort(indBounds);
 			
-			if (onlyBound) //only compute the bounds, so done
-				done = true;
-			else {//either pruning or Ec computation should also be performed
-			
-				//Determine the pruned rotamers: all rotamers whose lower energy bound is above the given
-				//	cutoff value are pruned
-				double minE = bigE;
-				double maxE = -bigE;
-				double minEc = bigE;
-				int numRot = 0;
-				int numStericFromBounds = 0;
-				int numTotalSteric = 0;
-				
-				Iterator<RotInfo<MSRotBounds>> iter = indBounds.iterator();
-				while(iter.hasNext()){
-				//for (int i=0; i<indBounds.length; i++){
-					RotInfo<MSRotBounds> ri = iter.next();
-					if (rotInMutInd.get(ri.state.index)){ //rot index is in current mutation
-						numRot++;
-						
-						if (!boundKStar) {//pruning is performed
-							
-							if ((!eliminatedRotAtPos.get(ri.state.index))){ //not already pruned
-							
-								if (ri.state.Ec>pruningE+Ew){ //higher than the cutoff energy, so prune
-									eliminatedRotAtPos.set(ri.state.index, true);
-									prunedCurRun++;
-								
-									if (ri.state.Ec >= stericE){ //pruned due to unallowed steric (from MinBounds only)
-										numStericFromBounds++;
-									}
-									
-									minE = Math.min(minE,ri.state.Ec);
-									maxE = Math.max(maxE,ri.state.Ec);					
-								}
-							}
-						}
-						else {//Ec and prunedIsSteric[] are computed
-						
-							if (eliminatedRotAtPos.get(ri.state.index)) //check the Ec among all pruned rotamers
-								minEc = Math.min(minEc,ri.state.Ec);
-							
-							if (ri.state.Ec >= stericE){ //pruned due to unallowed steric (from all criteria used)
-								prunedIsSteric.set(ri.state.index, true);
-								numTotalSteric++;
-							}
-						}
-					}
-				}
-				
-				if (boundKStar)
-					Ec = Math.min(Ec,minEc); //the minimum pruned lower bound (among all pruned rotamers, for boundsKStar)	
-				
-				
-				if ((boundKStar)||(prunedCurRun==0)) //boundKStar or no rotamers pruned this run, so done
-					done = true;
-				else 
-					numRuns++;
-				
-				
-				//System.out.println("Number of rotamers for the current sequence: "+numRot);
-				
-				//if (!boundKStar)
-				//	System.out.println("Number of rotamers pruned this run: "+prunedCurRun);
-				//System.out.println();
-				
-				//System.out.println("minE: "+minE+" maxE: "+maxE+" pruningE: "+pruningE+" Ew: "+Ew+" Ec: "+Ec);
-				//if (!boundKStar)
-				//	System.out.println("Num rotamers pruned due to unallowed sterics (from Bounds): "+numStericFromBounds);
-				//else
-				//	System.out.println("Num rotamers pruned due to unallowed sterics (from all criteria): "+numTotalSteric);
-				//System.out.println();				
-				
-				/*if (boundKStar){
-					for (int i=0; i<indBounds.length; i++){
-						if (rotInMutInd[indBounds[i].index]){
-							System.out.print("rank: "+i+" rotIndex: "+indBounds[i].index+" minBound: "+indBounds[i].Ec);
-							System.out.println(" pruned: "+eliminatedRotAtPos[indBounds[i].index]);
-						}
-					}
-				}*/
-			}
+//			if (onlyBound) //only compute the bounds, so done
+//				done = true;
+//			else {//either pruning or Ec computation should also be performed
+//			
+//				//Determine the pruned rotamers: all rotamers whose lower energy bound is above the given
+//				//	cutoff value are pruned
+//				double minE = bigE;
+//				double maxE = -bigE;
+//				double minEc = bigE;
+//				int numRot = 0;
+//				int numStericFromBounds = 0;
+//				int numTotalSteric = 0;
+//				
+//				Iterator<RotInfo<MSRotBounds>> iter = indBounds.iterator();
+//				while(iter.hasNext()){
+//				//for (int i=0; i<indBounds.length; i++){
+//					RotInfo<MSRotBounds> ri = iter.next();
+//					if (rotInMutInd.get(ri.state.index)){ //rot index is in current mutation
+//						numRot++;
+//						
+//						if (!boundKStar) {//pruning is performed
+//							
+//							if ((!eliminatedRotAtPos.get(ri.state.index))){ //not already pruned
+//							
+//								if (ri.state.Ec>pruningE+Ew){ //higher than the cutoff energy, so prune
+//									eliminatedRotAtPos.set(ri.state.index, true);
+//									prunedCurRun++;
+//								
+//									if (ri.state.Ec >= stericE){ //pruned due to unallowed steric (from MinBounds only)
+//										numStericFromBounds++;
+//									}
+//									
+//									minE = Math.min(minE,ri.state.Ec);
+//									maxE = Math.max(maxE,ri.state.Ec);					
+//								}
+//							}
+//						}
+//						else {//Ec and prunedIsSteric[] are computed
+//						
+//							if (eliminatedRotAtPos.get(ri.state.index)) //check the Ec among all pruned rotamers
+//								minEc = Math.min(minEc,ri.state.Ec);
+//							
+//							//if (ri.state.Ec >= stericE){ //pruned due to unallowed steric (from all criteria used)
+//							//	prunedIsSteric.set(ri.state.index, true);
+//							//	numTotalSteric++;
+//							//}
+//						}
+//					}
+//				}
+//				
+//				if (boundKStar)
+//					Ec = Math.min(Ec,minEc); //the minimum pruned lower bound (among all pruned rotamers, for boundsKStar)	
+//				
+//				
+//				if ((boundKStar)||(prunedCurRun==0)) //boundKStar or no rotamers pruned this run, so done
+//					done = true;
+//				else 
+//					numRuns++;
+//				
+//				
+//				//System.out.println("Number of rotamers for the current sequence: "+numRot);
+//				
+//				//if (!boundKStar)
+//				//	System.out.println("Number of rotamers pruned this run: "+prunedCurRun);
+//				//System.out.println();
+//				
+//				//System.out.println("minE: "+minE+" maxE: "+maxE+" pruningE: "+pruningE+" Ew: "+Ew+" Ec: "+Ec);
+//				//if (!boundKStar)
+//				//	System.out.println("Num rotamers pruned due to unallowed sterics (from Bounds): "+numStericFromBounds);
+//				//else
+//				//	System.out.println("Num rotamers pruned due to unallowed sterics (from all criteria): "+numTotalSteric);
+//				//System.out.println();				
+//				
+//				/*if (boundKStar){
+//					for (int i=0; i<indBounds.length; i++){
+//						if (rotInMutInd[indBounds[i].index]){
+//							System.out.print("rank: "+i+" rotIndex: "+indBounds[i].index+" minBound: "+indBounds[i].Ec);
+//							System.out.println(" pruned: "+eliminatedRotAtPos[indBounds[i].index]);
+//						}
+//					}
+//				}*/
+//			}
 		}
 		
-		return eliminatedRotAtPos;
+		//return eliminatedRotAtPos;
 	}
 	
 	//Returns the energy bound for the rotamer with index ind;
 	//ComputeEliminatedRotConf() must be called first and onlyBound must be set to true
-	public double getBoundForPartition(){
-		double mE = stericE;
-		Iterator<RotInfo<MSRotBounds>> iter = indBounds.iterator();
-		while(iter.hasNext()){
-		//for (int i=0; i<indBounds.length; i++){
-			RotInfo<MSRotBounds> ri = iter.next();
-			mE = Math.min(mE, ri.state.Ec);
-		}
-		return mE;
-	}
+//	public double getBoundForPartition(){
+//		double mE = stericE;
+//		Iterator<RotInfo<MSRotBounds>> iter = indBounds.iterator();
+//		while(iter.hasNext()){
+//		//for (int i=0; i<indBounds.length; i++){
+//			RotInfo<MSRotBounds> ri = iter.next();
+//			mE = Math.min(mE, ri.state.Ec);
+//		}
+//		return mE;
+//	}
 	
 	//Called only by ComputeEliminatedRotConf(.)
-	private void CanEliminate (int posNum, int AANumAtPos, int rotNumAtPos, int numRotForCurAAatPos){
+	private void CanEliminate (EMatrixEntryWIndex rot){
 		
 		double minIndVoxelE;
+		double minShellResE;
 		
-		minIndVoxelE = pairwiseMinEnergyMatrix.getIntraAndShellE( posNum, AANumAtPos, rotNumAtPos ); //formula term 1
+		minIndVoxelE = rot.eme.minE();//pairwiseMinEnergyMatrix[posNum][AANumAtPos][rotNumAtPos][posNum][0][0]; //formula term 1
+		//minShellResE = RotamerSearch.getShellRotE(pairwiseMinEnergyMatrix, posNum, AANumAtPos, rotNumAtPos);//pairwiseMinEnergyMatrix[posNum][AANumAtPos][rotNumAtPos][posNum][0][1];
 		
-		curEc += minIndVoxelE;//System.out.println(++count+" "+curEc);
+		curEc += minIndVoxelE; //+ minShellResE;//System.out.println(++count+" "+curEc);
 		
 		if (curEc>=stericE) //rotamer incompatible with template, so prune
 			return;
 		
-		curEc += indInt[posNum];							//formula term 3
-		curEc += pairInt[posNum];						//formula term 5	
-		SumMinDiffPVE(posNum, AANumAtPos, rotNumAtPos);	//formula term 4
+		curEc += indInt[rot.pos1()];							//formula term 3
+		curEc += pairInt[rot.pos1()];						//formula term 5	
+		SumMinDiffPVE(rot);	//formula term 4
 	}
 	
 	////////////////////////////////////////////////////////////////////////
 	
 	//Called only by CanEliminate(.)
-	private void SumMinDiffPVE (int atPos, int withAA, int withRot1){		
+	private void SumMinDiffPVE (EMatrixEntryWIndex rot){		
 		
 		//get the contribution from the active site residue rotamers
 		for (int curPos=0; curPos<numMutable; curPos++){
 			
-			if (curPos != atPos)
+			if (curPos != rot.pos1() && pairwiseMinEnergyMatrix.areNeighbors(curPos,rot.pos1()))
 				
-				IndMinDiffPVE(atPos, withAA, withRot1, curPos);
+				IndMinDiffPVE(rot, curPos);
 		}
 		
 		/*if (numLigRot!=0){ //there is a ligand
@@ -429,44 +494,50 @@ public class MSMinBounds extends DEE {
 	}
 	
 	//Called by SumMinMinPVE(.)
-	private void IndMinDiffPVE (int firstPos, int firstAA, int firstRot1, int secondPos){
+	private void IndMinDiffPVE (EMatrixEntryWIndex rot, int secondPos){
 
 		double curEmin;
 		
-		int numRotForAAatPos;
-		
-		int str2=mutRes2Strand[secondPos];
-		int strResNum2=strandMut[str2][mutRes2MutIndex[secondPos]];
+//		int index1, index2;
+//		int numRotForAAatPos;
+//		
+//		int str2=mutRes2Strand[secondPos];
+//		int strResNum2=strandMut[str2][mutRes2MutIndex[secondPos]];
 		
 		
 		//r at i
 		//index1 = firstPos*numTotalRot + rotIndOffset[firstAA] + firstRot1;
 		
-		if ((boundKStar)||(!eliminatedRotAtPos.get(firstPos,firstAA,firstRot1))){ //boundsKStar or not pruned
+		if ((boundKStar)||(!rot.eme.isPruned())){ //boundsKStar or not pruned
 		
 			//find the minimum E among all the rotamers (all the rotamers for the given AA assignment)
 			//for the given residue
-			for (int AA=0; AA<numAAtypes[secondPos]; AA++){
+			SinglesIterator iter = pairwiseMinEnergyMatrix.singlesIterator(secondPos);
+			while(iter.hasNext()){
+				EMatrixEntryWIndex rot2 = iter.next();
+			//for (int AA=0; AA<numAAtypes[secondPos]; AA++){
 				
-				int curAA = strandRot[str2].getIndexOfNthAllowable(strResNum2,AA);
+				//int curAA = strandRot[str2].getIndexOfNthAllowable(strResNum2,AA);
 				
-				numRotForAAatPos = getNumRot( str2, strResNum2, curAA );
+				//numRotForAAatPos = strandRot[str2].getNumRotForAAtype(curAA,strResNum2);
+				//if (numRotForAAatPos==0)	//ala or gly
+				//	numRotForAAatPos = 1;
 				
-				for (int curRot=0; curRot<numRotForAAatPos; curRot++){
+				//for (int curRot=0; curRot<numRotForAAatPos; curRot++){
 					
 					//s at j
 					//index2 = secondPos*numTotalRot + rotIndOffset[curAA] + curRot;	
 					
-					if ((boundKStar)||(!eliminatedRotAtPos.get(secondPos,curAA,curRot))){ //boundsKStar or not pruned
+					if ((boundKStar)||(!rot2.eme.isPruned())){ //boundsKStar or not pruned
 						
-						if ((boundKStar)||((!useFlags)||(!splitFlags[firstPos][firstAA][firstRot1][secondPos][curAA][curRot]))){ //boundKStar or (not using split flags or not flagged)
+						if ((boundKStar)||(!pairwiseMinEnergyMatrix.getPairPruned(rot.index, rot2.index))){ //boundKStar or (not using split flags or not flagged)
 						
-							curEmin = pairwiseMinEnergyMatrix.getPairwiseE( firstPos, firstAA, firstRot1, secondPos, curAA, curRot );
+							curEmin = pairwiseMinEnergyMatrix.getPairMinE(rot.index, rot2.index);
 							minEmin = Math.min(minEmin,curEmin);
 						}
 					}
 				}
-			}		
+			//}		
 			curEc += minEmin;//System.out.println(++count+" "+curEc+" "+minEmin);
 		}
 		minEmin = bigE; //re-initialize
@@ -527,35 +598,39 @@ public class MSMinBounds extends DEE {
 		
 		int numRotForAAatPos;
 		
-		int str=mutRes2Strand[atPos];
-		int strResNum=strandMut[str][mutRes2MutIndex[atPos]];
+//		int str=mutRes2Strand[atPos];
+//		int strResNum=strandMut[str][mutRes2MutIndex[atPos]];
 		
-		for (int AA=0; AA<numAAtypes[atPos]; AA++){
+		SinglesIterator iter = pairwiseMinEnergyMatrix.singlesIterator(atPos);
+		while(iter.hasNext()){
+		//for (int AA=0; AA<numAAtypes[atPos]; AA++){
+			EMatrixEntryWIndex rot = iter.next();
+			//int curAA = strandRot[str].getIndexOfNthAllowable(strResNum,AA);
 			
-			int curAA = strandRot[str].getIndexOfNthAllowable(strResNum,AA);
+			//numRotForAAatPos = strandRot[str].getNumRotForAAtype(curAA,strResNum);
+			//if (numRotForAAatPos==0)	//ala or gly
+			//	numRotForAAatPos = 1;
 			
-			numRotForAAatPos = getNumRot( str, strResNum, curAA );
-			
-			for (int curRot=0; curRot<numRotForAAatPos; curRot++){		
-				IndInt(atPos, curAA, curRot);
+			//for (int curRot=0; curRot<numRotForAAatPos; curRot++){		
+				IndInt(rot);
 			}
-		}
 		
 		curEc += minEmin;//System.out.println(++count+" "+curEc);
 		minEmin = bigE;
 	}
 
 	//Called by MaxIndInt(.)
-	private void IndInt (int atPos, int atAA, int atRot){
+	private void IndInt (EMatrixEntryWIndex rot){
 		
 		//s at j
 		//int index1 = atPos*numTotalRot + rotIndOffset[atAA] + atRot;	
 		
-		if ((boundKStar)||(!eliminatedRotAtPos.get(atPos,atAA,atRot))){ //boundsKStar or not pruned
+		if ((boundKStar)||(!rot.eme.isPruned())){ //boundsKStar or not pruned
 
-			double minE = pairwiseMinEnergyMatrix.getIntraAndShellE( atPos, atAA, atRot );
+			//double minE = pairwiseMinEnergyMatrix[atPos][atAA][atRot][atPos][0][0];			
+			//double minShell = RotamerSearch.getShellRotE(pairwiseMinEnergyMatrix, atPos, atAA, atRot);//pairwiseMinEnergyMatrix[atPos][atAA][atRot][atPos][0][1];
 			
-			minEmin = Math.min(minEmin,minE);
+			minEmin = Math.min(minEmin,rot.eme.minE());
 		}
 	}
 	
@@ -595,7 +670,10 @@ public class MSMinBounds extends DEE {
 			if (curPos1 != withoutPos){
 				for (int curPos2=0; curPos2<curPos1; curPos2++){
 					if (curPos2 != withoutPos){
-						MaxPairInt(curPos1,curPos2);
+						if(pairwiseMinEnergyMatrix.areNeighbors(curPos2, curPos1)){
+							//curPos2 will always be less so we put it first
+							MaxPairInt(curPos2,curPos1);
+						}
 					}
 				}
 			}
@@ -620,51 +698,73 @@ public class MSMinBounds extends DEE {
 		
 		int numRotForAAatPos1;
 		
-		int str1=mutRes2Strand[atPos1];
-		int strResNum1=strandMut[str1][mutRes2MutIndex[atPos1]];
-		int str2=mutRes2Strand[atPos2];
-		int strResNum2=strandMut[str2][mutRes2MutIndex[atPos2]];
+//		int str1=mutRes2Strand[atPos1];
+//		int strResNum1=strandMut[str1][mutRes2MutIndex[atPos1]];
+//		int str2=mutRes2Strand[atPos2];
+//		int strResNum2=strandMut[str2][mutRes2MutIndex[atPos2]];
 		
-		for (int AA1=0; AA1<numAAtypes[atPos1]; AA1++){
-			
-			int curAA1 = strandRot[str1].getIndexOfNthAllowable(strResNum1,AA1);
-			
-			numRotForAAatPos1 = getNumRot( str1, strResNum1, curAA1 );
+		SinglesIterator iter = pairwiseMinEnergyMatrix.singlesIterator(atPos1);
+		while(iter.hasNext()){
+			EMatrixEntryWIndex rot1 = iter.next();
 		
-			for (int curRot1=0; curRot1<numRotForAAatPos1; curRot1++){
+//		for (int AA1=0; AA1<numAAtypes[atPos1]; AA1++){
+//			
+//			int curAA1 = strandRot[str1].getIndexOfNthAllowable(strResNum1,AA1);
+//			
+//			numRotForAAatPos1 = strandRot[str1].getNumRotForAAtype(curAA1,strResNum1);
+//			if (numRotForAAatPos1==0)	//ala or gly
+//				numRotForAAatPos1 = 1;
+//		
+//			for (int curRot1=0; curRot1<numRotForAAatPos1; curRot1++){
 				
-				int numRotForAAatPos2;
+				//int numRotForAAatPos2;
 				
-				for (int AA2=0; AA2<numAAtypes[atPos2]; AA2++){
-					
-					int curAA2 = strandRot[str2].getIndexOfNthAllowable(strResNum2,AA2);
-					
-					numRotForAAatPos2 = getNumRot( str2, strResNum2, curAA2 );
-					
-					for (int curRot2=0; curRot2<numRotForAAatPos2; curRot2++){			
-						PairInt(atPos1, curAA1, curRot1, atPos2, curAA2, curRot2);
-					}
+				SinglesIterator iter2 = pairwiseMinEnergyMatrix.singlesIterator(atPos2);
+				while(iter2.hasNext()){
+//				for (int AA2=0; AA2<numAAtypes[atPos2]; AA2++){
+					EMatrixEntryWIndex rot2 = iter2.next();
+//					int curAA2 = strandRot[str2].getIndexOfNthAllowable(strResNum2,AA2);
+//					
+//					numRotForAAatPos2 = strandRot[str2].getNumRotForAAtype(curAA2,strResNum2);
+//					if (numRotForAAatPos2==0)	//ala or gly
+//						numRotForAAatPos2 = 1;
+//					
+//					for (int curRot2=0; curRot2<numRotForAAatPos2; curRot2++){			
+						PairInt(rot1,rot2);
 				}
+		}
+		//	}
+		//}
+		//TODO: remove this print line
+		//KER: Test to see if there are positions that just don't have any low energy
+		if(minEmin > 100){
+			if(minEmin == stericE){
+				//System.out.println("Minimum Energy between position: "+strResNum1+" "+strResNum2+" is zero");
+				//System.exit(0);
+			}
+			else{
+				//System.out.println("BOUNDSWARNING: Str1: "+str1+" Pos1: "+atPos1+" Str2:"+str2+" Pos2: "+atPos2+" MinEnergy: "+minEmin+" (in Bounds) ");
 			}
 		}
+		
 		
 		curEc += minEmin;//System.out.println(++count+" "+curEc);
 		minEmin = bigE;
 	}
 	
 	//Called by MaxPairInt(.)
-	private void PairInt (int atPos1, int atAA1, int atRot1, int atPos2, int atAA2, int atRot2){
+	private void PairInt (EMatrixEntryWIndex rot1, EMatrixEntryWIndex rot2){
 		
 		//There is a displacement: colum 0 and row 0 have special entries, 
 		//so pairwise energies start from row 1, column 1
 		//int index1 = atPos1*numTotalRot + rotIndOffset[atAA1] + atRot1;//u at k
 		//int index2 = atPos2*numTotalRot + rotIndOffset[atAA2] + atRot2;//s at j
 		
-		if ((boundKStar)||((!eliminatedRotAtPos.get(atPos1,atAA1,atRot1))&&(!eliminatedRotAtPos.get(atPos2,atAA2,atRot2)))){ //boundsKStar or not pruned
+		if ((boundKStar)||((!rot1.eme.isPruned())&&(!rot2.eme.isPruned()))){ //boundsKStar or not pruned
 			
-			if ((boundKStar)||((!useFlags)||(!splitFlags[atPos1][atAA1][atRot1][atPos2][atAA2][atRot2]))){ //boundKStar or (not using split flags or not flagged)
-
-				double minE = pairwiseMinEnergyMatrix.getPairwiseE( atPos1, atAA1, atRot1, atPos2, atAA2, atRot2 );
+			if ((boundKStar)||(!pairwiseMinEnergyMatrix.getPairPruned(rot1.index, rot2.index))){ //boundKStar or (not using split flags or not flagged)
+				
+				double minE = pairwiseMinEnergyMatrix.getPairMinE(rot1.index, rot2.index);
 				
 				minEmin = Math.min(minEmin,minE);
 			}

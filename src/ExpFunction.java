@@ -72,6 +72,8 @@ public class ExpFunction {
 	
 	final int maxPrecision = 8; //the number of decimal digits to which the BigDecimal numbers must be accurate
 
+	static MathContext mc = new MathContext(100, RoundingMode.HALF_EVEN);
+	
 	//constructor
 	ExpFunction(){
 	}

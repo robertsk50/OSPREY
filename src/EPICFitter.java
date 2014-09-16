@@ -57,11 +57,13 @@ import cern.colt.matrix.DoubleFactory2D;
 import cern.colt.matrix.DoubleMatrix1D;
 import cern.colt.matrix.DoubleMatrix2D;
 import cern.jet.math.Functions;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.BitSet;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Random;
 
 
 //this class generates EPIC polynomial fits for a given RC (intra+shell energy) or pair (pairwise energy)
@@ -83,6 +85,8 @@ public class EPICFitter {
     EPoly PCTemplate = null;//template to use for EPolyPCs
     //needs to be set (by quadratic fitting) before trying to make any of these
     
+    static long seed = 42;
+    Random rand = new Random(seed);
     
     static int sampPerParam = 10;
     
@@ -227,8 +231,12 @@ public class EPICFitter {
             }
             else {
                 //ITERATIVE
-                PCFit.coeffs = SeriesFitter.fitSeriesIterative(ySamp,trueVal,weights,lambda,
+                try{
+            	PCFit.coeffs = SeriesFitter.fitSeriesIterative(ySamp,trueVal,weights,lambda,
                     false,PCFit.fullOrder,bCutoffs,bCutoffs2,PCFit.PCOrder,PCFit.isPC);
+                }catch(Exception E){
+                	E.printStackTrace();
+                }
             }
             
             ans = PCFit;
@@ -424,7 +432,7 @@ public class EPICFitter {
             for(int dof=0; dof<numDOFs; dof++){
                 double top = relMax[dof];
                 double bottom = relMin[dof];
-                dx.set(dof, bottom + Math.random()*(top-bottom));
+                dx.set(dof, bottom + rand.nextDouble()*(top-bottom));
                 x.set(dof, center.get(dof)+dx.get(dof));
             }
 
@@ -663,7 +671,7 @@ public class EPICFitter {
             double top = relMax[dof];
             double bottom = relMin[dof];
 
-            dx.set(dof, bottom + Math.random()*(top-bottom));
+            dx.set(dof, bottom + rand.nextDouble()*(top-bottom));
             x.set(dof, center.get(dof)+dx.get(dof));
         }
 
@@ -742,7 +750,7 @@ public class EPICFitter {
                         bottom = Math.max(bottom, -scale);
                     }
 
-                    dx.set(dof, bottom + Math.random()*(top-bottom));
+                    dx.set(dof, bottom + rand.nextDouble()*(top-bottom));
                     x.set(dof, center.get(dof)+dx.get(dof));
                 }
 

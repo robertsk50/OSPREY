@@ -7,6 +7,7 @@ import java.io.InputStreamReader;
 import java.io.ObjectInputStream;
 import java.io.PrintStream;
 import java.io.Serializable;
+import java.math.BigInteger;
 import java.security.AllPermission;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -62,7 +63,7 @@ public class Emat implements Serializable {
 		//intraE = emat.intraE;//new EMatrixEntry[emat.intraE.length][][];
 		singles = emat.singles;
 
-		if(emat.pairs != null && emat.pairs.E!=null){
+		if(emat.pairs != null && emat.pairs.E!=null && mutPos >= 0){
 			pairs = emat.pairs.getSinglePosMat(mutPos);
 		}
 
@@ -236,6 +237,10 @@ public class Emat implements Serializable {
 	public void setSinglePruned(Index3 i, boolean pruned){
 		singles.pruned[i.pos][i.aa][i.rot] = pruned;
 	}
+	
+	public void setSinglePruned(int pos, int aa, int rot, boolean pruned){
+		singles.pruned[pos][aa][rot] = pruned;
+	}
 
 	public double getSingleMinE(int[] i){
 		return singles.E[i[0]][i[1]][i[2]];
@@ -243,6 +248,10 @@ public class Emat implements Serializable {
 
 	public double getSingleMinE(Index3 i){
 		return singles.E[i.pos][i.aa][i.rot];
+	}
+	
+	public double getSingleMinE(int pos, int aa, int rot){
+		return singles.E[pos][aa][rot];
 	}
 
 	/*public void setPairE(EMatrixEntrySlim eme, int[] i){
@@ -323,13 +332,13 @@ public class Emat implements Serializable {
 		read(fileName,doDih,aaRotLib);
 	}
 
-	public void save(String fileName, RotamerLibrary aaRotLib){
+	public void save(String fileName, Molecule m){
 		//writeToFile(fileName);
-		write(fileName, aaRotLib);
+		write(fileName, m);
 	}
 
 
-	public void write(String fileName,RotamerLibrary aaRotLib){
+	public void write(String fileName,Molecule m){
 
 		//KER: make pdbs directory if it doesn't exist
 		File tmpFile = new File(fileName);
@@ -351,9 +360,13 @@ public class Emat implements Serializable {
 		KSParser.outputObject(hasEntropy,fileName+".hasEntropy");
 
 		//The energy matrix is specific rotamer library so save that rotamer library with the emat
-		aaRotLib.save(fileName+".aaRots");
-
-		//TODO: Save the generic rotamer libraries as well
+		m.aaRotLib.save(fileName+".aaRots");
+		if(m.genRotLib != null)
+		m.genRotLib.save(fileName+".genRots");
+		
+		//Save the residue conformation libraries;
+		for(Strand s: m.strand)
+			s.rcl.save(fileName+".rcl_"+s.number);
 
 		//Save the reference energies
 		KSParser.outputObject(eRef, fileName+".eref");
@@ -647,7 +660,7 @@ public class Emat implements Serializable {
 	 * are considered neighbors if any residues between the two positions
 	 * are neighbors.
 	 */
-	private boolean areNeighbors(int p1, int p2, Molecule m) {
+	public boolean areNeighbors(int p1, int p2, Molecule m) {
 
 		for(int res1 : resByPos.get(p1))
 			for(int res2 : resByPos.get(p2))
@@ -687,15 +700,15 @@ public class Emat implements Serializable {
 				for(int a1=0;a1<res1.numAllowedAATypes();a1++){
 					int[] p1a1ind = {p1,a1};
 					//AARotamerType aaType1 = res1.getAllowedAAType(a1);
-					ArrayList<Rotamer> rotsForAAType1 = res1.getRotsForType(a1); 
+					ArrayList<ResidueConformation> rotsForAAType1 = res1.getRCsForType(a1); 
 					this.singles.addDim(p1a1ind,rotsForAAType1.size());//intraE[p1][a1] = new EMatrixEntry[aaType1.numRotamers()];
 					if(!intraOnly)
 						this.pairs.addDim(p1a1ind,rotsForAAType1.size());//pairE[p1][a1] = new EMatrixEntry[aaType1.numRotamers()][][][];
 					for(int r1=0; r1<rotsForAAType1.size();r1++){
 						int[] p1a1r1ind = {p1,a1,r1};
-						Rotamer rot1 = rotsForAAType1.get(r1);
+						ResidueConformation rc1 = rotsForAAType1.get(r1);
 						//SuperRotamer sr1 = new SuperRotamer(rot1.rlIndex);
-						int[] rot1Array = {rot1.rlIndex};
+						int[] rot1Array = {rc1.id};
 						this.singles.setSupRot(p1, a1, r1, rot1Array);//intraE[p1][a1][r1] = new RotamerEntry(p1,sr1);
 						if(!intraOnly){
 							this.pairs.addDim(p1a1r1ind,strandMut.numMutPos());//pairE[p1][a1][r1] = new EMatrixEntry[strandMut.numMutPos()][][];
@@ -709,7 +722,7 @@ public class Emat implements Serializable {
 											for(int a2=0;a2<res2.numAllowedAATypes();a2++){
 												int[] p1a1r1p2a2ind = {p1,a1,r1,p2,a2};
 												//AARotamerType aaType2 = res2.allowedAATypes.get(a2);
-												ArrayList<Rotamer> rotsForAAType2 = res2.getRotsForType(a2);
+												ArrayList<ResidueConformation> rotsForAAType2 = res2.getRCsForType(a2);
 												this.pairs.addDim(p1a1r1p2a2ind,rotsForAAType2.size());//pairE[p1][a1][r1][p2][a2] = new EMatrixEntry[aaType2.numRotamers()];
 												
 											}
@@ -827,6 +840,20 @@ public class Emat implements Serializable {
 		assert i1.length == 3;
 		return pairs.E[i1[0]][i1[1]][i1[2]][i2[0]][i2[1]][i2[2]];
 	}
+	
+	public double getPairMinE(int[] i1){
+		assert i1.length == 6;
+		return pairs.E[i1[0]][i1[1]][i1[2]][i1[3]][i1[4]][i1[5]];
+	}
+	
+	public double getPairwiseE(int[] i1){
+		assert i1.length == 6;
+		return pairs.E[i1[0]][i1[1]][i1[2]][i1[3]][i1[4]][i1[5]];
+	}
+	
+	public double getPairwiseE(int p1, int a1, int r1, int p2, int a2, int r2){
+		return pairs.E[p1][a1][r1][p2][a2][r2];
+	}
 
 	public double getPairMinE(Index3 i1, Index3 i2){
 		return pairs.E[i1.pos][i1.aa][i1.rot][i2.pos][i2.aa][i2.rot];
@@ -876,6 +903,18 @@ public class Emat implements Serializable {
 	public void setPairPruned(int[] i1, int[] i2, boolean pruned) {
 		pairs.pruned[i1[0]][i1[1]][i1[2]][i2[0]][i2[1]][i2[2]] = pruned;
 	}
+	
+	public void setPairPruned(int p1, int a1, int r1, int p2, int a2, int r2, boolean pruned) {
+		pairs.pruned[p1][a1][r1][p2][a2][r2] = pruned;
+	}
+	
+	public void setPairPruned(int[] i1, boolean pruned) {
+		pairs.pruned[i1[0]][i1[1]][i1[2]][i1[3]][i1[4]][i1[5]] = pruned;
+	}
+	
+	public void setPairwiseE(int[] i1, double E) {
+		pairs.E[i1[0]][i1[1]][i1[2]][i1[3]][i1[4]][i1[5]] = E;
+	}
 
 	public void setSymmetricPairPruned(int[] i, boolean pruned) {
 		pairs.pruned[i[3]][i[4]][i[5]][i[0]][i[1]][i[2]] = pruned;
@@ -885,6 +924,38 @@ public class Emat implements Serializable {
 	/*public EMatrixEntry getIntraE(Index3 index){
 		return intraE[index.pos][index.aa][index.rot];
 	}*/
+	
+	//Marks all rotamer pairs for which the min energy matrix entry is greater than cutoff as having a steric clash;
+	//		If the max energy matrix exists, the corresponding entries are marked in the same way
+	public void preprocessPairs(double cutoff, double stericE){
+			
+		PairsIterator iter = pairsIterator();
+		while(iter.hasNext()){
+			EMatrixEntryWIndex emeWI = iter.next();
+			if(getPairwiseE( emeWI.index ) > cutoff){
+				setPairwiseE( emeWI.index, stericE );
+			}
+		}
+			
+	}
+	
+	//Prune rotamer or residue-conformation pairs that are definitely impossible due to a steric clash or to parametric incompatibility
+	//as measured by their interaction energy being greater than the cutoff
+	//Particularly useful for DEEPer
+	public void pruneRidiculousPairs(double cutoff){
+
+		int numPruned = 0;
+		PairsIterator iter = pairsIterator();
+		while(iter.hasNext()){
+			EMatrixEntryWIndex emeWI = iter.next();
+			if(getPairwiseE( emeWI.index ) >= cutoff){
+				setPairPruned(emeWI.index, true);
+				numPruned++;
+			}
+		}
+
+		System.out.println("Number of pairs pruned due to steric clashes or parametric incompatibility: "+numPruned);
+	}
 
 	public int numRot(int pos){
 		int numRot = 0;
@@ -1028,7 +1099,7 @@ public class Emat implements Serializable {
 
 	}*/
 
-	public void removePrunedRotMoreMem(boolean intraOnly){
+	public void removePrunedRotMoreMem(boolean intraOnly, Emat emat){
 
 		SingleMats newSingles = new SingleMats(singles.doDih);
 		PairMats newPair = new PairMats(pairs.doDih);
@@ -1069,7 +1140,7 @@ public class Emat implements Serializable {
 								int[] p1a1r1p2ind = {p1,a1,r1,p2};
 								//int[] p1a1r1ctrp2ind = {p1,a1,r1ctr,p2};
 
-								if(p1 == p2 ){
+								if(p1 == p2 || !areNeighbors(p1, p2)){
 									//do nothing here;
 									continue;
 								}
@@ -1106,12 +1177,23 @@ public class Emat implements Serializable {
 
 		}
 
-		pairs = newPair;
-		singles = newSingles;
+		emat.pairs = newPair;
+		emat.singles = newSingles;
 
 		//Contract eliminatedRotAtRes
 		//rotamerIndex.contract(eliminatedRotAtRes.getPrunedArray());
 		//eliminatedRotAtRes.contract(eliminatedRotAtRes.getPrunedArray());
+	}
+
+
+	public Emat unprunedMatrix(){
+		Emat unprunedMat = new Emat();
+		unprunedMat.resByPos = resByPos;
+		unprunedMat.templ_E = templ_E;
+		
+		removePrunedRotMoreMem(false,unprunedMat);
+		
+		return unprunedMat;
 	}
 
 
@@ -1233,6 +1315,7 @@ public class Emat implements Serializable {
 		}
 		return numUnpruned;
 	}
+
 
 	public void combinePos(int mutPos1, int mutPos2){
 
@@ -1757,6 +1840,20 @@ public class Emat implements Serializable {
 		return null;
 	}
 
+	
+	public Index3 getGlobalRotForPos(int pos, int globalRot) {
+
+		SinglesIterator iter = singlesIterator(pos);
+		while(iter.hasNext()){
+			EMatrixEntryWIndex emeWI = iter.next();
+			if(singles.getRot(emeWI.index)[0] == globalRot){
+				return new Index3(emeWI.index);
+			}
+		}
+
+		return null;
+	}
+	
 	ArrayList<Rotamer> getRotamers(Molecule m, Index3 rot){
 		return singles.getTerm(rot).r.getRotamers(m, resByPos.get(rot.pos));
 	}
@@ -2181,20 +2278,14 @@ public class Emat implements Serializable {
 			while(iter.hasNext()){
 				EMatrixEntryWIndex rot = iter.next();
 
-				int[] rots = singles.getRot(rot.index);
-				for(int i=0; i<rots.length;i++){
+				int[] rcs = singles.getRot(rot.index);
+				for(int i=0; i<rcs.length;i++){
 					Residue r = m.residue[resByPos.get(pos).get(i)];
 
-					if(!r.isResAllowed(rots[i])){
+					if(!r.isResAllowed(m.strand[r.strandNumber].rcl, rcs[i])){
 						setPruned(rot.index,true);
 					}
-					//					boolean foundAA = false;
-					//					for(AARotamerType AAtype : r.allowedAATypes){
-					//						if(AAtype.index == r.rl.getRot(rots[i]).aaType.index)
-					//							foundAA = true;
-					//					}
-					//					if(!foundAA)
-					//						setPruned(rot.index, true);
+					
 				}
 			}
 		}
@@ -2349,6 +2440,94 @@ public class Emat implements Serializable {
 
 		return rots;
 	}
+
+	public boolean[][][][][][] copyPairPruned() {
+		return pairs.copyPairPruned();
+	}
+
+	public void setPairPruned(boolean[][][][][][] savedSplitFlags) {
+		pairs.setPairPruned(savedSplitFlags);
+	}
+
+	public void setShellShellE(double minE) {
+		templ_E = minE;
+		
+	}
+
+	public void setShellRotE(int res1, int res1aaNum, int res1RotNum,
+			double minEnergy) {
+		singles.E[res1][res1aaNum][res1RotNum] = minEnergy;
+	}
+	
+	public void setShellRotE(int[] i, double minEnergy) {
+		singles.E[i[0]][i[1]][i[2]] = minEnergy;
+	}
+
+	public void setPairwiseE(int res1, int res1aaNum, int res1RotNum, int res2,
+			int res2aaNum, int res2RotNum, double minEnergy) {
+		pairs.E[res1][res1aaNum][res1RotNum][res2][res2aaNum][res2RotNum] = minEnergy;
+		
+	}
+	
+	public void setIntraE(int pos, int aa, int rot, double E){
+		singles.E[pos][aa][rot] = E;
+	}
+	
+	public void addToIntraE(int pos, int aa, int rot, double E){
+		singles.E[pos][aa][rot] += E;
+	}
+
+	public void addToShellRotE(int pos, int aa, int rot, double E) {
+		singles.E[pos][aa][rot] += E;
+		
+	}
+	
+	public void addToShellRotE(int[] i, double E) {
+		singles.E[i[0]][i[1]][i[2]] += E;
+		
+	}
+
+	public double getIntraAndShellE(int pos, int aa, int rot) {
+		return singles.E[pos][aa][rot];
+	}
+
+	public double getShellShellE() {
+		return templ_E;
+	}
+
+	public ArrayList<ArrayList<AARotamerType>> getAATypes(Molecule m, int[] i) {
+		ArrayList<ArrayList<AARotamerType>> aaTypes = new ArrayList<ArrayList<AARotamerType>>();
+		
+		int[] rcs = singles.supRot[i[0]][i[1]][i[2]];
+		ArrayList<AARotamerType> aaTypes1 = new ArrayList<AARotamerType>();
+		int ctr = 0;
+		for(int resID: resByPos.get(i[0]) ){
+			Residue r = m.residue[resID];
+			ResidueConformation rcl = m.strand[r.strandNumber].rcl.getRC(rcs[ctr]);
+			aaTypes1.add(rcl.rot.aaType);
+			ctr++;
+		}
+		
+		aaTypes.add(aaTypes1);
+		
+		if(i.length > 3){
+			rcs = singles.supRot[i[3]][i[4]][i[5]];
+			ArrayList<AARotamerType> aaTypes2 = new ArrayList<AARotamerType>();
+			ctr = 0;
+			for(int resID: resByPos.get(i[3]) ){
+				Residue r = m.residue[resID];
+				ResidueConformation rcl = m.strand[r.strandNumber].rcl.getRC(rcs[ctr]);
+				aaTypes2.add(rcl.rot.aaType);
+				ctr++;
+			}
+			aaTypes.add(aaTypes2);
+		}
+		
+		
+		return aaTypes;
+	}
+	
+	
 
 
 

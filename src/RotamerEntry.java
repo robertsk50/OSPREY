@@ -66,8 +66,8 @@ class RotamerEntry extends EMatrixEntry{
 		}
 
 		@Override
-		void applyRotamer(ArrayList<ArrayList<Integer>> resByPos,Molecule m) {
-			r.applyRotamer(resByPos.get(pos),m);
+		void applyRC(ArrayList<ArrayList<Integer>> resByPos,Molecule m) {
+			r.applyRC(resByPos.get(pos),m);
 		}
 		
 		/*void addEref(HashMap<String,double[]> eRef, Molecule m, Emat emat){//ArrayList<ArrayList<Integer>> resByPos){
@@ -135,7 +135,27 @@ class RotamerEntry extends EMatrixEntry{
 		
 		}
 
-		
+		@Override
+		public boolean[] transRotStrands(Molecule m,
+			ArrayList<ArrayList<Integer>> resByPos, MutableResParams strandMut) {
+			boolean[] transRotStrands = new boolean[m.numberOfStrands];
+			
+			for(int molNum: resByPos.get(pos)){
+				int str = m.residue[molNum].strandNumber;
+				if(m.strand[str].rotTrans)
+					transRotStrands[str] = true;
+			}
+
+			//If any strand that can rotate & translate contains part of the template,
+			//let it rotate and translate
+			for(int str=0; str<m.numberOfStrands; str++){
+				if(m.strand[str].rotTrans){
+					if( m.strand[str].numberOfResidues > strandMut.numMutPerStrand[str] )//strand has template residues
+						transRotStrands[str] = true;
+				}
+			}
+			return transRotStrands;
+		}
 		
 		
 	}

@@ -128,6 +128,10 @@ public class SingleMats implements Serializable {
 		return supRot[i[0]][i[1]][i[2]];
 	}
 	
+	public int[] getRot(int pos, int aa, int rot){
+		return supRot[pos][aa][rot];
+	}
+	
 	public int[] getRot(Index3 i){
 		return supRot[i.pos][i.aa][i.rot];
 	}

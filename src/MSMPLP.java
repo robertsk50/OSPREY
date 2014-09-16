@@ -15,7 +15,7 @@ public class MSMPLP {
 	//the reduced min pairwise energy matrix
 	private double [][][][] unifiedMinEnergyMatrix = null;
 	
-	MSMPLP(int aNumResidues, int aNumRotForRes[], ReducedEnergyMatrix aPairwiseMinEnergyMatrix){
+	MSMPLP(int aNumResidues, int aNumRotForRes[], Index3[][] twoDTo3D, Emat aPairwiseMinEnergyMatrix){
 		numResidues = aNumResidues;
 
 		numRotForRes = new int [numResidues];
@@ -28,7 +28,7 @@ public class MSMPLP {
 			numRotForRes[i] = aNumRotForRes[i];
 			numTotalNodes += aNumRotForRes[i];
 		}
-		unifiedMinEnergyMatrix = MSMPLP.mergeIntraAndPairMats(numResidues, numRotForRes, nodeIndexOffset, aPairwiseMinEnergyMatrix);
+		unifiedMinEnergyMatrix = MSMPLP.mergeIntraAndPairMats(numResidues, numRotForRes, twoDTo3D, aPairwiseMinEnergyMatrix);
 	}
 	
 	// Computes the low-energy bound using the EMPLP algorithm
@@ -118,23 +118,59 @@ public class MSMPLP {
 	//	I found that the easiest way to solve this would be to unify the intra and pair energies by 
 	//	dividing the intra interaction between n-1 and adding it to the edge..
 	// Note that the unified emat is 4D whereas the standard matrices used by A* in OSPREY are 2D.
-	static double [][][][] mergeIntraAndPairMats(int numRes, int rotsPerRes [], int nodeIndexOffset[], ReducedEnergyMatrix pairEmat ){
+//	static double [][][][] mergeIntraAndPairMats(int numRes, int rotsPerRes [], int nodeIndexOffset[], Emat pairEmat ){
+//		double unifiedEmat [][][][] = CreateMatrix.create4DRotMatrix(numRes, rotsPerRes, 0.0f);
+//		for(int resI = 0; resI < numRes; resI++){
+//			for(int rotIR = 0; rotIR < rotsPerRes[resI]; rotIR++){
+//				for (int resJ = 0; resJ < numRes; resJ++){
+//					for (int rotJS = 0; rotJS < rotsPerRes [resJ]; rotJS++){
+//						unifiedEmat [resI][rotIR][resJ][rotJS]= pairEmat.getPairwiseE(nodeIndexOffset[resI]+rotIR,nodeIndexOffset[resJ]+rotJS);
+//						unifiedEmat [resI][rotIR][resJ][rotJS]+= pairEmat.getIntraAndShellE(nodeIndexOffset[resI]+rotIR)/(numRes-1);
+//						unifiedEmat [resI][rotIR][resJ][rotJS]+= pairEmat.getIntraAndShellE(nodeIndexOffset[resJ]+rotJS)/(numRes-1);
+//						unifiedEmat [resJ][rotJS][resI][rotIR]=  unifiedEmat[resI][rotIR][resJ][rotJS];
+//					}
+//				}
+//			}
+//		}
+//		return unifiedEmat;
+//	}
+	
+	// The original dual derivation of MPLP did not consider intra-energies.  Thus, 
+	//	I found that the easiest way to solve this would be to unify the intra and pair energies by 
+	//	dividing the intra interaction between n-1 and adding it to the edge..
+	// Note that the unified emat is 4D whereas the standard matrices used by A* in OSPREY are 2D.
+	static double [][][][] mergeIntraAndPairMats(int numRes, int rotsPerRes [], Index3[][] twoDTo3D, Emat emat ){
 		double unifiedEmat [][][][] = CreateMatrix.create4DRotMatrix(numRes, rotsPerRes, 0.0f);
+		
+		//Build Neighborhood
+		int[] numNeighbors = new int[numRes];
+		for(int i=0; i<numRes;i++){
+			for(int j=i+1; j<numRes;j++){
+				if(emat.areNeighbors(i, j)){
+					numNeighbors[i] += 1;
+					numNeighbors[j] += 1;
+				}
+					
+			}
+		}
+		
+		
 		for(int resI = 0; resI < numRes; resI++){
 			for(int rotIR = 0; rotIR < rotsPerRes[resI]; rotIR++){
-				for (int resJ = 0; resJ < numRes; resJ++){
-					for (int rotJS = 0; rotJS < rotsPerRes [resJ]; rotJS++){
-						unifiedEmat [resI][rotIR][resJ][rotJS]= pairEmat.getPairwiseE(nodeIndexOffset[resI]+rotIR,nodeIndexOffset[resJ]+rotJS);
-						unifiedEmat [resI][rotIR][resJ][rotJS]+= pairEmat.getIntraAndShellE(nodeIndexOffset[resI]+rotIR)/(numRes-1);
-						unifiedEmat [resI][rotIR][resJ][rotJS]+= pairEmat.getIntraAndShellE(nodeIndexOffset[resJ]+rotJS)/(numRes-1);
-						unifiedEmat [resJ][rotJS][resI][rotIR]=  unifiedEmat[resI][rotIR][resJ][rotJS];
+				for (int resJ = resI+1; resJ < numRes; resJ++){
+					if(emat.areNeighbors(resI,resJ)){//If neighbors(resI,resJ)
+						for (int rotJS = 0; rotJS < rotsPerRes [resJ]; rotJS++){
+							unifiedEmat [resI][rotIR][resJ][rotJS]= emat.getPairMinE(twoDTo3D[resI][rotIR],twoDTo3D[resJ][rotJS]); //pairE
+							unifiedEmat [resI][rotIR][resJ][rotJS]+= emat.getSingleMinE(twoDTo3D[resI][rotIR])/(numNeighbors[resI]); //intra-shell E
+							unifiedEmat [resI][rotIR][resJ][rotJS]+= emat.getSingleMinE(twoDTo3D[resJ][rotJS])/(numNeighbors[resJ]); //intra-shell E
+							unifiedEmat [resJ][rotJS][resI][rotIR]=  unifiedEmat[resI][rotIR][resJ][rotJS];
+						}
 					}
 				}
 			}
 		}
 		return unifiedEmat;
 	}
-	
 	
 
 }

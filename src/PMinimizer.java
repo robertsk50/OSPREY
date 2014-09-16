@@ -101,9 +101,9 @@ public class PMinimizer extends SimpleMinimizer {
 
     @Override
 	public void initialize(Molecule theM, int numStrands, Amber96ext theA96ff,
-		StrandRotamers strandRotamers[], int curAANum[], boolean doDihedral){
+		StrandRotamers strandRotamers[], boolean doDihedral){
 
-                super.initialize(theM, numStrands, theA96ff, strandRotamers, curAANum, doDihedral);//Call the SimpleMinimizer no-ligand initialize() function
+                super.initialize(theM, numStrands, theA96ff, strandRotamers, doDihedral);//Call the SimpleMinimizer no-ligand initialize() function
 
                 if(minimizePerturbations){
                     flexResMap = new int[m.residue.length];

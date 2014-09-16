@@ -110,9 +110,9 @@ public class RotamerPairEntry extends EMatrixEntry {
 	}
 
 	@Override
-	void applyRotamer(ArrayList<ArrayList<Integer>> resByPos, Molecule m) {
-		r1.applyRotamer(resByPos.get(pos1),m);
-		r2.applyRotamer(resByPos.get(pos2),m);
+	void applyRC(ArrayList<ArrayList<Integer>> resByPos, Molecule m) {
+		r1.applyRC(resByPos.get(pos1),m);
+		r2.applyRC(resByPos.get(pos2),m);
 	}
 
 	@Override
@@ -202,6 +202,28 @@ public class RotamerPairEntry extends EMatrixEntry {
 		retString += r1.getString();
 		retString += "@ "+ r2.getString();
 		return retString;
+	}
+	
+	@Override
+	public boolean[] transRotStrands(Molecule m,
+		ArrayList<ArrayList<Integer>> resByPos, MutableResParams strandMut) {
+		boolean[] transRotStrands = new boolean[m.numberOfStrands];
+		
+	
+		for(int molNum: resByPos.get(pos1)){
+			int str = m.residue[molNum].strandNumber;
+			if(m.strand[str].rotTrans)
+				transRotStrands[str] = true;
+		}
+		
+		for(int molNum: resByPos.get(pos2)){
+			int str = m.residue[molNum].strandNumber;
+			if(m.strand[str].rotTrans)
+				transRotStrands[str] = true;
+		}
+		
+
+		return transRotStrands;
 	}
 	
 }

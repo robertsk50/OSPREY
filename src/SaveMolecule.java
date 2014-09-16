@@ -100,6 +100,14 @@ class SaveMolecule {
 		DoSaveMolecule(m,pw,params);
 	}
 
+	SaveMolecule (Molecule inM, PrintStream pw, Hashtable params, boolean tmpCoords) throws Exception {
+		Molecule m = inM;
+		inM = null;
+		if(!tmpCoords)
+			m.resolveCoordinates(); //copy from actualCoordinates to atom coordinates
+		DoSaveMolecule(m,pw,params);
+	}
+
 	private void DoSaveMolecule (Molecule m, PrintStream pw, Hashtable params) throws Exception {
 		this.pw = pw;
 		int atomCounter = 1;

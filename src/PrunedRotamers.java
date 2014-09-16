@@ -56,56 +56,86 @@ import java.util.Iterator;
 import java.util.StringTokenizer;
 
 
+@SuppressWarnings("serial")
 public class PrunedRotamers<T> implements Iterable<RotInfo<T>>, Serializable {
 
 	private T[][][] prunedRot;
 	
-	public PrunedRotamers(int numMutable, int[][] strandMut, RotamerSearch rs, T initVal){
-		prunedRot = initializePrunedRot(numMutable, strandMut, rs, initVal);
-	}
+//	public PrunedRotamers(int numMutable, int[][] strandMut, RotamerSearch rs, T initVal){
+//		prunedRot = initializePrunedRot(numMutable, strandMut, rs, initVal);
+//	}
 	
 	public PrunedRotamers(PrunedRotamers<?> pr, Object initVal){
 		
 		prunedRot = initFromCopy(pr.prunedRot,(T) initVal);
-			
 		
 	}
 	
-	public T [][][] initializePrunedRot(int numMutable, int[][] strandMut, RotamerSearch rs, T initVal) {
+	public PrunedRotamers(boolean[][][] pr, Object initVal){
+		prunedRot = initFromCopy(pr, (T) initVal);
+	}
+	
+//	public T [][][] initializePrunedRot(int numMutable, int[][] strandMut, RotamerSearch rs, T initVal) {
+//		
+//		T prunedRot[][][] = null;
+//		int numPos = numMutable;
+//		/*if (ligPresent)
+//			numPos++;*/
+//		prunedRot = (T[][][]) new Object[numPos][][];
+//		int p1 = 0;
+//		for (int str1=0; str1<strandMut.length; str1++){
+//			for (int i=0; i<strandMut[str1].length; i++){
+//				prunedRot[p1] = (T[][]) new Object[rs.strandRot[str1].rl.getNumAAallowed()][];
+//				for (int a1=0; a1<rs.strandRot[str1].getNumAllowable(strandMut[str1][i]); a1++){
+//					int curAAind1 = rs.strandRot[str1].getIndexOfNthAllowable(strandMut[str1][i],a1);
+//
+//                                        int numRot1;
+//                                        if( rs.doPerturbations )
+//                                            numRot1 = ((StrandRCs)rs.strandRot[str1]).getNumRCs( strandMut[str1][i], curAAind1 );
+//                                        else{
+//                                            numRot1 = rs.strandRot[str1].rl.getNumRotForAAtype(curAAind1);
+//                                            if (numRot1==0) //ALA or GLY
+//						numRot1 = 1;
+//                                        }
+//
+//					prunedRot[p1][curAAind1] = (T[]) new Object[numRot1];
+//					for (int r1=0; r1<numRot1; r1++){
+//						prunedRot[p1][curAAind1][r1] = initVal;
+//						
+//					}
+//				}
+//				p1++;		
+//			}
+//		}
+//		
+//		
+//		return prunedRot;
+//	}
+	
+	//Same as the initFromCopy generic function, but specifically written
+	//to handle primitive boolean to object Boolean conversion
+	//Returns a new independent three-dimensional matrix that is a copy of fromMatrix[][][]
+	public T [][][] initFromCopy(boolean fromMatrix[][][], T initVal){
 		
-		T prunedRot[][][] = null;
-		int numPos = numMutable;
-		/*if (ligPresent)
-			numPos++;*/
-		prunedRot = (T[][][]) new Object[numPos][][];
-		int p1 = 0;
-		for (int str1=0; str1<strandMut.length; str1++){
-			for (int i=0; i<strandMut[str1].length; i++){
-				prunedRot[p1] = (T[][]) new Object[rs.strandRot[str1].rl.getNumAAallowed()][];
-				for (int a1=0; a1<rs.strandRot[str1].getNumAllowable(strandMut[str1][i]); a1++){
-					int curAAind1 = rs.strandRot[str1].getIndexOfNthAllowable(strandMut[str1][i],a1);
-
-                                        int numRot1;
-                                        if( rs.doPerturbations )
-                                            numRot1 = ((StrandRCs)rs.strandRot[str1]).getNumRCs( strandMut[str1][i], curAAind1 );
-                                        else{
-                                            numRot1 = rs.strandRot[str1].rl.getNumRotForAAtype(curAAind1);
-                                            if (numRot1==0) //ALA or GLY
-						numRot1 = 1;
-                                        }
-
-					prunedRot[p1][curAAind1] = (T[]) new Object[numRot1];
-					for (int r1=0; r1<numRot1; r1++){
-						prunedRot[p1][curAAind1][r1] = initVal;
-						
+		if (fromMatrix==null)
+			return null;
+		
+		T toMatrix[][][] = (T[][][]) new Object[fromMatrix.length][][];
+		for (int p1=0; p1<toMatrix.length; p1++){
+			if (fromMatrix[p1]!=null){
+				toMatrix[p1] = (T[][]) new Object[fromMatrix[p1].length][];
+				for (int a1=0; a1<toMatrix[p1].length; a1++){
+					if (fromMatrix[p1][a1]!=null){
+						toMatrix[p1][a1] = (T[]) new Object[fromMatrix[p1][a1].length];
+						for (int r1=0; r1<toMatrix[p1][a1].length; r1++){
+							toMatrix[p1][a1][r1] = (T) initVal;
+						}
 					}
 				}
-				p1++;		
-			}
+			}				
 		}
 		
-		
-		return prunedRot;
+		return toMatrix;
 	}
 	
 	//Returns a new independent six-dimensional matrix that is a copy of fromMatrix[][][][][][]
@@ -162,6 +192,10 @@ public class PrunedRotamers<T> implements Iterable<RotInfo<T>>, Serializable {
 	
 	public void set(Index3 i, T val){
 		prunedRot[i.pos][i.aa][i.rot] = val;
+	}
+	
+	public void set(int[] i, T val){
+		prunedRot[i[0]][i[1]][i[2]] = val;
 	}
 	
 }
@@ -295,58 +329,4 @@ class RotInfo<T>{
 	}
 	
 }
-
-class Index3 implements Comparable<Index3> {
-	int pos;
-	int aa;
-	int rot;
 	
-	public Index3(int curPos, int curAA, int curRot) {
-		this.pos = curPos;
-		this.aa = curAA;
-		this.rot = curRot;
-	}
-	
-	public Index3(String s){
-		//Trim parens
-		String sSub = s.substring(1, s.length()-1);
-		StringTokenizer st = new StringTokenizer(sSub, ",");
-		pos = new Integer(st.nextToken()); 
-		aa = new Integer(st.nextToken());
-		rot = new Integer(st.nextToken());
-	}
-	
-	public String toString(){
-		return "("+pos+","+aa+","+rot+")";
-	}
-
-	@Override
-	public int compareTo(Index3 o) {
-		if(pos < o.pos){
-			return -1;
-		}
-		else if(pos == o.pos){//pos either = or great
-			if(aa < o.aa){
-				return -1;
-			}
-			else if(aa == o.aa){//pos either = or great
-				if(rot < o.rot){
-					return -1;
-				}
-				else if(rot == o.rot){//pos either = or great
-					return 0;
-				}
-				else
-					return 1;
-			}
-			else
-				return 1;
-		}
-		else
-			return 1;
-		
-		
-	}
-	
-	
-}

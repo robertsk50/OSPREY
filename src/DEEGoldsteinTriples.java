@@ -65,16 +65,16 @@ public class DEEGoldsteinTriples extends DEE {
         int numPrunedMin = 0;
 
 	//constructor
-	DEEGoldsteinTriples (PairwiseEnergyMatrix arpMatrix, int numResMutable, int strMut[][], double initEw,
-			StrandRotamers strandLRot[], PrunedRotamers<Boolean> prunedRotAtRes, boolean residueMut[],
+	DEEGoldsteinTriples (Emat arpMatrix, int numResMutable, MutableResParams strMut, double initEw,
+			StrandRotamers strandLRot[], boolean residueMut[],
 			boolean doMin, boolean spFlags[][][][][][], boolean mb, int mbNum, boolean dDEE,
-                        boolean minBB, int mutRes2StrandP[], int mutRes2MutIndexP[], boolean typeDep, boolean aIMinDEE,
+                        boolean minBB, boolean typeDep, boolean aIMinDEE,
                         double aIval, boolean tripFlags[][][][][][][][][], boolean doPerts) {
 
             
                 init(arpMatrix, null, numResMutable,
-			strMut, initEw, strandLRot, prunedRotAtRes, doMin, null, null,
-                        spFlags, true, minBB, mutRes2StrandP, mutRes2MutIndexP, typeDep, aIMinDEE, aIval,
+			strMut, initEw, strandLRot, null, doMin, null, null,
+                        spFlags, true, minBB,null,null, typeDep, aIMinDEE, aIval,
                         mb, dDEE, residueMut, tripFlags, doPerts);
 
                 if(doMinimize && (!doIMinDEE) ){
@@ -121,22 +121,22 @@ public class DEEGoldsteinTriples extends DEE {
 
 				if ((magicBullet)||(!distrDEE)||(resInTriple[curPos1])){ //mb-pairs or not distrDEE or cur res is in distr pair
 
-                                        int str1=mutRes2Strand[curPos1];
-                                        int strResNum1=strandMut[str1][mutRes2MutIndex[curPos1]];
+                                        int str1=strandMut.resStrand[curPos1];
+                                        int strResNum1=strandMut.resStrandNum[curPos1];
 
 					for (int curPos2=curPos1+1; curPos2<numMutable; curPos2++){
 
 						if ((magicBullet)||(!distrDEE)||(resInTriple[curPos2])){
 
-                                                    int str2=mutRes2Strand[curPos2];
-                                                    int strResNum2=strandMut[str2][mutRes2MutIndex[curPos2]];
+                                                    int str2=strandMut.resStrand[curPos2];
+                                                    int strResNum2=strandMut.resStrandNum[curPos2];
 
                                                     for(int curPos3=curPos2+1; curPos3<numMutable; curPos3++){
 
                                                         if((magicBullet)||(!distrDEE)||(resInTriple[curPos3])){
 
-                                                            int str3=mutRes2Strand[curPos3];
-                                                            int strResNum3=strandMut[str3][mutRes2MutIndex[curPos3]];
+                                                            int str3=strandMut.resStrand[curPos3];
+                                                            int strResNum3=strandMut.resStrandNum[curPos3];
                                                             
                                                             if( magicBullet )
                                                                 findMagicBullets(curPos1, curPos2, curPos3, magicBulletAA, magicBulletRot);
@@ -235,12 +235,12 @@ public class DEEGoldsteinTriples extends DEE {
             //So we will not check again but just go right into pruning
 
             //Get strand numbers and strand residue numbers for the positions being pruned at
-            int str1=mutRes2Strand[posNum1];
-            int strResNum1=strandMut[str1][mutRes2MutIndex[posNum1]];
-            int str2=mutRes2Strand[posNum2];
-            int strResNum2=strandMut[str2][mutRes2MutIndex[posNum2]];
-            int str3=mutRes2Strand[posNum3];
-            int strResNum3=strandMut[str3][mutRes2MutIndex[posNum3]];
+            int str1=strandMut.resStrand[posNum1];
+            int strResNum1=strandMut.resStrandNum[posNum1];
+            int str2=strandMut.resStrand[posNum2];
+            int strResNum2=strandMut.resStrandNum[posNum2];
+            int str3=strandMut.resStrand[posNum3];
+            int strResNum3=strandMut.resStrandNum[posNum3];
 
 
             for (int AA1=0; AA1<numAAtypes[posNum1]; AA1++){
@@ -342,8 +342,8 @@ public class DEEGoldsteinTriples extends DEE {
                 if( (posj == pos1) || (posj == pos2) || (posj == pos3) )
                     continue;
 
-                int strj=mutRes2Strand[posj];
-                int strResNumj=strandMut[strj][mutRes2MutIndex[posj]];
+                int strj=strandMut.resStrand[posj];
+                int strResNumj=strandMut.resStrandNum[posj];
 
 
                 double minTerm = Double.POSITIVE_INFINITY;//This will be the minimum over the witness rotamers at posj of E(candidate, witness) - E(competitor, witness)
@@ -414,12 +414,12 @@ public class DEEGoldsteinTriples extends DEE {
             }
 
 
-            int str1=mutRes2Strand[curPos1];
-            int strResNum1=strandMut[str1][mutRes2MutIndex[curPos1]];
-            int str2=mutRes2Strand[curPos2];
-            int strResNum2=strandMut[str2][mutRes2MutIndex[curPos2]];
-            int str3=mutRes2Strand[curPos3];
-            int strResNum3=strandMut[str3][mutRes2MutIndex[curPos3]];
+            int str1=strandMut.resStrand[curPos1];
+            int strResNum1=strandMut.resStrandNum[curPos1];
+            int str2=strandMut.resStrand[curPos2];
+            int strResNum2=strandMut.resStrandNum[curPos2];
+            int str3=strandMut.resStrand[curPos3];
+            int strResNum3=strandMut.resStrandNum[curPos3];
 
 
             //The structure of this loop is copied from computeEliminatedRotConf
@@ -477,8 +477,8 @@ public class DEEGoldsteinTriples extends DEE {
                                                                     if( (posj == curPos1) || (posj == curPos2) || (posj == curPos3) )
                                                                         continue;
 
-                                                                    int strj=mutRes2Strand[posj];
-                                                                    int strResNumj=strandMut[strj][mutRes2MutIndex[posj]];
+                                                                    int strj=strandMut.resStrand[posj];
+                                                                    int strResNumj=strandMut.resStrandNum[posj];
 
 
                                                                     double maxTerm = Double.NEGATIVE_INFINITY;//This will be the maximum over the witness rotamers at posj of E(triple, witness)
@@ -560,8 +560,8 @@ public class DEEGoldsteinTriples extends DEE {
             for (int curPos1=0; curPos1<numMutable; curPos1++){//curPos1 and curPos2 are used differently here than in ComputeEliminatedRotConf:
                 //curPos1 > curPos2 > curPos3 here to compactly store the triple flags
 
-                int str1=mutRes2Strand[curPos1];
-                int strResNum1=strandMut[str1][mutRes2MutIndex[curPos1]];
+                int str1=strandMut.resStrand[curPos1];
+                int strResNum1=strandMut.resStrandNum[curPos1];
 
                 tripleFlags[curPos1] = new boolean[strandRot[str1].rl.getNumAAallowed()][][][][][][][];
 
@@ -579,8 +579,8 @@ public class DEEGoldsteinTriples extends DEE {
 
                             for(int curPos2=0; curPos2<curPos1; curPos2++){
 
-                                int str2=mutRes2Strand[curPos2];
-                                int strResNum2=strandMut[str2][mutRes2MutIndex[curPos2]];
+                                int str2=strandMut.resStrand[curPos2];
+                                int strResNum2=strandMut.resStrandNum[curPos2];
 
                                 tripleFlags[curPos1][curAA1][curRot1][curPos2] = new boolean[strandRot[str2].rl.getNumAAallowed()][][][][];
 
@@ -598,8 +598,8 @@ public class DEEGoldsteinTriples extends DEE {
 
                                             for(int curPos3=0; curPos3<curPos2; curPos3++){
 
-                                                int str3=mutRes2Strand[curPos3];
-                                                int strResNum3=strandMut[str3][mutRes2MutIndex[curPos3]];
+                                                int str3=strandMut.resStrand[curPos3];
+                                                int strResNum3=strandMut.resStrandNum[curPos3];
 
                                                 tripleFlags[curPos1][curAA1][curRot1][curPos2][curAA2][curRot2][curPos3] =
                                                         new boolean[strandRot[str3].rl.getNumAAallowed()][];

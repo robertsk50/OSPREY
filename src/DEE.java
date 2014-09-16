@@ -12,8 +12,8 @@
 public abstract class DEE {
 
     //two pairwise energy matrices: one for the min energies and one for the max
-	protected PairwiseEnergyMatrix pairwiseMinEnergyMatrix = null;
-	protected PairwiseEnergyMatrix pairwiseMaxEnergyMatrix = null;
+	protected Emat pairwiseMinEnergyMatrix = null;
+	//protected PairwiseEnergyMatrix pairwiseMaxEnergyMatrix = null;
 
 	//eliminated rotamers at position i, for all positions
 	protected PrunedRotamers<Boolean> eliminatedRotAtPos = null;
@@ -80,7 +80,7 @@ public abstract class DEE {
 
         protected int numMutable;
 	StrandRotamers strandRot[] = null;
-	int strandMut[][] = null;
+	MutableResParams strandMut = null;
 	int mutRes2Strand[] = null;
 	int mutRes2MutIndex[] = null;
 
@@ -107,8 +107,8 @@ public abstract class DEE {
 
 
         //The constructors for the different classes are very similar, so calling this init function avoids redundancy
-        public void init(PairwiseEnergyMatrix arpMatrix, PairwiseEnergyMatrix arpMatrixMax, int numResMutable,
-			int strMut[][], double initEw,
+        public void init(Emat arpMatrix, Emat arpMatrixMax, int numResMutable,
+			MutableResParams strMut, double initEw,
 			StrandRotamers strandLRot[], PrunedRotamers<Boolean> prunedRotAtRes, boolean doMin, double indInt[],
 			double pairInt[], boolean spFlags[][][][][][], boolean useSF, boolean minBB,
                         int mutRes2StrandP[], int mutRes2MutIndexP[], boolean typeDep, boolean iMinDEE, double Ival,
@@ -121,10 +121,10 @@ public abstract class DEE {
 
 		pairwiseMinEnergyMatrix = arpMatrix;
 		// 2010: No max matrix if doIMinDEE set
-		if (doMinimize && !doIMinDEE) //max matrix is different
-			pairwiseMaxEnergyMatrix = arpMatrixMax;
-		else //no minimization, so the same matrix // 2010: if doIMinDEE is set to true then it is the same as DEE
-			pairwiseMaxEnergyMatrix = pairwiseMinEnergyMatrix;
+//		if (doMinimize && !doIMinDEE) //max matrix is different
+//			pairwiseMaxEnergyMatrix = arpMatrixMax;
+//		else //no minimization, so the same matrix // 2010: if doIMinDEE is set to true then it is the same as DEE
+//			pairwiseMaxEnergyMatrix = pairwiseMinEnergyMatrix;
 
 		splitFlags = spFlags;
 		eliminatedRotAtPos = prunedRotAtRes;
@@ -147,23 +147,21 @@ public abstract class DEE {
 		//numTotalRot = numTotalRotamers;				// ?152?
 		//numLigRot = numLigRotamers;					// 0 if no ligand
 
-		numAAtypes = new int[numMutable];
-
-		int ctr=0;
-		for(int str=0;str<strandMut.length;str++){ //the number of AAs allowed for each AS residue
-			for(int i=0;i<strandMut[str].length;i++){
-				numAAtypes[ctr] = strandRot[str].getNumAllowable(strandMut[str][i]);
-				ctr++;
-			}
-		}
+//		numAAtypes = new int[numMutable];
+//
+//		for(int i=0;i<strandMut.allMut.length;i++){ //the number of AAs allowed for each AS residue
+//			int str = strandMut.resStrand[i];
+//			int strResNum = strandMut.resStrandNum[i];
+//			numAAtypes[i] = strandRot[str].getNumAllowable(strResNum);
+//		}
 
 		curEw = initEw + Ival;
 
 		numRuns = 1;
 
 		templateInt = 0.0f;
-		if (minimizeBB) //backbone minimization, so we need the template interval energy (otherwise, templateInt will be 0.0)
-			templateInt = pairwiseMaxEnergyMatrix.getShellShellE()-pairwiseMinEnergyMatrix.getShellShellE();
+//		if (minimizeBB) //backbone minimization, so we need the template interval energy (otherwise, templateInt will be 0.0)
+//			templateInt = pairwiseMaxEnergyMatrix.getShellShellE()-pairwiseMinEnergyMatrix.getShellShellE();
 
 
                 //Some stuff for pairs
@@ -208,34 +206,34 @@ public abstract class DEE {
 
 
         //Compute the number of rotamers for each residue position (assign to numRotForRes[])
-	protected void compNumRotForRes(){
-
-		//boolean ligPresent = (numLigRot==0); //ligand present
-		int treeLevels = numMutable;
-		/*if (ligPresent)
-			treeLevels++;*/
-
-		numRotForRes = new int[treeLevels];
-
-		int curNumRot = 0;
-		for (int curLevel=0; curLevel<treeLevels; curLevel++){
-			/*if ((ligPresent)&&(curLevel==(treeLevels-1))){ //the ligand level
-				curNumRot = numLigRot;
-			}
-			else {*/ //AS residue
-				curNumRot = 0;
-				int str=mutRes2Strand[curLevel];
-				int strResNum=strandMut[str][mutRes2MutIndex[curLevel]];
-
-				for (int i=0; i<strandRot[str].getNumAllowable(strResNum); i++){ //add the rot for all allowable AA at this residue
-					int newRot = getNumRot( str, strResNum, strandRot[str].getIndexOfNthAllowable(strResNum,i) );
-
-					curNumRot += newRot;
-				}
-			//}
-			numRotForRes[curLevel] = curNumRot;
-		}
-	}
+//	protected void compNumRotForRes(){
+//
+//		//boolean ligPresent = (numLigRot==0); //ligand present
+//		int treeLevels = numMutable;
+//		/*if (ligPresent)
+//			treeLevels++;*/
+//
+//		numRotForRes = new int[treeLevels];
+//
+//		int curNumRot = 0;
+//		for (int curLevel=0; curLevel<treeLevels; curLevel++){
+//			/*if ((ligPresent)&&(curLevel==(treeLevels-1))){ //the ligand level
+//				curNumRot = numLigRot;
+//			}
+//			else {*/ //AS residue
+//				curNumRot = 0;
+//				int str=strandMut.resStrand[curLevel];
+//				int strResNum=strandMut.resStrandNum[curLevel];
+//
+//				for (int i=0; i<strandRot[str].getNumAllowable(strResNum); i++){ //add the rot for all allowable AA at this residue
+//					int newRot = getNumRot( str, strResNum, strandRot[str].getIndexOfNthAllowable(strResNum,i) );
+//
+//					curNumRot += newRot;
+//				}
+//			//}
+//			numRotForRes[curLevel] = curNumRot;
+//		}
+//	}
 
 
         boolean isPrunedTriple(int curPos1, int curAA1, int curRot1,

@@ -76,6 +76,8 @@
  *
  */
 
+import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.StringTokenizer;
 import java.io.Serializable;
 
@@ -101,9 +103,8 @@ public class Residue implements Serializable {
 	byte SStype; //Secondary structure type (Set by readDSSP for hbond functionality) Duplicate of the "secondaryStruct" int below that reads PDB entries
 	public boolean lAmino = true;
 	double[] defaultCB; //Store the WT CB coordinates for when mutating back from Gly
-	boolean mutatedOnce = false;
 	
-	//DEEPer stuff
+	//DEEPer stuff                       
 	int perts[]=null;             // Perturbations to which this unit is subject (may be empty; this array consists of indices in m.perts, in ascending order)
 	int pertStates[][]=null;      //Defines the perturbation states for this residue:
 	//pertStates[perturbation state #][perturbation #] gives which default param. value or interval of the given perturbation is in the given perturbation state of this residue
@@ -126,8 +127,28 @@ public class Residue implements Serializable {
 	final static int SHEET = 1;
 	final static int LOOP = 2;
 
+	/*
+	 * KER: I use these variables to keep track of what this molecule can mutate to. Since I
+	 * want position specific rotamers, each residue has to keep track of the allowed rotamers
+	 * and can't just rely on all the rotamers available in the AAtype
+	 */
+	private ArrayList<AARotamerType> AATypesAllowed = null; //Changed the name so I know it can't be accessed anywhere
+	private ArrayList<ResidueConformation> allowedRCs = null;
+	public boolean mutatedOnce = false;
+	public boolean addedOrigRot = false;
+	public ResidueConformation curRC;
+	public ResidueConformation wtRC;
+	public Rotamer wtRot;
+	
+	RotamerLibrary rl;
+	public boolean canMutate = false; //Is the residue type a type that can mutate (i.e. of type protein).
+	public boolean isMutable = false; //Is this residue a mutable residue
+	int origMutPos;
+	public String defaultAA;
+	
+	
 	Residue(){
-		init();
+		init(); 
 	}
 
 	Residue(String resname){
@@ -660,5 +681,251 @@ public class Residue implements Serializable {
 		return name;
 	}
 
+	public int numAllowedAATypes() {
+		return AATypesAllowed.size();
+	}
 
+	/**
+	 * Given the amino acid type index (0 .. AAtypesAllowed.length)
+	 * return the rotamers for that amino acid type that are allowed
+	 * 
+	 * @param i AA allowed index
+	 * @return ArrayList of Rotamers that are allowed
+	 */
+//	public ArrayList<Rotamer> getRotsForType(int i) {
+//		
+//		ArrayList<Rotamer> rots = new ArrayList<Rotamer>();
+//		AARotamerType aaType = AATypesAllowed.get(i);
+//		for(Rotamer r: allowedRotamers){
+//			if(r.aaType.index == aaType.index){
+//				rots.add(r);
+//			}
+//		}
+//		
+//		return rots;
+//	}
+
+	/**
+	 * Given the amino acid type index (0 .. AAtypesAllowed.length)
+	 * return the <code>ResidueConformation</code> for that amino acid type that are allowed
+	 * 
+	 * @param i AA allowed index
+	 * @return ArrayList of Residue Conformations that are allowed
+	 */
+	public ArrayList<ResidueConformation> getRCsForType(int i) {
+		
+		ArrayList<ResidueConformation> RCs = new ArrayList<ResidueConformation>();
+		AARotamerType aaType = AATypesAllowed.get(i);
+		for(ResidueConformation r: allowedRCs){
+			if(r.rot.aaType.index == aaType.index){
+				RCs.add(r);
+			}
+		}
+		
+		return RCs;
+	}
+	
+	/**
+	 * Given the amino acid type 
+	 * return the <code>ResidueConformation</code> for that amino acid type that are allowed
+	 * 
+	 * @param Type of amino acid to find the allowed RCs for
+	 * @return ArrayList of Residue Conformations that are allowed
+	 */
+	public ArrayList<ResidueConformation> getRCsForType(AARotamerType aaType) {
+		
+		ArrayList<ResidueConformation> RCs = new ArrayList<ResidueConformation>();
+		for(ResidueConformation r: allowedRCs){
+			if(r.rot.aaType.index == aaType.index){
+				RCs.add(r);
+			}
+		}
+		
+		return RCs;
+	}
+
+	/**
+	 * Given the amino acid type 
+	 * return the <code>ResidueConformation</code> for that amino acid type that are allowed
+	 * 
+	 * @param Type of amino acid to find the allowed RCs for
+	 * @return ArrayList of Residue Conformations that are allowed
+	 */
+	public ArrayList<ResidueConformation> getRCsForType(String AA) {
+		
+		ArrayList<ResidueConformation> RCs = new ArrayList<ResidueConformation>();
+		for(ResidueConformation r: allowedRCs){
+			if(r.rot.aaType.name.equals(AA)){
+				RCs.add(r);
+			}
+		}
+		
+		return RCs;
+	}
+	
+	/**
+	 * Given a Residue Conformation index, check whether the residue 
+	 * is allowed to mutate to that rotamer's AA type
+	 * @param i Global residue conformation library index for rotamer
+	 * @return
+	 */
+	public boolean isResAllowed(ResidueConformationLibrary rcl, int i) {
+		ResidueConformation curRC = rcl.getRC(i);
+		for(AARotamerType aa:AATypesAllowed){
+			if(aa.index == curRC.rot.aaType.index)
+				return true;
+		}
+		return false;
+	}
+
+	public boolean isSameAA(String name){
+		boolean isLamino = true;
+		if(name.length() > 3){
+			if(name.startsWith("D"))
+				isLamino = false;
+			name = name.substring(1);
+		}
+		if(lAmino != isLamino)
+			return false;
+		
+		if(threeLet().equalsIgnoreCase(name)){
+			return true;
+		}
+		
+		return false;
+	}
+
+	
+	public int getNumRCs() {
+		return allowedRCs.size();
+	}
+	
+	/**
+	 * Turns this residue into a mutable residue. A mutable residue
+	 * knows that it can mutate and stores the rotamers that it's
+	 * allowed to mutate to.
+	 */
+	public void initializeMutableRes(RotamerLibrary rl, boolean addOrigRot){
+		if(defaultAA == null)
+			defaultAA = name;
+		this.rl = rl;
+		if(addOrigRot){
+			wtRot = rl.addOrigRot(this);
+		}
+		AATypesAllowed = new ArrayList<AARotamerType>();
+		allowedRCs = new ArrayList<ResidueConformation>();
+		
+		//resRots = new ResRotamers(rl, this, addOrigRot);
+	}
+	
+	/**
+	 * Allows the residue to mutate to all of the template rotamers 
+	 * for the amino acid given 
+	 * 
+	 * @param AAname The name of the amino acid that should be added
+	 */
+	void setAllowable(String AAname){
+		AARotamerType aaType = rl.getAAType(AAname);
+		
+		boolean alreadyAdded = false;
+		for(AARotamerType curType: AATypesAllowed){
+			if(curType.index == aaType.index)
+				alreadyAdded = true;
+		}
+		
+		if(!alreadyAdded)
+			AATypesAllowed.add(aaType);
+	}
+	
+	/**
+	 * 
+	 * Allows the residue to mutate to the given residue conformation
+	 * (Checks if the residue conformation has already been added)
+	 * 
+	 * @param rot The {@link ResidueConformation} that the residue is allowed to mutate to 
+	 */
+	void setAllowable(ResidueConformation rc){
+		
+		boolean alreadyAdded = false;
+		
+		for(ResidueConformation curRC: allowedRCs){
+			if(curRC.id == rc.id){
+				alreadyAdded = true;
+			}
+		}
+		
+		if(!alreadyAdded)
+			allowedRCs.add(rc);
+
+	}
+	
+	void updateWT(boolean[] strandPresent, ParamSet sParams) {
+		if(strandPresent[strandNumber]){
+			String tempResAllow = (String)sParams.getValue("RESALLOWED"+getResNumberString(),"");
+			if(KSParser.numTokens(tempResAllow)==1)
+				defaultAA = KSParser.getToken(tempResAllow, 1);
+		}
+			
+	}
+	
+	/**
+	 * Clears all the allowed rotamers that the residue is
+	 * allowed to mutate to
+	 */
+	public void clearAllowable(){
+		AATypesAllowed = new ArrayList<AARotamerType>();
+		allowedRCs = new ArrayList<ResidueConformation>();
+	}
+
+	/**
+	 * Be very careful about using this function. Should only be used
+	 * if you really only need the AA types allowed. Otherwise rely on
+	 * the isRotAllowed functions
+	 * @return
+	 */
+	public ArrayList<AARotamerType> AATypesAllowed() {
+		return AATypesAllowed;
+	}
+	
+//	public ArrayList<Rotamer> allowedRotamers(){
+//		return allowedRotamers;
+//	}
+	
+	public ArrayList<ResidueConformation> allowedRCs(){
+		return allowedRCs;
+	}
+
+	public void removeRC(ResidueConformation rc) {
+		Iterator<ResidueConformation> iter = allowedRCs.iterator();
+		while(iter.hasNext()){ //TODO: Should just implement rc equals function to do this
+			ResidueConformation curRC = iter.next();
+			if(curRC.id == rc.id)
+				iter.remove();
+		}
+	}
+
+	/**
+	 * Copies over the mutable information to the input residue. 
+	 * Note the mutable information is not deep copied, so this should
+	 * only be used when you are "throwing" away the input residue.
+	 * @param res Source Residue to copy info from.
+	 */
+	public void copyMutInfo(Residue res) {
+		AATypesAllowed = res.AATypesAllowed();
+		allowedRCs = res.allowedRCs();
+		addedOrigRot = res.addedOrigRot;
+		wtRC = res.wtRC;
+		wtRot = res.wtRot;
+		rl = res.rl;
+		
+		canMutate = res.canMutate; //Is the residue type a type that can mutate (i.e. of type protein).
+		isMutable = res.isMutable; //Is this residue a mutable residue
+		origMutPos = res.origMutPos;
+		defaultAA = res.defaultAA;
+		
+	}
+
+
+
+	
 }

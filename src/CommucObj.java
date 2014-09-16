@@ -63,6 +63,7 @@
  */
 
 import java.io.Serializable;
+import java.util.ArrayList;
 import java.util.Hashtable;
 import java.util.Vector;
 import java.math.BigDecimal;
@@ -125,12 +126,12 @@ public class CommucObj implements Serializable
 	double bestUnBoundE = 0.0;*/		// The best unbound energy (no minimization)
 		// passed from the master to the slave
 	
-boolean typeDep = false;	
-
-	String currentMutation[] = null;
+	boolean typeDep = false;	
+	Emat emat;
+	int currentMutation[] = null;
 	//int resMap[] = null;
 	/*String resDefault[] = null;*/
-	int[][] strandMut = null;
+	MutableResParams strandMut = null;
 	String[][] strandDefault = null;
 	boolean[] strandPresent = null;
 	String[][] strandLimits = null;
@@ -211,11 +212,12 @@ boolean typeDep = false;
 	boolean workToDo = true;
 		// when workToDo is false the slave exits
 	
+	DEEsettings deeSettings;
 	
 	//Variables specific to PEM computation
 	int resMut[] = null;
 	String flagMutType = null;	
-	SamplingEEntries compEE[] = new SamplingEEntries[0];//initialized by the slave node, not by the master
+	ArrayList<EMatrixEntrySlim> compEE = null;//initialized by the slave node, not by the master
 	//int numLigRotamers = 0;	
 	int elapsedTime = 0; // timing info (in seconds)
 	
@@ -251,7 +253,7 @@ boolean typeDep = false;
 	public int numTopConfs;
 	public String pdbName = "out";
 	public boolean useMaxKSconfs;
-	public BigInteger maxKSconfs;
+	public BigInteger numKSconfs;
 	public int curStrForMatrix;
 
         boolean useTriples;
@@ -276,6 +278,20 @@ boolean typeDep = false;
         CETMatrix cetm;
         boolean compCETM;
         EPICSettings es;
+		public KSParser.DEEMETHOD deeMethod;
+		public double Ival;
+		public int[] pairStartEnd;
+		public EmatCalcParams runParams;
+		public Molecule m;
+		public boolean loadEmat;
+		public int seqNum;
+		public String pdbOutDir;
+		public boolean doDih;
+		public boolean neighborList;
+		public double distCutoff;
+		public PartitionMessage[] computedPartFuns;
+		public int[] duplicateMut;
+		public KSParser.ASTARMETHOD asMethod;
 
 	CommucObj() {
 	}

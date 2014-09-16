@@ -2539,4 +2539,36 @@ public class Amber96ext implements ForceField, Serializable {
 		}
 
 	}
+
+	//Simple check for now, should actually check atom radii for overlap
+	//Return: did the steric check pass
+	public boolean checkSterics(double coordinates[]){
+		
+		int atomix3, atomjx3, atomi, atomj;
+		int ix4;
+		double rij2, rijx, rijy, rijz;
+		
+		int numNBterms = numberNonBonded;
+		double[] nbTerms = nonBondedTerms;
+		int[] nbEv = NBeval;
+		
+		ix4 = -NBTOff;
+		for(int i=0; i<numNBterms; i++){
+			ix4 += NBTOff;
+			atomi = (int)nbTerms[ ix4 ];
+			atomj = (int)nbTerms[ ix4 + 1 ];
+			atomix3 = atomi * 3;
+			atomjx3 = atomj * 3;
+			rijx = coordinates[ atomix3 ] - coordinates[ atomjx3 ];
+			rijy = coordinates[ atomix3 + 1 ] - coordinates[ atomjx3 + 1 ];
+			rijz = coordinates[ atomix3 + 2 ] - coordinates[ atomjx3 + 2 ];
+			rij2 = rijx * rijx + rijy * rijy + rijz * rijz;
+			
+			//If rij < 0.1 then that is too close for two nonbonded atoms
+			if(rij2 < 0.01)
+				return false;
+		}
+		
+		return true;
+	}
 }

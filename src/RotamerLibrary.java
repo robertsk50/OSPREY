@@ -1,7 +1,7 @@
 /*
 	This file is part of OSPREY.
 
-	OSPREY Protein Redesign Software Version 2.1 beta
+	OSPREY Protein Redesign Software Version 2.0
 	Copyright (C) 2001-2012 Bruce Donald Lab, Duke University
 	
 	OSPREY is free software: you can redistribute it and/or modify
@@ -43,7 +43,7 @@
 ////////////////////////////////////////////////////////////////////////////////////////////
 // RotamerLibrary.java
 //
-//  Version:           2.1 beta
+//  Version:           2.0
 //
 //
 // authors:
@@ -69,21 +69,31 @@ import java.util.*;
  */
 public class RotamerLibrary implements Serializable {
 	
+
+	
 	// If the debug flag is set to true then additional debug statements are
 	//  printed to standard out.
 	public static final boolean debug = false;
 	
-	String aaNames[];       // Array of amino-acid names
-	private int numAAallowed;              // Number of AA types read
-	private int numDihedrals[];     // Number of dihedrals per AA
-	private int numRotamers[];      // Number of rotamers per AA
 	
-	private String dihedralAtomNames[][][];  // Names of atoms involved in the dihedrals for each amino acid
-	private int rotamerValues[][][];  // Actual angle values for each rotamer for each amino acid
+	//First index is the amino acid index, second is the rotamer index for that AA
+	private AARotamerType[] aaTypes;
+	
+	//Holds an array with all rotamers that have been created
+	private Rotamer[] allRotamers;
+	//String aaNames[];       // Array of amino-acid names
+	private int numAAallowed;       // Number of AA types read
+	
+	//String logFile = "";
+	//private int numDihedrals[];     // Number of dihedrals per AA
+	//private int numRotamers[];      // Number of rotamers per AA
+	
+	//private String dihedralAtomNames[][][];  // Names of atoms involved in the dihedrals for each amino acid
+	//private int rotamerValues[][][];  // Actual angle values for each rotamer for each amino acid
 	private double rotamerVolumes[][];	// Volumes of each rotamer for each amino acid
 	
-	private int totalNumRotamers; //AAs with 0 rotamers are counted as 1 rotamer	
-	private int rotamerIndexOffset[] = null; //the rotamer index offset for each amino acid (AAs with 0 rotamers are counted as 1 rotamer)
+	//private int totalNumRotamers; //AAs with 0 rotamers are counted as 1 rotamer	
+	//private int rotamerIndexOffset[] = null; //the rotamer index offset for each amino acid (AAs with 0 rotamers are counted as 1 rotamer)
 	
 	private String rotFile;
 	private String volFilename;
@@ -103,14 +113,15 @@ public class RotamerLibrary implements Serializable {
 	}
 	
 	// Generic constructor
-	RotamerLibrary(String rotFilename, boolean isProtein) {		
+	RotamerLibrary(String rotFilename, boolean canMut) {		
 		
-		canMutate = isProtein;
+		canMutate = canMut;
 		
 		try {
 			readRotLibrary(rotFilename);
 		}
 		catch (Exception e){
+			e.printStackTrace();
 			System.out.println("ERROR reading rotamer library file: "+e);
 			System.exit(1);
 		}
@@ -131,7 +142,7 @@ public class RotamerLibrary implements Serializable {
 		String curLine = null;
 		int curAA = 0;
 		numAAallowed = 0;
-		totalNumRotamers = 0;
+		
 		// Skip over comments (lines starting with !)
 		curLine = bufread.readLine();
 		while( curLine.charAt(0) == '!' )
@@ -140,12 +151,14 @@ public class RotamerLibrary implements Serializable {
 		numAAallowed = (new Integer(getToken(curLine,1))).intValue(); //the first non-comment line is the number of AA types
 		curLine = bufread.readLine();
 		
-		aaNames = new String[numAAallowed];
+		/*aaNames = new String[numAAallowed];
 		numDihedrals = new int[numAAallowed];
 		numRotamers = new int[numAAallowed];
 		rotamerIndexOffset = new int[numAAallowed];
 		dihedralAtomNames = new String[numAAallowed][][];
-		rotamerValues = new int[numAAallowed][][];
+		rotamerValues = new int[numAAallowed][][];*/
+		ArrayList<Rotamer> allRots = new ArrayList<Rotamer>();
+		aaTypes = new AARotamerType[numAAallowed];
 		
 	  	while( curLine != null ) {
 			if(curLine.charAt(0) == '!'){
@@ -153,42 +166,55 @@ public class RotamerLibrary implements Serializable {
 				continue;
 			}
 			
-	  		aaNames[curAA] = getToken(curLine,1);
-			numDihedrals[curAA] = (new Integer(getToken(curLine,2))).intValue();
-			numRotamers[curAA] = (new Integer(getToken(curLine,3))).intValue();
-			if (numRotamers[curAA]<0)
-				numRotamers[curAA] = 0;
+	  		String aaName = getToken(curLine,1);
+			int numDihedrals = (new Integer(getToken(curLine,2))).intValue();
+			int numRotamers = (new Integer(getToken(curLine,3))).intValue();
 			
-			dihedralAtomNames[curAA] = new String[numDihedrals[curAA]][4];
-			rotamerValues[curAA] = new int[numRotamers[curAA]][numDihedrals[curAA]];
+			String[][] dihedralAtomNames = new String[numDihedrals][4];
+			
 
 			// Read in the actual dihedrals
-			for(int q=0;q<numDihedrals[curAA];q++) {
+			for(int q=0;q<numDihedrals;q++) {
 				curLine = bufread.readLine();
-				dihedralAtomNames[curAA][q][0] = getToken(curLine,1);
-				dihedralAtomNames[curAA][q][1] = getToken(curLine,2);
-				dihedralAtomNames[curAA][q][2] = getToken(curLine,3);
-				dihedralAtomNames[curAA][q][3] = getToken(curLine,4);
+				dihedralAtomNames[q][0] = getToken(curLine,1);
+				dihedralAtomNames[q][1] = getToken(curLine,2);
+				dihedralAtomNames[q][2] = getToken(curLine,3);
+				dihedralAtomNames[q][3] = getToken(curLine,4);
 			}
+			
+			if(numRotamers == 0) //ALA or GLY
+				aaTypes[curAA] = new AARotamerType(aaName, 1, null,curAA);
+			else
+				aaTypes[curAA] = new AARotamerType(aaName, numRotamers, dihedralAtomNames,curAA);
+			
 			// Read in the actual rotamers
-			for(int q=0;q<numRotamers[curAA];q++) {
+			for(int q=0;q<numRotamers;q++) {
 				curLine = bufread.readLine();
-				for(int w=0;w<numDihedrals[curAA];w++) {
-					rotamerValues[curAA][q][w] = (new Integer(getToken(curLine,(w+1)))).intValue();
+				double[] rotamerValues = new double[numDihedrals];
+				for(int w=0;w<numDihedrals;w++) {
+					rotamerValues[w] = (new Double(getToken(curLine,(w+1)))).doubleValue();
 				}
+				Rotamer curRot = new Rotamer(q,rotamerValues,aaTypes[curAA],allRots.size(),Rotamer.TEMPL);
+				aaTypes[curAA].addRot(curRot);
+				allRots.add(curRot);
 			}
-			
-			rotamerIndexOffset[curAA] = totalNumRotamers;
-			
-			totalNumRotamers += numRotamers[curAA];
-			if (numRotamers[curAA]<=0) //ALA or GLY
-				totalNumRotamers += 1;
+			if(numRotamers <=0){
+				Rotamer curRot = new Rotamer(0,null,aaTypes[curAA],allRots.size(),Rotamer.TEMPL);
+				aaTypes[curAA].addRot(curRot);
+				allRots.add(curRot);
+			}
+					
+			/*totalNumRotamers += numRotamers;
+			if (numRotamers<=0) //ALA or GLY
+				totalNumRotamers += 1;*/
 			
 			curAA++;
 			curLine = bufread.readLine();
 		}
 	  	
 		bufread.close();
+		
+		allRotamers = allRots.toArray(new Rotamer[0]);
 		
 		if (curAA!=numAAallowed){
 			System.out.println("ERROR: not all amino acid types read from rotamer library");
@@ -222,8 +248,6 @@ public class RotamerLibrary implements Serializable {
 		BufferedReader bufread = new BufferedReader(new InputStreamReader(is));
 		String curLine = null;
 		
-		rotamerVolumes = new double[numAAallowed][];
-		
 		is = new FileInputStream( volFilename );
 		bufread = new BufferedReader(new InputStreamReader(is));
 		
@@ -235,15 +259,15 @@ public class RotamerLibrary implements Serializable {
 		int curResult = 0;
 		while( curLine != null ) {
 							
-			int aaIndex = getAARotamerIndex(getToken(curLine,1));
+			AARotamerType aaType = getAAType(getToken(curLine,1));
 			
-			int numRotVol = numRotamers[aaIndex];
-			if (numRotamers[aaIndex]==0)
+				
+			int numRotVol = aaType.numRotamers();
+			if (numRotVol==0)
 				numRotVol++;
 			
-			rotamerVolumes[aaIndex] = new double[numRotVol];
 			for (int j=0; j<numRotVol; j++)
-				rotamerVolumes[aaIndex][j] = new Double(getToken(curLine,j+2)).doubleValue();
+				aaType.rotamers.get(j).setVolume(new Float(getToken(curLine,j+2)).floatValue());
 		
 			curLine = bufread.readLine();
 			curResult++;
@@ -263,7 +287,7 @@ public class RotamerLibrary implements Serializable {
 		Molecule m = new Molecule();
 
 		Amber96PolyPeptideResidue ppr = new Amber96PolyPeptideResidue();
-		StrandRotamers LR = null;
+		//StrandRotamers LR = null;
 
 		Residue res = ppr.getResidue("ala");
 		//res.fullName = "ALA  "; 
@@ -272,26 +296,30 @@ public class RotamerLibrary implements Serializable {
 		VolModule sm = new VolModule(m);
 		sm.setResidueTreatment(0,1);
 		
-		LR = new StrandRotamers(rotFile,m.strand[0]);		
+		//LR = new StrandRotamers(rotFile,m.strand[0]);		
 
 		PrintStream printStream = setupOutputFile(volFileName);
 
-		String aanames[] = getAAtypesAllowed();
+		AARotamerType aaTypes[] = getAAtypesAllowed();
 		int numAAs = getNumAAallowed();
+		
+		Residue r = m.residue[0];
+		int molNum = r.moleculeResidueNumber;
 		
 		for(int i=0;i<numAAs;i++){
 			if(canMutate)
-				LR.changeResidueType(m,0,aanames[i],true);
-			printStream.print(aanames[i] + " ");
-			System.out.println(aanames[i] + " ");
-			if(getNumRotamers(aanames[i])==0){		// ALA or GLY
-				double vol = sm.getMoleculeVolume(0.25f,0.0f);
+				MutUtils.changeResidueType(m,molNum,aaTypes[i].name,true);
+			printStream.print(aaTypes[i].name + " ");
+			System.out.println(aaTypes[i].name + " ");
+			if(getNumRotamers(aaTypes[i].name)==0){		// ALA or GLY
+				double vol = sm.getMoleculeVolume(0.25,0.0);
 				printStream.print(vol + " ");
 				System.out.println(vol + " ");
-			}			
-			for(int j=0;j<getNumRotamers(aanames[i]);j++){
-				LR.applyRotamer(m,0,j);
-				double vol = sm.getMoleculeVolume(0.25f,0.0f);
+			}	
+			for(Rotamer rot: aaTypes[i].rotamers){
+			//for(int j=0;j<getNumRotamers(aaTypes[i].name);j++){
+				MutUtils.applyRotamer(m,rot,r);
+				double vol = sm.getMoleculeVolume(0.25,0.0);
 				printStream.print(vol + " ");
 				System.out.println(vol + " ");
 			}
@@ -299,10 +327,37 @@ public class RotamerLibrary implements Serializable {
 		}
 		printStream.close();		
 	}
+	
+	public double [][] getRotVol(){
+		return rotamerVolumes;
+	}
 
 	// This function returns the rotamer index for rotamers of
 	//  amino acid aaName; returns -1 if name not found
 	public int getAARotamerIndex(String aaName) {
+
+		// KER: Allow HID, HIE, and HIP to all be different now
+//		if (aaName.equalsIgnoreCase("HID") || aaName.equalsIgnoreCase("HIE") || aaName.equalsIgnoreCase("HIP")) {
+//			aaName = "HIS";
+//			if(debug)
+//				System.out.println("ASSUMING HID/E/P is " + aaName + " for rotamer purposes.");
+//		}
+		if (aaName.equalsIgnoreCase("CYX")) {
+			aaName = "CYS";
+			if(debug)
+				System.out.println("ASSUMING CYX is " + aaName + " for rotamer purposes.");
+		}
+
+		for(int q=0;q<numAAallowed;q++) {
+			if (aaTypes[q].name.equalsIgnoreCase(aaName))
+				return q;
+		}
+		return -1;
+	}
+	
+	// This function returns the rotamer index for rotamers of
+	//  amino acid aaName; returns -1 if name not found
+	public AARotamerType getAAType(String aaName) {
 
 		// KER: Allow HID, HIE, and HIP to all be different now
 		/*if (aaName.equalsIgnoreCase("HID") || aaName.equalsIgnoreCase("HIE") || aaName.equalsIgnoreCase("HIP")) {
@@ -316,28 +371,35 @@ public class RotamerLibrary implements Serializable {
 				System.out.println("ASSUMING CYX is " + aaName + " for rotamer purposes.");
 		}
 
-		for(int q=0;q<numAAallowed;q++) {
-			if (aaNames[q].equalsIgnoreCase(aaName))
-				return q;
+		for(int q=0;q<aaTypes.length;q++) {
+			if (aaTypes[q].name.equalsIgnoreCase(aaName))
+				return aaTypes[q];
 		}
-		return -1;
+		System.out.println("Could not find AA type: "+aaName);
+		System.exit(0);
+		return null;
 	}
 
 	// Returns the name of the amino acid at array index aaIndex
 	public String getAAName(int aaIndex){
-		return(aaNames[aaIndex]);
+		return(aaTypes[aaIndex].name);
 	}
 
+	public AARotamerType getAAType(int aaIndex){
+		return aaTypes[aaIndex];
+	}
+	
+	
 	// Returns the number of rotamers for the specified amino acid type
 	public int getNumRotForAAtype(int aaTypeInd){
-		return(numRotamers[aaTypeInd]);
+		return(aaTypes[aaTypeInd].numRotamers());
 	}
 
 	// This function returns the number of rotamers for a given
 	//  amino acid type (by name)
 	public int getNumRotamers(String aaName) {
 		int aaNum = getAARotamerIndex(aaName);
-		return(numRotamers[aaNum]);
+		return(aaTypes[aaNum].numRotamers());
 	}
 
 	// Returns the number of dihedrals for the amino acid
@@ -345,9 +407,17 @@ public class RotamerLibrary implements Serializable {
 	//  into a molecule, it's 0..19
 	public int getNumDihedrals(int aaTypeInd){
 		if (aaTypeInd != -1)
-			return(numDihedrals[aaTypeInd]);
+			return(aaTypes[aaTypeInd].numDihedrals());
 		else
 			return(0);
+	}
+	
+	// Returns the number of dihedrals for the amino acid
+	//  number aaTypeInd. NOTE: aaTypeInd is not an index
+	//  into a molecule, it's 0..19
+	public int getNumDihedrals(String aaName){
+		int aaNum = getAARotamerIndex(aaName);
+		return(aaTypes[aaNum].numDihedrals());
 	}
 
 
@@ -362,25 +432,67 @@ public class RotamerLibrary implements Serializable {
 		else
 			tmpName = localResidue.name;
 				
-		int aaNum = getAARotamerIndex(tmpName);
+		AARotamerType aaType = getAAType(tmpName);
 		int atNum[] = new int[4];
-                Arrays.fill(atNum, -1);
 
 		// Find atoms involved in the dihedral
 		for(int q=0;q<localResidue.numberOfAtoms;q++) {
 			for(int w=0;w<4;w++) {
-				if (localResidue.atom[q].name.equalsIgnoreCase(dihedralAtomNames[aaNum][dihedNum][w])) {
+				if (localResidue.atom[q].name.equalsIgnoreCase(aaType.dihedralAtomNames[dihedNum][w])) {
 					atNum[w] = q;
 				}
 			}
 		}
-                
-                for(int w=0; w<4; w++){
-                    if(atNum[w]==-1)
-                        throw new RuntimeException("ERROR: Couldn't find atom "+
-                                dihedralAtomNames[aaNum][dihedNum][w]+" in residue "+localResidue.fullName);
-                }
-                
+		return(atNum);
+	}
+	
+	// Returns the residue local atom numbers for dihedral dihedNum of
+	//  residue resNum of strand strNum
+	public int[] getDihedralInfo(Molecule m, Residue localResidue, int dihedNum){
+
+		//Residue localResidue = m.strand[strNum].residue[resNum];
+		String tmpName = null;
+		if(localResidue.name.equalsIgnoreCase("CYX"))
+			tmpName = "CYS";
+		else
+			tmpName = localResidue.name;
+				
+		AARotamerType aaType = getAAType(tmpName);
+		int atNum[] = new int[4];
+
+		// Find atoms involved in the dihedral
+		for(int q=0;q<localResidue.numberOfAtoms;q++) {
+			for(int w=0;w<4;w++) {
+				if (localResidue.atom[q].name.equalsIgnoreCase(aaType.dihedralAtomNames[dihedNum][w])) {
+					atNum[w] = q;
+				}
+			}
+		}
+		return(atNum);
+	}
+	
+	// Returns the residue local atom numbers for dihedral dihedNum of
+	//  residue resNum of strand strNum
+	public int[] getDihedralInfo(Residue res, int dihedNum){
+
+		Residue localResidue = res;
+		String tmpName = null;
+		if(localResidue.name.equalsIgnoreCase("CYX"))
+			tmpName = "CYS";
+		else
+			tmpName = localResidue.name;
+				
+		AARotamerType aaType = getAAType(tmpName);
+		int atNum[] = new int[4];
+
+		// Find atoms involved in the dihedral
+		for(int q=0;q<localResidue.numberOfAtoms;q++) {
+			for(int w=0;w<4;w++) {
+				if (localResidue.atom[q].name.equalsIgnoreCase(aaType.dihedralAtomNames[dihedNum][w])) {
+					atNum[w] = q;
+				}
+			}
+		}
 		return(atNum);
 	}
 
@@ -409,28 +521,28 @@ public class RotamerLibrary implements Serializable {
 		return numAAallowed;
 	}
 	
-	public double [][] getRotVol(){
+	/*public float [][] getRotVol(){
 		return rotamerVolumes;
-	}
+	}*/
 	
-	public String getDihedralAtomNames(int i, int j, int k){
+	/*public String getDihedralAtomNames(int i, int j, int k){
 		return dihedralAtomNames[i][j][k];
 	}
 	
 	public int getRotamerValues(int i, int j, int k){
 		return rotamerValues[i][j][k];
-	}
+	}*/
 	
-	public int [] getRotamerIndexOffset(){
+	/*public int [] getRotamerIndexOffset(){
 		return rotamerIndexOffset;
-	}
+	}*/
 	
-	public int getTotalNumRotamers(){
+	/*public int getTotalNumRotamers(){
 		return totalNumRotamers;
-	}
+	}*/
 	
-	public String [] getAAtypesAllowed(){
-		return aaNames;
+	public AARotamerType [] getAAtypesAllowed(){
+		return aaTypes;
 	}
 	
 	//Setup the file with name filename for output
@@ -449,54 +561,115 @@ public class RotamerLibrary implements Serializable {
 	
 	//KER: Adding this function so that I can dope the rotamers
 	//	with the original rotamer from the input structure
-	public void addRotamer(String AAname, int[] dihedVals){
-		//find AAnumber
-		int aaNum = getAARotamerIndex(AAname);
+	public Rotamer addRotamer(String AAname, String pdbNum, double[] dihedVals){
 		
-		//Extend the rotamerValuesArray
-		int[][] temp = new int[rotamerValues[aaNum].length+1][];
-		System.arraycopy(rotamerValues[aaNum], 0, temp, 0, rotamerValues[aaNum].length);
-		rotamerValues[aaNum] = temp;
-		rotamerValues[aaNum][rotamerValues[aaNum].length-1] = new int[rotamerValues[aaNum][0].length];
-		for(int w=0; w<dihedVals.length; w++)
-			rotamerValues[aaNum][rotamerValues[aaNum].length-1][w] = dihedVals[w];
+		return addRotamer(AAname, pdbNum, dihedVals,null);
 		
-		//System.out.println(" Added for AAindex: "+aaNum+" rotamer: "+(rotamerValues[aaNum].length-1));
-		totalNumRotamers++;
-		numRotamers[aaNum]++;
-		for(int i=aaNum+1; i<rotamerIndexOffset.length;i++)
-			rotamerIndexOffset[i]++;
+		/*AARotamerType aaType = getAAType(AAname);
+		
+		Rotamer newRot = new Rotamer(aaType.rotamers.size(), dihedVals, aaType, allRotamers.length);
+		aaType.addRot(newRot);
+		//aaType.addRot(dihedVals,allRotamers.length);
+		Rotamer[] newArray = new Rotamer[allRotamers.length+1];
+		System.arraycopy(allRotamers, 0, newArray, 0, allRotamers.length);
+		newArray[newArray.length-1] = newRot;
+		allRotamers = newArray;*/
+		
 		
 	}
 	
-	public static void addOrigRots(int[][] strandMut,RotamerLibrary rl, Molecule m){
-		//TODO: this assumes first strandRot is a protein
-		if(! rl.isAddedRotamers()){
-			for(int str=0; str<strandMut.length;str++){
-				for(int res=0; res<strandMut[str].length;res++){
-					Residue curRes = m.strand[str].residue[strandMut[str][res]];
-					//Get Num Dihedrals
-					int numDiheds = rl.getNumDihedrals(rl.getAARotamerIndex(curRes.name));
-					if(numDiheds<=0)
-						continue;
-					int[] diheds = new int[numDiheds]; 
-					int atoms[] = new int[4];
-					//get all dihedrals
-					for(int i=0; i<numDiheds; i++){
-						atoms = rl.getDihedralInfo(m, curRes.strandNumber, curRes.strandResidueNumber, i);
-						diheds[i] = (int) Math.round(curRes.atom[atoms[3]].torsion(curRes.atom[atoms[0]], curRes.atom[atoms[1]], curRes.atom[atoms[2]]));
-					}
-					//System.out.print("Str: "+str+" Res: "+res+" ");
-					rl.addRotamer(curRes.name, diheds);
-					//System.out.println("");
+	//KER: Adding this function so that I can dope the rotamers
+	//	with the original rotamer from the input structure
+	public Rotamer addRotamer(String AAname, String pdbNum,double[] dihedVals,double[] minimizationWidth){
+
+		AARotamerType aaType = getAAType(AAname);
+		Rotamer newRot = new Rotamer(aaType.rotamers.size(), dihedVals, aaType, allRotamers.length,pdbNum,minimizationWidth);
+
+
+		aaType.addRot(newRot);
+		//aaType.addRot(dihedVals,allRotamers.length);
+		Rotamer[] newArray = new Rotamer[allRotamers.length+1];
+		System.arraycopy(allRotamers, 0, newArray, 0, allRotamers.length);
+		newArray[newArray.length-1] = newRot;
+		allRotamers = newArray;
+
+		return newRot;
+	}
+	
+	//KER: Adding this function so that I can dope the rotamers
+	//	with the original rotamer from the input structure
+	public Rotamer addSubRotamer(String AAname, String pdbNum,double[] dihedVals,double[] minimizationWidth, Rotamer parent){
+
+		AARotamerType aaType = getAAType(AAname);
+		Rotamer newRot = Rotamer.newSubRot(aaType.rotamers.size(), dihedVals, aaType, allRotamers.length,pdbNum,minimizationWidth,parent);
+
+
+		aaType.addRot(newRot);
+		//aaType.addRot(dihedVals,allRotamers.length);
+		Rotamer[] newArray = new Rotamer[allRotamers.length+1];
+		System.arraycopy(allRotamers, 0, newArray, 0, allRotamers.length);
+		newArray[newArray.length-1] = newRot;
+		allRotamers = newArray;
+
+		return newRot;
+	}
+	
+		
+	
+//	public static void addOrigRots(int[][] strandMut,RotamerLibrary rl, Molecule m){
+//		//TODO: this assumes first strandRot is a protein
+//		if(! rl.isAddedRotamers()){
+//			for(int str=0; str<strandMut.length;str++){
+//				for(int res=0; res<strandMut[str].length;res++){
+//					Residue curRes = m.strand[str].residue[strandMut[str][res]];
+//					//Get Num Dihedrals
+//					int numDiheds = rl.getNumDihedrals(rl.getAARotamerIndex(curRes.name));
+//					if(numDiheds<=0)
+//						continue;
+//					double[] diheds = new double[numDiheds]; 
+//					int atoms[] = new int[4];
+//					//get all dihedrals
+//					for(int i=0; i<numDiheds; i++){
+//						atoms = rl.getDihedralInfo(m, curRes.strandNumber, curRes.strandResidueNumber, i);
+//						diheds[i] = curRes.atom[atoms[3]].torsion(curRes.atom[atoms[0]], curRes.atom[atoms[1]], curRes.atom[atoms[2]]);
+//					}
+//					//System.out.print("Str: "+str+" Res: "+res+" ");
+//					rl.addRotamer(curRes.name, diheds);
+//					//System.out.println("");
+//				}
+//			
+//			}
+//			rl.setAddedRotamers(true);
+//		}
+//		/*else{
+//			System.out.println("DEBUG: ALREADY ADDED ROTAMERS");
+//		}*/
+//	}
+	
+	public Rotamer addOrigRot(Residue res){
+		Rotamer wtRot = null;
+		if( !res.addedOrigRot){
+			//Get Num Dihedrals
+			int numDiheds = getNumDihedrals(getAARotamerIndex(res.name));
+			if(numDiheds>0){
+				double[] diheds = new double[numDiheds]; 
+				int atoms[] = new int[4];
+				//get all dihedrals
+				for(int i=0; i<numDiheds; i++){
+					atoms = getDihedralInfo(res, i);
+					diheds[i] = res.atom[atoms[3]].torsion(res.atom[atoms[0]], res.atom[atoms[1]], res.atom[atoms[2]]);
 				}
-			
+				//System.out.print("Str: "+str+" Res: "+res+" ");
+				wtRot = addRotamer(res.name, res.getResNumberString(), diheds); 
+				//System.out.println("");
 			}
-			rl.setAddedRotamers(true);
+			res.addedOrigRot = true;
 		}
 		else{
-			System.out.println("DEBUG: ALREADY ADDED ROTAMERS");
+			wtRot = res.wtRot;
 		}
+		
+		return wtRot;
 	}
 	
 	public static void initThree2One(){
@@ -508,6 +681,9 @@ public class RotamerLibrary implements Serializable {
 		three2one.put("PHE","F");
 		three2one.put("GLY","G");
 		three2one.put("HIS","H");
+		three2one.put("HIP","H");
+		three2one.put("HIE","H");
+		three2one.put("HID","H");
 		three2one.put("ILE","I");
 		three2one.put("LYS","K");
 		three2one.put("LEU","L");
@@ -528,6 +704,156 @@ public class RotamerLibrary implements Serializable {
 		if (res == null)
 			res = "X";
 		return res;
+	}
+
+	public Rotamer getRot(int i) {
+		return allRotamers[i];
+	}
+
+	public String getRotFile(){
+		return rotFile;
+	}
+
+	public Rotamer getAARot(String AAname, int i) {
+		AARotamerType aaType = getAAType(AAname);
+		return aaType.rotamers.get(i);
+	}
+	
+	public Rotamer getAARot(int AAind, int i) {
+		AARotamerType aaType = getAAType(getAAName(AAind));
+		return aaType.rotamers.get(i);
+	}
+	
+	public void loadGlobalRots(String rotFilename) {
+
+		int numRotLoaded = allRotamers.length;
+
+		
+
+		// HANDLE THE NORMAL AAs	
+		try{
+			FileInputStream is = new FileInputStream( rotFilename );
+			BufferedReader bufread = new BufferedReader(new InputStreamReader(is));
+			String curLine = null;
+
+			
+
+			// Skip over comments (lines starting with !)
+			curLine = bufread.readLine();
+			while( curLine.charAt(0) == '!' )
+				curLine = bufread.readLine();
+
+			/*aaNames = new String[numAAallowed];
+			numDihedrals = new int[numAAallowed];
+			numRotamers = new int[numAAallowed];
+			rotamerIndexOffset = new int[numAAallowed];
+			dihedralAtomNames = new String[numAAallowed][][];
+			rotamerValues = new int[numAAallowed][][];*/
+			ArrayList<Rotamer> allRots = new ArrayList<Rotamer>();
+			
+
+			while( curLine != null ) {
+				if(curLine.charAt(0) == '!'){
+					curLine = bufread.readLine();
+					continue;
+				}
+
+
+				int globalRotNum = (new Integer(getToken(curLine,1))).intValue();
+				if(globalRotNum >= numRotLoaded){
+					String aaName = getToken(curLine,2);
+					AARotamerType aa = getAAType(aaName);
+					int aaRotNum = (new Integer(getToken(curLine,3))).intValue();
+
+
+					// Read in the rotamer
+					double[] dihedrals = new double[aa.numDihedrals()];
+					double[] minLimits = new double[aa.numDihedrals()];
+					for(int w=0;w<aa.numDihedrals();w++) {
+						dihedrals[w] = (new Double(getToken(curLine,(w+4)))).doubleValue();
+						minLimits[w] = (new Double(getToken(curLine,(w+4+aa.numDihedrals())))).doubleValue();
+					}
+					
+					String pdbNum = getToken(curLine,4+2*aa.numDihedrals());
+
+					Rotamer curRot = new Rotamer(aaRotNum,dihedrals,aa,globalRotNum,pdbNum,minLimits);
+					aa.addRot(curRot);
+					allRots.add(curRot);
+
+
+					/*totalNumRotamers += numRotamers;
+				if (numRotamers<=0) //ALA or GLY
+					totalNumRotamers += 1;*/
+
+
+					
+				}
+				curLine = bufread.readLine();
+			}
+			bufread.close();
+		
+		Rotamer[] newRots = allRots.toArray(new Rotamer[0]);
+		Rotamer[] oldRots = allRotamers;
+
+		allRotamers = new Rotamer[newRots.length+oldRots.length];
+		System.arraycopy(oldRots, 0, allRotamers, 0, oldRots.length);
+		System.arraycopy(newRots, 0, allRotamers, oldRots.length, newRots.length);
+
+		}catch(Exception E){
+			System.out.println("Couldn't properly load rot library.");
+		}
+
+	}
+
+	/*
+	 * Goes through and finds the rotamer the split rotamer came from
+	 */
+	public Rotamer remapSplitRot(int globalRotNum){
+		
+		Rotamer splitRot = getRot(globalRotNum);
+		
+		for(int i=0; i<=183; i++){
+			Rotamer r = getRot(i);
+			if(splitRot.aaType.name.equalsIgnoreCase(r.aaType.name)){
+				boolean dihMatch = true;
+				for(int dih=0; dih<r.aaType.numDihedrals();dih++){
+					if(Math.abs(r.values[dih] - splitRot.values[dih]) > 9 ){
+						dihMatch = false;
+					}
+				}
+				if(dihMatch)
+					return r;
+			}
+		}
+		
+		return null;
+	}
+
+	/**
+	 * Saves all of the rotamers in the rotamer library.
+	 * Can be read with loadGlobalRots
+	 * @param fileName
+	 * @return
+	 */
+	public void save(String fileName){
+		try {
+			
+				FileOutputStream fileOutputStream = new FileOutputStream(fileName);
+				BufferedOutputStream bufferedOutputStream = new BufferedOutputStream( fileOutputStream );
+				PrintStream logPS = new PrintStream( bufferedOutputStream );
+				for(Rotamer r: allRotamers){
+					logPS.println(r.toString());
+				}
+				logPS.close();
+			
+		}
+		catch (Exception ex) {
+			System.out.println("ERROR: An exception occured while opening log file");
+		}
+	}
+
+	public int getTotalNumRotamers() {
+		return allRotamers.length;
 	}
 	
 }

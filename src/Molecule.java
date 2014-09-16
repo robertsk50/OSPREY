@@ -38,7 +38,7 @@
 
 	<signature of Bruce Donald>, 12 Apr, 2009
 	Bruce Donald, Professor of Computer Science
-*/
+ */
 
 ////////////////////////////////////////////////////////////////////////////////////////////
 // Molecule.java
@@ -117,7 +117,7 @@ public class Molecule implements Serializable{
 	public static final int HELIX = 1;
 	public static final int STRAND = 2;
 	public static final int OTHER = 3;
-	
+
 	String	name;
 	int	numberOfStrands = 0;
 	int	numberOfResidues = 0;
@@ -137,25 +137,29 @@ public class Molecule implements Serializable{
 	ArrayList<LinkedList<Integer>>	connected14 = null;		// 2D array of atoms 1-4 connected (2 atoms between) First dimension is atom, second holds flat 2-3-4 pairs
 	ArrayList<Atom>[][] nonBonded  = null;			// List of non bonded pairs
 	boolean bondedMatrix[][] = null;
-		// entries are only in half of bondedMatrix
-		// so bondedMatrix{i][j] is only valid where i<j
+	// entries are only in half of bondedMatrix
+	// so bondedMatrix{i][j] is only valid where i<j
 	int bondedMatrixSize = 0;
-		// bondedMatrix size is bondedMatrixSize x bondedMatrixSize
+	// bondedMatrix size is bondedMatrixSize x bondedMatrixSize
 	int	numberOf12Connections = 0;
 	int	numberOf13Connections = 0;
 	int	numberOf14Connections = 0;
 	int	numberNonBonded = 0;
 	double	gradient[] = null;	// The computed gradient for this molecule (x,y,z) for each atom
 
-        Perturbation[] perts = null; //Perturbations that can affect this molecule
-        //Listed in order of application (first layer 1, then layer 2...)
+	Perturbation[] perts = null; //Perturbations that can affect this molecule
+	//Listed in order of application (first layer 1, then layer 2...)
 
-        DegreeOfFreedom DOFs[] = null;//Degrees of freedom affecting this molecule.  Ordered by DOFNum
+	DegreeOfFreedom DOFs[] = null;//Degrees of freedom affecting this molecule.  Ordered by DOFNum
 
-        boolean[][] neighborList = null; //(i,j) is true if resi and resj are neighbors (molecule based numbering)
-        
-        boolean validBB = true;//Indicates no perturbation messes up the backbone (indicated by Perturbation.validState)
-        boolean validSC = true;//Indicates sidechains are all valid (an uncloseable proline ring, indicated by Residue.validConf, would invalidate this)
+	boolean[][] neighborList = null; //(i,j) is true if resi and resj are neighbors (molecule based numbering)
+
+	boolean validBB = true;//Indicates no perturbation messes up the backbone (indicated by Perturbation.validState)
+	boolean validSC = true;//Indicates sidechains are all valid (an uncloseable proline ring, indicated by Residue.validConf, would invalidate this)
+
+	RotamerLibrary aaRotLib;
+	RotamerLibrary genRotLib;
+
 
 	// Generic constructor
 	Molecule(){
@@ -166,7 +170,7 @@ public class Molecule implements Serializable{
 		atom = new Atom[1];
 		actualCoordinates = new double[1];
 		name = "Untitled";
-                perts = new Perturbation[0];
+		perts = new Perturbation[0];
 	}
 
 	// Prints molecule information
@@ -655,7 +659,7 @@ public class Molecule implements Serializable{
 		System.arraycopy(atom, 0, largerAtomArray, 0, moleculeAtomInsertPoint);
 		if (moleculeAtomInsertPoint+numAtoms < newAtomNumber)
 			System.arraycopy(atom, moleculeAtomInsertPoint, largerAtomArray,
-				numAtoms+moleculeAtomInsertPoint, newAtomNumber-(moleculeAtomInsertPoint+numAtoms));
+					numAtoms+moleculeAtomInsertPoint, newAtomNumber-(moleculeAtomInsertPoint+numAtoms));
 		atom = largerAtomArray;
 
 		if (numResidues==1) {
@@ -663,7 +667,7 @@ public class Molecule implements Serializable{
 			System.arraycopy(residue, 0, largerResidueArray, 0, moleculeResInsertPoint);
 			if (moleculeResInsertPoint < numberOfResidues)
 				System.arraycopy(residue, moleculeResInsertPoint, largerResidueArray,
-					moleculeResInsertPoint+1, numberOfResidues-moleculeResInsertPoint);
+						moleculeResInsertPoint+1, numberOfResidues-moleculeResInsertPoint);
 			residue = largerResidueArray;
 		}
 		// handle coordinates
@@ -671,11 +675,11 @@ public class Molecule implements Serializable{
 		int moleculeAtomInsertPointx3 = moleculeAtomInsertPoint * 3;
 		double largerCoordinateArray[] = new double[newAtomNumberx3];
 		System.arraycopy(actualCoordinates, 0, largerCoordinateArray, 0,
-			moleculeAtomInsertPointx3);
+				moleculeAtomInsertPointx3);
 		if (moleculeAtomInsertPoint+numAtoms < newAtomNumber)
 			System.arraycopy(actualCoordinates, moleculeAtomInsertPointx3,
-				largerCoordinateArray, numAtoms*3+moleculeAtomInsertPointx3,
-				newAtomNumberx3-(moleculeAtomInsertPointx3+numAtoms*3));
+					largerCoordinateArray, numAtoms*3+moleculeAtomInsertPointx3,
+					newAtomNumberx3-(moleculeAtomInsertPointx3+numAtoms*3));
 		actualCoordinates = largerCoordinateArray;
 	}
 
@@ -747,7 +751,7 @@ public class Molecule implements Serializable{
 		// Handle coordinates (and update bond numbers)
 		double largerCoordinateArray[] = new double[ newAtomNumberx3 ];
 		System.arraycopy(actualCoordinates, 0, largerCoordinateArray, 0,
-			actualCoordinates.length);
+				actualCoordinates.length);
 		actualCoordinates = largerCoordinateArray;
 		int ix3;
 		for(int i=numberOfAtoms; i<newAtomNumber; i++) {
@@ -785,7 +789,7 @@ public class Molecule implements Serializable{
 
 		//KER: assign handedness of the amino acid
 		newResidue.assignHandedness();
-		
+
 		if (strandNumber>=numberOfStrands){
 			addStrand();
 			strandNumber = numberOfStrands-1;
@@ -826,11 +830,11 @@ public class Molecule implements Serializable{
 			atom[q].moleculeResidueNumber = newResPosition;
 			qx3 = q * 3;
 			actualCoordinates[qx3] = atom[q].coord[0] =
-				newResidue.atom[i].coord[0];
+					newResidue.atom[i].coord[0];
 			actualCoordinates[qx3+1] = atom[q].coord[1] =
-				newResidue.atom[i].coord[1];
+					newResidue.atom[i].coord[1];
 			actualCoordinates[qx3+2] = atom[q].coord[2] =
-				newResidue.atom[i].coord[2];
+					newResidue.atom[i].coord[2];
 		}
 
 		strand[strandNumber].addResidue(newResidue);
@@ -875,7 +879,7 @@ public class Molecule implements Serializable{
 
 		// strand.addAtom() does additional bookkeeping and will call residue.addAtom
 		strand[residue[moleculeResidueNumber].strandNumber].addAtom(
-			residue[moleculeResidueNumber].strandResidueNumber, newAtom);
+				residue[moleculeResidueNumber].strandResidueNumber, newAtom);
 
 		numberOfAtomsx3 = newAtomNumberx3;
 		return( numberOfAtoms++ );
@@ -933,7 +937,7 @@ public class Molecule implements Serializable{
 		System.arraycopy(strand, 0, smallerStrandArray, 0, strandNumber);
 		if (strandNumber<numberOfStrands-1)
 			System.arraycopy(strand, strandNumber + 1, smallerStrandArray,
-				strandNumber, strand.length - strandNumber - 1);
+					strandNumber, strand.length - strandNumber - 1);
 		strand = smallerStrandArray;
 
 		int curAtNum=0;
@@ -980,18 +984,18 @@ public class Molecule implements Serializable{
 		double smallerActualCoordinateArray[] = new double[newAtomNumberx3];
 		Residue smallerResidueArray[] = new Residue[newNumberOfResidues];
 
-	    // copy over good atoms and atom info
-	    for(int i=0, j=0, jx3=0, ix3=0; i<numberOfAtoms; i++){
+		// copy over good atoms and atom info
+		for(int i=0, j=0, jx3=0, ix3=0; i<numberOfAtoms; i++){
 			if (!(atom[i].moleculeResidueNumber==moleculeResidueNumber)){
-		        ix3 = i*3;
-		        jx3 = j*3;
-		        smallerActualCoordinateArray[jx3] = actualCoordinates[ix3];
-		        smallerActualCoordinateArray[jx3+1] = actualCoordinates[ix3+1];
-		        smallerActualCoordinateArray[jx3+2] = actualCoordinates[ix3+2];
-		        smallerAtomArray[j++] = atom[i];
+				ix3 = i*3;
+				jx3 = j*3;
+				smallerActualCoordinateArray[jx3] = actualCoordinates[ix3];
+				smallerActualCoordinateArray[jx3+1] = actualCoordinates[ix3+1];
+				smallerActualCoordinateArray[jx3+2] = actualCoordinates[ix3+2];
+				smallerAtomArray[j++] = atom[i];
 			}
 		}
-	    atom = smallerAtomArray;
+		atom = smallerAtomArray;
 		actualCoordinates = smallerActualCoordinateArray;
 
 		// update atom member variables
@@ -1023,7 +1027,7 @@ public class Molecule implements Serializable{
 		System.arraycopy(residue,0,smallerResidueArray,0,moleculeResidueNumber);
 		if (moleculeResidueNumber < numberOfResidues-1)
 			System.arraycopy(residue, moleculeResidueNumber+1, smallerResidueArray,
-				moleculeResidueNumber, residue.length-moleculeResidueNumber-1);
+					moleculeResidueNumber, residue.length-moleculeResidueNumber-1);
 		residue = smallerResidueArray;
 
 		for(int i=0; i<(numberOfResidues-1); i++){
@@ -1046,7 +1050,7 @@ public class Molecule implements Serializable{
 		for(int i=0; i<residue[moleculeResidueNumber].numberOfAtoms; i++)
 			if(residue[moleculeResidueNumber].atom[i].name.equals(atomName))
 				return(deleteAtom(residue[moleculeResidueNumber].atom[
-					i].moleculeAtomNumber));
+				                                                      i].moleculeAtomNumber));
 		return(0);
 	}
 
@@ -1055,7 +1059,7 @@ public class Molecule implements Serializable{
 	//  relative residue number, and a residue relative atom number
 	public int deleteAtom(int strandNumber, int strandResidueNumber, int residueAtomNumber){
 		return(deleteAtom(strand[strandNumber].residue[strandResidueNumber].atom[
-			residueAtomNumber].moleculeAtomNumber));
+		                                                                         residueAtomNumber].moleculeAtomNumber));
 	}
 
 	// One public interface for deleting atoms
@@ -1084,26 +1088,26 @@ public class Molecule implements Serializable{
 		int moleculeAtomNumberx3 = moleculeAtomNumber * 3;
 		Atom atomToDelete = atom[moleculeAtomNumber];
 
-    // copy over good atoms and atom info
+		// copy over good atoms and atom info
 		Atom smallerAtomArray[] = new Atom[numberOfAtoms-1];
 		System.arraycopy(atom, 0, smallerAtomArray, 0, moleculeAtomNumber);
 		if (moleculeAtomNumber<newAtomNumber)
 			System.arraycopy(atom, moleculeAtomNumber+1, smallerAtomArray,
-				moleculeAtomNumber, atom.length-moleculeAtomNumber-1);
+					moleculeAtomNumber, atom.length-moleculeAtomNumber-1);
 		atom = smallerAtomArray;
 
 		double smallerCoordinateArray[] = new double[newAtomNumberx3];
 		System.arraycopy(actualCoordinates, 0, smallerCoordinateArray, 0,
-			moleculeAtomNumberx3);
+				moleculeAtomNumberx3);
 		if (moleculeAtomNumber<newAtomNumber)
 			System.arraycopy(actualCoordinates, moleculeAtomNumberx3 + 3,
-				smallerCoordinateArray, moleculeAtomNumberx3, newAtomNumberx3 -
-				moleculeAtomNumberx3);
+					smallerCoordinateArray, moleculeAtomNumberx3, newAtomNumberx3 -
+					moleculeAtomNumberx3);
 		actualCoordinates = smallerCoordinateArray;
 
 		// update atom member variables
 		for(int i=0; i<newAtomNumber; i++){
-      if (atom[i].moleculeAtomNumber > moleculeAtomNumber){
+			if (atom[i].moleculeAtomNumber > moleculeAtomNumber){
 				atom[i].moleculeAtomNumber -= 1;
 			}
 			if (atom[i].strandNumber != strandNumber){
@@ -1121,7 +1125,7 @@ public class Molecule implements Serializable{
 
 		// delete residue from strand, does additional bookkeeping
 		strand[strandNumber].deleteAtom(atomToDelete.strandResidueNumber,
-			atomToDelete.residueAtomNumber);
+				atomToDelete.residueAtomNumber);
 
 		numberOfAtoms = newAtomNumber;
 		numberOfAtomsx3 = numberOfAtoms * 3;
@@ -1278,12 +1282,12 @@ public class Molecule implements Serializable{
 	// atomList is a list of atoms to change
 	// numberOfElements is the number of elements in atomList
 	public void setTorsion(int a1num, int a2num, int a3num, int a4num, double torsion,
-		int atomList[], int numberOfElements){
+			int atomList[], int numberOfElements){
 		setTorsion(a1num,a2num,a3num,a4num,torsion,atomList,numberOfElements,true);
 	}
 
 	public void changeTorsion(int a1num, int a2num, int a3num, int a4num, double deltaTorsion,
-		int atomList[], int numberOfElements){
+			int atomList[], int numberOfElements){
 		changeTorsion(a1num,a2num,a3num,a4num,deltaTorsion,atomList,numberOfElements,true);
 	}
 
@@ -1303,7 +1307,7 @@ public class Molecule implements Serializable{
 	//  which is why resolveCoordinates is called), finally if we don't want
 	//  to updateAtom coords then the atom.coords are restored
 	public void setTorsion(int a1num, int a2num, int a3num, int a4num, double torsion,
-		int atomList[], int numberOfElements, boolean updateAtoms){
+			int atomList[], int numberOfElements, boolean updateAtoms){
 
 		// Aligns dihedral on the +x-axis, modifies the angle then rotates it back
 
@@ -1332,28 +1336,28 @@ public class Molecule implements Serializable{
 		resolveCoordinates(a3num);  // update a3 coords
 		resolveCoordinates(a4num);  // update a4 coords
 
-                /*
+		/*
 		Atom pseudoAtom2 = new Atom("a2", a2.coord[0] - a3.coord[0],
 			a2.coord[1] - a3.coord[1], a2.coord[2] - a3.coord[2]);
 		double originalTorsion = a4.torsion(a1, a2, a3);
                 changeTorsion(a1num, a2num, a3num, a4num, torsion-originalTorsion,atomList,
 			numberOfElements, updateAtoms);
-                
-                */
-                
-                //working with sines and cosines is faster
-                
-				double originalTorsionSC[] = a4.torsionSinCos(a1, a2, a3);
-                double sinTorsion = Math.sin(Math.PI*torsion/180);
-                double cosTorsion = Math.cos(Math.PI*torsion/180);
-                double sinDeltaTorsion = sinTorsion*originalTorsionSC[1] - cosTorsion*originalTorsionSC[0];
-                double cosDeltaTorsion = cosTorsion*originalTorsionSC[1] + sinTorsion*originalTorsionSC[0];
 
-                
-                changeTorsion(a1num, a2num, a3num, a4num, sinDeltaTorsion, cosDeltaTorsion,
-                        atomList, numberOfElements, updateAtoms);
+		 */
 
-                
+		//working with sines and cosines is faster
+
+		double originalTorsionSC[] = a4.torsionSinCos(a1, a2, a3);
+		double sinTorsion = Math.sin(Math.PI*torsion/180);
+		double cosTorsion = Math.cos(Math.PI*torsion/180);
+		double sinDeltaTorsion = sinTorsion*originalTorsionSC[1] - cosTorsion*originalTorsionSC[0];
+		double cosDeltaTorsion = cosTorsion*originalTorsionSC[1] + sinTorsion*originalTorsionSC[0];
+
+
+		changeTorsion(a1num, a2num, a3num, a4num, sinDeltaTorsion, cosDeltaTorsion,
+				atomList, numberOfElements, updateAtoms);
+
+
 		if (!updateAtoms){
 			// restore the 4 atoms coordinates
 			a1.coord[0] = backupCoords[0][0];
@@ -1376,17 +1380,17 @@ public class Molecule implements Serializable{
 	//  rotation to specified atoms
 	// See the comment description for setTorsion
 	public void changeTorsion(int a1num, int a2num, int a3num, int a4num, double deltaTorsion,
-		int atomList[], int numberOfElements, boolean updateAtoms){
+			int atomList[], int numberOfElements, boolean updateAtoms){
 
-            
+
 		// Aligns dihedral on the +x-axis, modifies the angle then rotates it back
 		int at2x3 = a2num * 3;
 		int at3x3 = a3num * 3;
 		int at4x3 = a4num * 3;
 		Atom pseudoAtom2 = new Atom("a2", actualCoordinates[at2x3] - actualCoordinates[at3x3],
-                        actualCoordinates[at2x3+1] - actualCoordinates[at3x3+1],
-                        actualCoordinates[at2x3+2] - actualCoordinates[at3x3+2]);
-                
+				actualCoordinates[at2x3+1] - actualCoordinates[at3x3+1],
+				actualCoordinates[at2x3+2] - actualCoordinates[at3x3+2]);
+
 		int numberOfCoordinates = 0;
 		int atomListLength = 0;
 		int atomNumber;
@@ -1409,16 +1413,16 @@ public class Molecule implements Serializable{
 		for (int i = 0, ix3, atx3; i<atomListLength; i++){
 			atomNumber = atomList[i];
 			if ((atomNumber == a1num) || (atomNumber == a2num) ||
-				(atomNumber == a3num) || (atomNumber == a4num))
+					(atomNumber == a3num) || (atomNumber == a4num))
 				continue;
 			atx3 = atomNumber * 3;
 			ix3 = i * 3;
 			temporaryCoordinates[ix3 + 3] = actualCoordinates[atx3] -
-				actualCoordinates[at3x3];
+					actualCoordinates[at3x3];
 			temporaryCoordinates[ix3 + 4] = actualCoordinates[atx3 + 1] -
-				actualCoordinates[at3x3+1];
+					actualCoordinates[at3x3+1];
 			temporaryCoordinates[ix3 + 5] = actualCoordinates[atx3 + 2] -
-				actualCoordinates[at3x3+2];
+					actualCoordinates[at3x3+2];
 		}
 		// get angle info from atom2
 		RotMatrix theRotation = new RotMatrix();
@@ -1432,12 +1436,12 @@ public class Molecule implements Serializable{
 		theRotation.zAxisRotate( a2ZAngle -180, temporaryCoordinates, numberOfCoordinates);
 		theRotation.yAxisRotate( a2YAngle, temporaryCoordinates, numberOfCoordinates);
 		theRotation.translate(actualCoordinates[at3x3], actualCoordinates[at3x3+1],
-			actualCoordinates[at3x3+2], temporaryCoordinates, numberOfCoordinates);
+				actualCoordinates[at3x3+2], temporaryCoordinates, numberOfCoordinates);
 
 		for(int i=0, ix3, atx3; i<atomListLength; i++){
 			atomNumber = atomList[i];
 			if ((atomNumber == a1num) || (atomNumber == a2num) ||
-				(atomNumber == a3num ) || (atomNumber == a4num))
+					(atomNumber == a3num ) || (atomNumber == a4num))
 				continue;
 			atx3 = atomNumber * 3;
 			ix3 = i * 3;
@@ -1454,24 +1458,24 @@ public class Molecule implements Serializable{
 		if (updateAtoms)
 			resolveCoordinates(a4num);
 	}
-        
-        
-        
-        
-        
-        //version based on sin/cos, for speed (avoiding inverse trig)
-        public void changeTorsion(int a1num, int a2num, int a3num, int a4num, double sinDeltaTorsion,
-                double cosDeltaTorsion, int atomList[], int numberOfElements, boolean updateAtoms){
 
-            
+
+
+
+
+	//version based on sin/cos, for speed (avoiding inverse trig)
+	public void changeTorsion(int a1num, int a2num, int a3num, int a4num, double sinDeltaTorsion,
+			double cosDeltaTorsion, int atomList[], int numberOfElements, boolean updateAtoms){
+
+
 		// Aligns dihedral on the +x-axis, modifies the angle then rotates it back
 		int at2x3 = a2num * 3;
 		int at3x3 = a3num * 3;
 		int at4x3 = a4num * 3;
 		Atom pseudoAtom2 = new Atom("a2", actualCoordinates[at2x3] - actualCoordinates[at3x3],
-                        actualCoordinates[at2x3+1] - actualCoordinates[at3x3+1],
-                        actualCoordinates[at2x3+2] - actualCoordinates[at3x3+2]);
-                
+				actualCoordinates[at2x3+1] - actualCoordinates[at3x3+1],
+				actualCoordinates[at2x3+2] - actualCoordinates[at3x3+2]);
+
 		int numberOfCoordinates = 0;
 		int atomListLength = 0;
 		int atomNumber;
@@ -1494,16 +1498,16 @@ public class Molecule implements Serializable{
 		for (int i = 0, ix3, atx3; i<atomListLength; i++){
 			atomNumber = atomList[i];
 			if ((atomNumber == a1num) || (atomNumber == a2num) ||
-				(atomNumber == a3num) || (atomNumber == a4num))
+					(atomNumber == a3num) || (atomNumber == a4num))
 				continue;
 			atx3 = atomNumber * 3;
 			ix3 = i * 3;
 			temporaryCoordinates[ix3 + 3] = actualCoordinates[atx3] -
-				actualCoordinates[at3x3];
+					actualCoordinates[at3x3];
 			temporaryCoordinates[ix3 + 4] = actualCoordinates[atx3 + 1] -
-				actualCoordinates[at3x3+1];
+					actualCoordinates[at3x3+1];
 			temporaryCoordinates[ix3 + 5] = actualCoordinates[atx3 + 2] -
-				actualCoordinates[at3x3+2];
+					actualCoordinates[at3x3+2];
 		}
 		// get angle info from atom2
 		RotMatrix theRotation = new RotMatrix();
@@ -1517,12 +1521,12 @@ public class Molecule implements Serializable{
 		theRotation.zAxisRotate( -a2ZAngleSC[0], -a2ZAngleSC[1], temporaryCoordinates, numberOfCoordinates);
 		theRotation.yAxisRotate( a2YAngleSC[0], a2YAngleSC[1], temporaryCoordinates, numberOfCoordinates);
 		theRotation.translate(actualCoordinates[at3x3], actualCoordinates[at3x3+1],
-			actualCoordinates[at3x3+2], temporaryCoordinates, numberOfCoordinates);
+				actualCoordinates[at3x3+2], temporaryCoordinates, numberOfCoordinates);
 
 		for(int i=0, ix3, atx3; i<atomListLength; i++){
 			atomNumber = atomList[i];
 			if ((atomNumber == a1num) || (atomNumber == a2num) ||
-				(atomNumber == a3num ) || (atomNumber == a4num))
+					(atomNumber == a3num ) || (atomNumber == a4num))
 				continue;
 			atx3 = atomNumber * 3;
 			ix3 = i * 3;
@@ -1539,16 +1543,16 @@ public class Molecule implements Serializable{
 		if (updateAtoms)
 			resolveCoordinates(a4num);
 	}
-        
-        
-        
-        
 
 
-        //This function measures the dihedral for the atoms with molecule atom numbers satisfied
-        //Like setTorsion it transfers coordinates from the actualCoordinates to the Atom.coord since the Atom.torsion
-        //function requires that; then it restores the Atom.coord to what they were before
-        public double getTorsion(int a1num, int a2num, int a3num, int a4num){
+
+
+
+
+	//This function measures the dihedral for the atoms with molecule atom numbers satisfied
+	//Like setTorsion it transfers coordinates from the actualCoordinates to the Atom.coord since the Atom.torsion
+	//function requires that; then it restores the Atom.coord to what they were before
+	public double getTorsion(int a1num, int a2num, int a3num, int a4num){
 
 
 		double backupCoords[][] = new double[4][3];
@@ -1578,21 +1582,21 @@ public class Molecule implements Serializable{
 
 		double ans = a4.torsion(a1, a2, a3);
 
-                // restore the 4 atoms coordinates
-                a1.coord[0] = backupCoords[0][0];
-                a1.coord[1] = backupCoords[0][1];
-                a1.coord[2] = backupCoords[0][2];
-                a2.coord[0] = backupCoords[1][0];
-                a2.coord[1] = backupCoords[1][1];
-                a2.coord[2] = backupCoords[1][2];
-                a3.coord[0] = backupCoords[2][0];
-                a3.coord[1] = backupCoords[2][1];
-                a3.coord[2] = backupCoords[2][2];
-                a4.coord[0] = backupCoords[3][0];
-                a4.coord[1] = backupCoords[3][1];
-                a4.coord[2] = backupCoords[3][2];
+		// restore the 4 atoms coordinates
+		a1.coord[0] = backupCoords[0][0];
+		a1.coord[1] = backupCoords[0][1];
+		a1.coord[2] = backupCoords[0][2];
+		a2.coord[0] = backupCoords[1][0];
+		a2.coord[1] = backupCoords[1][1];
+		a2.coord[2] = backupCoords[1][2];
+		a3.coord[0] = backupCoords[2][0];
+		a3.coord[1] = backupCoords[2][1];
+		a3.coord[2] = backupCoords[2][2];
+		a4.coord[0] = backupCoords[3][0];
+		a4.coord[1] = backupCoords[3][1];
+		a4.coord[2] = backupCoords[3][2];
 
-                return ans;
+		return ans;
 	}
 
 
@@ -1721,7 +1725,7 @@ public class Molecule implements Serializable{
 	// Translate the specified residue by dx, dy, dz
 	// resNum is molecule relative
 	public void translateResidue(int resNum, double dx, double dy,
-		double dz){
+			double dz){
 		translateResidue(resNum,dx,dy,dz,true);
 	}
 
@@ -1730,14 +1734,14 @@ public class Molecule implements Serializable{
 	// If updateAtoms is true the actualCoordinates are copied
 	//  back into the atom coordinates
 	public void translateResidue(int resNum, double dx, double dy,
-		double dz, boolean updateAtoms){
+			double dz, boolean updateAtoms){
 		translateResidue(residue[resNum].strandNumber,
-			residue[resNum].strandResidueNumber,dx,dy,dz,updateAtoms);
+				residue[resNum].strandResidueNumber,dx,dy,dz,updateAtoms);
 	}
 	// Translate the specified residue by dx, dy, dz
 	// resNum is strand relative
 	public void translateResidue(int strNum, int resNum, double dx,
-		double dy, double dz){
+			double dy, double dz){
 		translateResidue(strNum,resNum,dx,dy,dz,true);
 	}
 
@@ -1746,7 +1750,7 @@ public class Molecule implements Serializable{
 	// If updateAtoms is true the actualCoordinates are copied
 	//  back into the atom coordinates
 	public void translateResidue(int strNum, int resNum, double dx,
-		double dy, double dz, boolean updateAtoms){
+			double dy, double dz, boolean updateAtoms){
 
 		int index = strand[strNum].residue[resNum].atom[0].moleculeAtomNumber * 3;
 		for(int i=0;i<strand[strNum].residue[resNum].numberOfAtoms;i++){
@@ -1760,7 +1764,7 @@ public class Molecule implements Serializable{
 
 	// Translate the specified strand by dx, dy, dz
 	public void translateStrand(int strNum, double dx, double dy,
-		double dz){
+			double dz){
 		translateStrand(strNum,dx,dy,dz,true);
 	}
 
@@ -1768,7 +1772,7 @@ public class Molecule implements Serializable{
 	// If updateAtoms is true the actualCoordinates are copied
 	//  back into the atom coordinates
 	public void translateStrand(int strNum, double dx, double dy,
-		double dz, boolean updateAtoms){
+			double dz, boolean updateAtoms){
 		for(int i=0;i<strand[strNum].numberOfResidues;i++){
 			translateResidue(strNum,i,dx,dy,dz,updateAtoms);
 		}
@@ -1783,7 +1787,7 @@ public class Molecule implements Serializable{
 	// If updateAtoms is true the actualCoordinates are copied
 	//  back into the atom coordinates
 	public void translateMolecule(double dx, double dy, double dz, boolean
-		updateAtoms){
+			updateAtoms){
 		for(int i=0; i<numberOfAtomsx3; i=i+3){
 			actualCoordinates[i] += dx;
 			actualCoordinates[i+1] += dy;
@@ -1795,41 +1799,41 @@ public class Molecule implements Serializable{
 
 
 	public void rotateStrandAroundCOM(int ligStrNum, double dx, double dy,
-		double dz, double theta){
+			double dz, double theta){
 		rotateStrandAroundCOM(ligStrNum,dx,dy,dz,theta,true);
 	}
 
 	public void rotateStrandAroundCOM(int ligStrNum, double dx, double dy,
-		double dz, double theta, boolean updateAtoms){
+			double dz, double theta, boolean updateAtoms){
 
 		double theCOM[] = getStrandCOM(ligStrNum);
 
 		rotateStrand(ligStrNum,dx,dy,dz,theCOM[0],theCOM[1],theCOM[2],
-			theta, updateAtoms);
+				theta, updateAtoms);
 	}
 
 	public void rotateStrand(int ligStrNum, double dx, double dy, double dz,
-		double cx, double cy, double cz, double theta){
+			double cx, double cy, double cz, double theta){
 
 		rotateStrand(ligStrNum,dx,dy,dz,cx,cy,cz,theta,true);
 	}
 
 	public void rotateStrand(int ligStrNum, double dx, double dy, double dz,
-		double cx, double cy, double cz, double thetaDeg, boolean updateAtoms){
+			double cx, double cy, double cz, double thetaDeg, boolean updateAtoms){
 
-		
+
 
 		double[][] rot_mtx = new double[3][3];
 		RotMatrix rM = new RotMatrix();
 		rM.getRotMatrix(dx,dy,dz,thetaDeg,rot_mtx);
-                rotateStrand(ligStrNum, rot_mtx, cx, cy, cz, updateAtoms);
-        }
+		rotateStrand(ligStrNum, rot_mtx, cx, cy, cz, updateAtoms);
+	}
 
-        
-        public void rotateStrand(int ligStrNum, double[][] rot_mtx, double cx,
-                double cy, double cz, boolean updateAtoms){
 
-                double tx,ty,tz;
+	public void rotateStrand(int ligStrNum, double[][] rot_mtx, double cx,
+			double cy, double cz, boolean updateAtoms){
+
+		double tx,ty,tz;
 
 		Strand theStrand = strand[ligStrNum];
 		int i=theStrand.residue[0].atom[0].moleculeAtomNumber;
@@ -1884,9 +1888,9 @@ public class Molecule implements Serializable{
 		}
 	}
 
-                ////Rotates the given atomList (molecule-relative numbering) using rotation matrix rot_mtx
+	////Rotates the given atomList (molecule-relative numbering) using rotation matrix rot_mtx
 	//		around the point (cx,cy,cz)
-        public void rotateAtomList(int atomList[], double[][] rot_mtx, double cx, double cy, double cz, boolean updateAtoms){
+	public void rotateAtomList(int atomList[], double[][] rot_mtx, double cx, double cy, double cz, boolean updateAtoms){
 
 		double tx,ty,tz;
 
@@ -1908,12 +1912,12 @@ public class Molecule implements Serializable{
 	}
 
 
-                ////Rotates the given atomList (molecule-relative numbering) using the inverse of the
-                //rotation matrix rot_mtx (implicitly) around the point (cx,cy,cz)
-        public void unRotateAtomList(int atomList[], double[][] rot_mtx, double cx, double cy, double cz, boolean updateAtoms){
+	////Rotates the given atomList (molecule-relative numbering) using the inverse of the
+	//rotation matrix rot_mtx (implicitly) around the point (cx,cy,cz)
+	public void unRotateAtomList(int atomList[], double[][] rot_mtx, double cx, double cy, double cz, boolean updateAtoms){
 
 		double t[] = new double[3];
-                RotMatrix r = new RotMatrix();
+		RotMatrix r = new RotMatrix();
 
 		for(int q=0;q<atomList.length;q++) {
 
@@ -1923,7 +1927,7 @@ public class Molecule implements Serializable{
 			t[1]=actualCoordinates[baseNum+1] - cy;
 			t[2]=actualCoordinates[baseNum+2] - cz;
 
-                        double newt[] = r.unapplyRotMatrix(rot_mtx, t);
+			double newt[] = r.unapplyRotMatrix(rot_mtx, t);
 
 			actualCoordinates[baseNum] = newt[0] + cx;
 			actualCoordinates[baseNum+1] = newt[1] + cy;
@@ -1934,28 +1938,28 @@ public class Molecule implements Serializable{
 		}
 	}
 
-        //Translates the atomList (molecule-relative numbering) using translation vector tr_vec
-        //If backwards == true then translate by -(tr_vec) instead
-        public void translateAtomList(int atomList[], double[] tr_vec, boolean updateAtoms, boolean backwards){
+	//Translates the atomList (molecule-relative numbering) using translation vector tr_vec
+	//If backwards == true then translate by -(tr_vec) instead
+	public void translateAtomList(int atomList[], double[] tr_vec, boolean updateAtoms, boolean backwards){
 
-            for(int q=0;q<atomList.length;q++){
+		for(int q=0;q<atomList.length;q++){
 
-                int baseNum = atomList[q]*3;
+			int baseNum = atomList[q]*3;
 
-                if(backwards){
-                    for(int a=0;a<3;a++)
-                        actualCoordinates[baseNum+a] -= tr_vec[a];
-                }
-                else{
-                    for(int a=0;a<3;a++)
-                        actualCoordinates[baseNum+a] += tr_vec[a];
-                }
+			if(backwards){
+				for(int a=0;a<3;a++)
+					actualCoordinates[baseNum+a] -= tr_vec[a];
+			}
+			else{
+				for(int a=0;a<3;a++)
+					actualCoordinates[baseNum+a] += tr_vec[a];
+			}
 
 
-                if (updateAtoms)
-                    resolveCoordinates(atomList[q]);
-            }
-        }
+			if (updateAtoms)
+				resolveCoordinates(atomList[q]);
+		}
+	}
 
 
 	//Rotates the given atomList (molecule-relative numbering) by thetaDeg degrees
@@ -1969,7 +1973,7 @@ public class Molecule implements Serializable{
 		RotMatrix rM = new RotMatrix();
 		rM.getRotMatrix(dx,dy,dz,thetaDeg,rot_mtx);
 
-                rotateAtomList(atomList,rot_mtx,cx,cy,cz,updateAtoms);
+		rotateAtomList(atomList,rot_mtx,cx,cy,cz,updateAtoms);
 	}
 
 
@@ -2002,7 +2006,7 @@ public class Molecule implements Serializable{
 	// This function rotates the entire molecule by thetaDeg
 	//  degrees around axis dx, dy, dz (around the center of mass)
 	public void rotateAroundCOM(double dx, double dy, double dz,
-		double thetaDeg) {
+			double thetaDeg) {
 
 		// Get center of mass
 		double[] centOfMass = getCenterOfMass();
@@ -2014,7 +2018,7 @@ public class Molecule implements Serializable{
 	// This function rotates the entire molecule by thetaDeg
 	//  degrees around axis dx, dy, dz (around the point cx,cy,cz)
 	public void rotateMolecule(double dx, double dy, double dz,
-		double thetaDeg, double cx, double cy, double cz) {
+			double thetaDeg, double cx, double cy, double cz) {
 
 		double fx,fy,fz, tx,ty,tz;
 		fx = (new Double(dx)).doubleValue();
@@ -2086,7 +2090,7 @@ public class Molecule implements Serializable{
 				nonBonded[r1][r2] = new ArrayList<Atom>();
 			}
 		}
-		
+
 		int atomi = -1, atomj = -1, atomk = -1, atomx = -1;
 
 		if(!just12){
@@ -2156,28 +2160,28 @@ public class Molecule implements Serializable{
 			while(iter.hasNext()){
 				atomj = iter.next();//i+1;
 				atomk = iter.next();//i+2;
-			for(int l=1;l<connected[atomi][0]+1;l++){
-				atomx = connected[atomi][l];
-				if ((atomx != atomj) && (atomx != atomk)){
-					if (isNOT13Connected(atomx,atomk) && isNOTAlready14Connected(atomx,atomk)){
-						connect14(atomx, atomi, atomj, atomk);
-						markBonded(atomx,atomk);
+				for(int l=1;l<connected[atomi][0]+1;l++){
+					atomx = connected[atomi][l];
+					if ((atomx != atomj) && (atomx != atomk)){
+						if (isNOT13Connected(atomx,atomk) && isNOTAlready14Connected(atomx,atomk)){
+							connect14(atomx, atomi, atomj, atomk);
+							markBonded(atomx,atomk);
+						}
+					}
+				}
+				for(int l=1;l<connected[atomk][0]+1;l++){
+					atomx = connected[atomk][l];
+					if ((atomx != atomi) && (atomx != atomj)){
+						if (isNOT13Connected(atomx,atomi) && isNOTAlready14Connected(atomx,atomi)){
+							connect14(atomi, atomj, atomk, atomx);
+							markBonded(atomi,atomx);
+						}
 					}
 				}
 			}
-			for(int l=1;l<connected[atomk][0]+1;l++){
-				atomx = connected[atomk][l];
-				if ((atomx != atomi) && (atomx != atomj)){
-					if (isNOT13Connected(atomx,atomi) && isNOTAlready14Connected(atomx,atomi)){
-						connect14(atomi, atomj, atomk, atomx);
-						markBonded(atomi,atomx);
-					}
-				}
-			}
-			}
-			}
+		}
 
-	
+
 		// Search through all pairs for nonbonded pairs
 		int numberOfNBConnectionsx2 = 0;
 		for(int i=0; i<numberOfAtoms; i++) {
@@ -2194,7 +2198,7 @@ public class Molecule implements Serializable{
 				}
 			}
 		}
-		
+
 		connectivityValid = true;
 	}
 
@@ -2240,141 +2244,141 @@ public class Molecule implements Serializable{
 	}
 
 	// Returns true if atom1 and atom2 are not 1-4 connected
-		// Here we can't look through three levels of direct connectivity
-		//  because we essentially just want to know if these atoms
-		//  are already in the 1-4 connected array, we know that they are
-		//  1-4 connected, but have they been found yet
-		private boolean isNOTAlready14Connected(int atom1, int atom2){
-			//Only store relationship of lower atom to higher atom
-			if(atom2<atom1){
-				int tmp = atom1;
-				atom1 = atom2;
-				atom2 = tmp;
-			}
-
-
-			Iterator<Integer> i=connected14.get(atom1).iterator();
-			while(i.hasNext()){
-				i.next();i.next();
-				if(atom2 == i.next())
-					return false;
-			}
-			return true;
+	// Here we can't look through three levels of direct connectivity
+	//  because we essentially just want to know if these atoms
+	//  are already in the 1-4 connected array, we know that they are
+	//  1-4 connected, but have they been found yet
+	private boolean isNOTAlready14Connected(int atom1, int atom2){
+		//Only store relationship of lower atom to higher atom
+		if(atom2<atom1){
+			int tmp = atom1;
+			atom1 = atom2;
+			atom2 = tmp;
 		}
 
-		// Adds an entry in the connected12 table for the bond
-		//  between atom1 and atom2
-		private void connect12(int atom1, int atom2){
-			numberOf12Connections++;
-			int numberOf12Connectionsx2 = numberOf12Connections * 2;
 
-			if(numberOf12Connectionsx2 > connected12.length){
-				// if we've run out of space, expand the connected12 array
-				int largerConnectArray[] = new int[numberOf12Connectionsx2 + CONNECT_INCREMENT_SIZE*2];
-				System.arraycopy(connected12, 0, largerConnectArray, 0, connected12.length);
-				connected12 = largerConnectArray;
-			}
-			if (atom1>atom2){
-				int temp = atom2;
-				atom2 = atom1;
-				atom1 = temp;
-			}
-			connected12[numberOf12Connectionsx2 - 2] = atom1;
-			connected12[numberOf12Connectionsx2 - 1] = atom2;
+		Iterator<Integer> i=connected14.get(atom1).iterator();
+		while(i.hasNext()){
+			i.next();i.next();
+			if(atom2 == i.next())
+				return false;
+		}
+		return true;
+	}
+
+	// Adds an entry in the connected12 table for the bond
+	//  between atom1 and atom2
+	private void connect12(int atom1, int atom2){
+		numberOf12Connections++;
+		int numberOf12Connectionsx2 = numberOf12Connections * 2;
+
+		if(numberOf12Connectionsx2 > connected12.length){
+			// if we've run out of space, expand the connected12 array
+			int largerConnectArray[] = new int[numberOf12Connectionsx2 + CONNECT_INCREMENT_SIZE*2];
+			System.arraycopy(connected12, 0, largerConnectArray, 0, connected12.length);
+			connected12 = largerConnectArray;
+		}
+		if (atom1>atom2){
+			int temp = atom2;
+			atom2 = atom1;
+			atom1 = temp;
+		}
+		connected12[numberOf12Connectionsx2 - 2] = atom1;
+		connected12[numberOf12Connectionsx2 - 1] = atom2;
+	}
+
+	// Adds an entry in the connected13 table for the connection
+	//  between atom1, atom2, and atom3
+	private void connect13(int atom1, int atom2, int atom3){
+		if (atom1 > atom3){
+			int temp = atom3;
+			atom3 = atom1;
+			atom1 = temp;
+		}  
+		// check for duplicate entries
+		Iterator<Integer> iter = connected13.get(atom1).iterator();
+		while(iter.hasNext()){
+			int a2 = iter.next();
+			int a3 = iter.next();
+			if ((a2 == atom2) &&
+					(a3 == atom3))
+				return;
 		}
 
-		// Adds an entry in the connected13 table for the connection
-		//  between atom1, atom2, and atom3
-		private void connect13(int atom1, int atom2, int atom3){
-			if (atom1 > atom3){
-				int temp = atom3;
-				atom3 = atom1;
-				atom1 = temp;
-			}  
-			// check for duplicate entries
-			Iterator<Integer> iter = connected13.get(atom1).iterator();
-			while(iter.hasNext()){
-				int a2 = iter.next();
-				int a3 = iter.next();
-				if ((a2 == atom2) &&
-						(a3 == atom3))
-					return;
-			}
+		numberOf13Connections++;
+		//		int numberOf13Connectionsx3 = numberOf13Connections * 3;
+		//
+		//		if(numberOf13Connectionsx3 > connected13.length){
+		//			// if we've run out of space, expand the connected13 array
+		//			int largerConnectArray[] = new int[numberOf13Connectionsx3 + CONNECT_INCREMENT_SIZE*3];
+		//			System.arraycopy(connected13, 0, largerConnectArray, 0, connected13.length);
+		//			connected13 = largerConnectArray;
+		//		}
 
-			numberOf13Connections++;
-			//		int numberOf13Connectionsx3 = numberOf13Connections * 3;
-			//
-			//		if(numberOf13Connectionsx3 > connected13.length){
-			//			// if we've run out of space, expand the connected13 array
-			//			int largerConnectArray[] = new int[numberOf13Connectionsx3 + CONNECT_INCREMENT_SIZE*3];
-			//			System.arraycopy(connected13, 0, largerConnectArray, 0, connected13.length);
-			//			connected13 = largerConnectArray;
-			//		}
+		connected13.get(atom1).add(atom2);
+		connected13.get(atom1).add(atom3);
 
-			connected13.get(atom1).add(atom2);
-			connected13.get(atom1).add(atom3);
+	}
 
+	// Adds an entry in the connected14 table for the connection
+	//  between atom1, atom2, atom3, and atom4
+	private void connect14(int atom1, int atom2, int atom3, int atom4){
+		if (atom1 > atom4){
+			int temp = atom4;
+			atom4 = atom1;
+			atom1 = temp;
+			temp = atom3;
+			atom3 = atom2;
+			atom2 = temp;
 		}
+		// check for duplicate entries
+		// previous function already checks for duplicates
 
-		// Adds an entry in the connected14 table for the connection
-		//  between atom1, atom2, atom3, and atom4
-		private void connect14(int atom1, int atom2, int atom3, int atom4){
-			if (atom1 > atom4){
-				int temp = atom4;
-				atom4 = atom1;
-				atom1 = temp;
-				temp = atom3;
-				atom3 = atom2;
-				atom2 = temp;
-			}
-			// check for duplicate entries
-			// previous function already checks for duplicates
-
-			numberOf14Connections++;
+		numberOf14Connections++;
 
 
-			connected14.get(atom1).add(atom2);
-			connected14.get(atom1).add(atom3);
-			connected14.get(atom1).add(atom4);
+		connected14.get(atom1).add(atom2);
+		connected14.get(atom1).add(atom3);
+		connected14.get(atom1).add(atom4);
 
-		}
+	}
 
-		//Determines if the two atoms are 1-2 connected (directly)
-		public boolean are12connected(int atom1, int atom2){
+	//Determines if the two atoms are 1-2 connected (directly)
+	public boolean are12connected(int atom1, int atom2){
 
-			for (int i=0; i<numberOf12Connections; i++){
-				int ix2 = i*2;
-				if (connected12[ix2]==atom1){
-					if (connected12[ix2+1]==atom2)
-						return true;
-				}
-				else if (connected12[ix2]==atom2){
-					if (connected12[ix2+1]==atom1)
-						return true;
-				}
-			}
-			return false;
-		}
-
-		//Determines if the two atoms are 1-3 connected (1 atom between)
-		public boolean are13connected(int atom1, int atom2){
-
-			if(atom1 > atom2){
-				int tmp = atom1;
-				atom1 = atom2;
-				atom2 = tmp;
-			}
-
-			Iterator<Integer> iter = connected13.get(atom1).iterator();
-			while(iter.hasNext()){
-				iter.next();
-				int a3 = iter.next();
-				if(atom2 == a3)
+		for (int i=0; i<numberOf12Connections; i++){
+			int ix2 = i*2;
+			if (connected12[ix2]==atom1){
+				if (connected12[ix2+1]==atom2)
 					return true;
 			}
-
-			return false;
+			else if (connected12[ix2]==atom2){
+				if (connected12[ix2+1]==atom1)
+					return true;
+			}
 		}
+		return false;
+	}
+
+	//Determines if the two atoms are 1-3 connected (1 atom between)
+	public boolean are13connected(int atom1, int atom2){
+
+		if(atom1 > atom2){
+			int tmp = atom1;
+			atom1 = atom2;
+			atom2 = tmp;
+		}
+
+		Iterator<Integer> iter = connected13.get(atom1).iterator();
+		while(iter.hasNext()){
+			iter.next();
+			int a3 = iter.next();
+			if(atom2 == a3)
+				return true;
+		}
+
+		return false;
+	}
 
 	//Determines if the two atoms are non-bonded: uses the nonBonded[] array;
 	//NOTE: nonBonded[] is only valid if connectivityValid is true;
@@ -2442,23 +2446,23 @@ public class Molecule implements Serializable{
 				}
 				else if (dist < 2) {//previously 1.92...raised because of C-S bonds in 2RIL
 					if (atom[i].elementType.equalsIgnoreCase("S") ||
-							 atom[j].elementType.equalsIgnoreCase("S")) {
+							atom[j].elementType.equalsIgnoreCase("S")) {
 						if(atom[i].strandNumber == atom[j].strandNumber){
 							atom[i].addBond(j);
 							atom[j].addBond(i);
 						}
 					}
 					else if (atom[i].elementType.equalsIgnoreCase("Cl") ||
-							 atom[j].elementType.equalsIgnoreCase("Cl") ||
-                                                         atom[i].elementType.equalsIgnoreCase("P") ||
-							 atom[j].elementType.equalsIgnoreCase("P")) {
+							atom[j].elementType.equalsIgnoreCase("Cl") ||
+							atom[i].elementType.equalsIgnoreCase("P") ||
+							atom[j].elementType.equalsIgnoreCase("P")) {
 						if(atom[i].strandNumber == atom[j].strandNumber){
 							atom[i].addBond(j);
 							atom[j].addBond(i);
 						}
 					}
-                                        else if (atom[i].elementType.equalsIgnoreCase("Br") ||
-							 atom[j].elementType.equalsIgnoreCase("Br")) {
+					else if (atom[i].elementType.equalsIgnoreCase("Br") ||
+							atom[j].elementType.equalsIgnoreCase("Br")) {
 						if(atom[i].strandNumber == atom[j].strandNumber){
 							atom[i].addBond(j);
 							atom[j].addBond(i);
@@ -2467,15 +2471,15 @@ public class Molecule implements Serializable{
 				}
 				else if (dist < 2.4) {
 					if (atom[i].elementType.equalsIgnoreCase("S") &&
-						 atom[j].elementType.equalsIgnoreCase("S")) {
+							atom[j].elementType.equalsIgnoreCase("S")) {
 						if(atom[i].strandNumber == atom[j].strandNumber){
 							atom[i].addBond(j);
 							atom[j].addBond(i);
 						}
 					}
-                                        else if (atom[i].elementType.equalsIgnoreCase("Br") ||
-							 atom[j].elementType.equalsIgnoreCase("Br")) {
-                                            //Bromine has a very large radius and the C-Br bond length is about 1.9 A
+					else if (atom[i].elementType.equalsIgnoreCase("Br") ||
+							atom[j].elementType.equalsIgnoreCase("Br")) {
+						//Bromine has a very large radius and the C-Br bond length is about 1.9 A
 						if(atom[i].strandNumber == atom[j].strandNumber){
 							atom[i].addBond(j);
 							atom[j].addBond(i);
@@ -2488,7 +2492,7 @@ public class Molecule implements Serializable{
 
 
 
-        //  PGC 2013: pdbResNum must be a string if we are to support Kabat format for antibodies.  Therefore we remove this function
+	//  PGC 2013: pdbResNum must be a string if we are to support Kabat format for antibodies.  Therefore we remove this function
 	//Returns the molecule-relative residue number of the residue with PDB residue number pdbResNum
 	/*public int mapPDBresNumToMolResNum(int pdbResNum){
 		for (int i=0; i<numberOfResidues; i++){
@@ -2499,7 +2503,7 @@ public class Molecule implements Serializable{
 		return -1;
 	}*/
 
-        //String-argument version
+	//String-argument version
 	public int mapPDBresNumToMolResNum(String pdbResNum){
 		for (int i=0; i<numberOfResidues; i++){
 			if (residue[i].getResNumberString().equals(pdbResNum)){
@@ -2509,31 +2513,48 @@ public class Molecule implements Serializable{
 		return -1;
 	}
 
-        //Checks if the two residues are backbone-connected (backbone C' of the first residue to backbone N of the second residue);
-                //              resNum1 and resNum2 are strand-relative residue numbers
-                public boolean residuesAreBBbonded(int strNum1, int resNum1, int strNum2, int resNum2){
+	//Checks if the two residues are backbone-connected (backbone C' of the first residue to backbone N of the second residue);
+	//              resNum1 and resNum2 are strand-relative residue numbers
+	public boolean residuesAreBBbonded(int resNum1, int resNum2){
 
-                        Residue r1 = strand[strNum1].residue[resNum1];
-                        Residue r2 = strand[strNum2].residue[resNum2];
+		Residue r1 = residue[resNum1];
+		Residue r2 = residue[resNum2];
 
-                        Atom Cprev = null;
-                        for (int i=0; i<r1.numberOfAtoms; i++){
-                                if (r1.atom[i].name.equalsIgnoreCase("C")){
-                                        Cprev = r1.atom[i];
-                                        break;
-                                }
-                        }
+		return residuesAreBBbonded(r1, r2);
 
-                        Atom Ncur = null;
-                        for (int i=0; i<r2.numberOfAtoms; i++){
-                                if (r2.atom[i].name.equalsIgnoreCase("N")){
-                                        Ncur = r2.atom[i];
-                                        break;
-                                }
-                        }
+	}
 
-                        return Ncur.bondedTo(Cprev.moleculeAtomNumber);
-                }
+	//Checks if the two residues are backbone-connected (backbone C' of the first residue to backbone N of the second residue);
+	//              resNum1 and resNum2 are strand-relative residue numbers
+	public boolean residuesAreBBbonded(int str1, int strResNum1, int str2, int strResNum2){
+
+		Residue r1 = strand[str1].residue[strResNum1];
+		Residue r2 = strand[str2].residue[strResNum2];
+
+		return residuesAreBBbonded(r1, r2);
+
+	}
+
+	private boolean residuesAreBBbonded(Residue r1, Residue r2 ){
+		Atom Cprev = null;
+		for (int i=0; i<r1.numberOfAtoms; i++){
+			if (r1.atom[i].name.equalsIgnoreCase("C")){
+				Cprev = r1.atom[i];
+				break;
+			}
+		}
+
+		Atom Ncur = null;
+		for (int i=0; i<r2.numberOfAtoms; i++){
+			if (r2.atom[i].name.equalsIgnoreCase("N")){
+				Ncur = r2.atom[i];
+				break;
+			}
+		}
+
+		return Ncur.bondedTo(Cprev.moleculeAtomNumber);
+	}
+
 	////////////////////////////////////////////////////////////
 	// Used by the SimpleMinimizer
 
@@ -2624,562 +2645,562 @@ public class Molecule implements Serializable{
 
 
 
-    //Idealize the sidechain of residue res.
-    //This function is based on chiropraxis.sc.SidechainIdealizer.idealizeCB from KiNG
-    //The whole sidechain idealization (SidechainIdealizer.idealizeSidechain) is not performed because
-    //a mutated residue would already be in an idealized conformation, and if the residue is not already
-    //(e.g. because it's a wild-type rotamer) it probably shouldn't be
-        //This function operates on the actualCoordinates
-    public boolean idealizeResSidechain( Residue res){
-        //True return value indicates success
-
-        boolean outcome = true;
-
-        RotMatrix r = new RotMatrix();
-
-        //Coordinates of key atoms in the residue
-        double NCoord[] = getActualCoord(res.getAtomNameToMolnum("N"));
-        double CACoord[] = getActualCoord(res.getAtomNameToMolnum("CA"));
-        double CCoord[] = getActualCoord(res.getAtomNameToMolnum("C"));
-
-        if(res.name.equalsIgnoreCase("GLY")){
-            //No rotation matrix but two HAs to handle
-
-            int HASystem = 0;//The system used to name HA's.  0=HA2/HA3, 1=1HA/2HA, 2=2HA/3HA
-
-            int HANum = res.getAtomNameToMolnum("HA2");
-            if( HANum == -1 ){//It was called 1HA not HA2 maybe
-                HANum = res.getAtomNameToMolnum("1HA");
-                HASystem = 1;
-            }
-            if( HANum == -1 ){//Try the 2HA/3HA system
-                HANum = res.getAtomNameToMolnum("2HA");
-                HASystem = 2;
-            }
-            if( HANum == -1 ){
-                System.err.println("Error: could not parse HA names for " + res.fullName );
-                System.exit(1);
-            }
-
-
-            double t1[] = r.get4thPoint(NCoord, CCoord, CACoord, 1.100f, 109.3f, -121.6f);
-            double t2[] = r.get4thPoint(CCoord, NCoord, CACoord, 1.100f, 109.3f, 121.6f);
-
-            double newHA[] = r.subtract( r.scale( r.add(t1,t2) , 0.5f), CACoord);
-            newHA = r.add( r.scale( newHA, 1.100f / r.norm(newHA) ), CACoord );
-
-            System.arraycopy(newHA, 0, actualCoordinates, HANum*3, 3);//Change the HA actualCoordinates
-
-            if(HASystem == 0)
-                HANum = res.getAtomNameToMolnum("HA3");
-            else if (HASystem == 1)
-                HANum = res.getAtomNameToMolnum("2HA");
-            else//HASystem == 2
-                HANum = res.getAtomNameToMolnum("3HA");
-
-            if( HANum == -1 ){
-                System.err.println("Error: could not parse HA names for " + res.fullName );
-                System.exit(1);
-            }
-
-            t1 = r.get4thPoint(NCoord, CCoord, CACoord, 1.100f, 109.3f, 121.6f);
-            t2 = r.get4thPoint(CCoord, NCoord, CACoord, 1.100f, 109.3f, -121.6f);
-
-            newHA = r.subtract( r.scale( r.add(t1,t2) , 0.5f), CACoord);
-            newHA = r.add( r.scale( newHA, 1.100f / r.norm(newHA) ), CACoord );
-
-            System.arraycopy(newHA, 0, actualCoordinates, HANum*3, 3);//Change the HA actualCoordinates
-        }
-        else{//Will have a C-beta
-
-            double CBCoord[] = getActualCoord(res.getAtomNameToMolnum("CB"));
-
-            double[] t1, t2;
-
-            if(res.name.equalsIgnoreCase("ALA")) {
-                t1 = r.get4thPoint(NCoord, CCoord, CACoord, 1.536f, 110.1f, 122.9f);
-                t2 = r.get4thPoint(CCoord, NCoord, CACoord, 1.536f, 110.6f, -122.6f);
-            }
-            else if(res.name.equalsIgnoreCase("PRO")) {
-                t1 = r.get4thPoint(NCoord, CCoord, CACoord, 1.530f, 112.2f, 115.1f);
-                t2 = r.get4thPoint(CCoord, NCoord, CACoord, 1.530f, 103.0f, -120.7f);
-            }
-            else if( res.name.equalsIgnoreCase("VAL") || res.name.equalsIgnoreCase("THR") || res.name.equalsIgnoreCase("ILE") ) {
-                t1 = r.get4thPoint(NCoord, CCoord, CACoord, 1.540f, 109.1f, 123.4f);
-                t2 = r.get4thPoint(CCoord, NCoord, CACoord, 1.540f, 111.5f, -122.0f);
-            }
-            else { // anything else
-                t1 = r.get4thPoint(NCoord, CCoord, CACoord, 1.530f, 110.1f, 122.8f);
-                t2 = r.get4thPoint(CCoord, NCoord, CACoord, 1.530f, 110.5f, -122.6f);
-            }
-
-            double idealCB[] = r.scale(r.add(t1, t2), 0.5f);
-
-            //Now the rotation matrix for the sidechain will give the smallest rotation
-            //that maps CBCoord to idealCB
-            double ABOld[] = r.subtract(CBCoord, CACoord);
-            double ABNew[] = r.subtract(idealCB, CACoord);
-            double theta = r.getAngle( ABOld, ABNew );
-            double rotax[] = r.cross(ABOld, ABNew);
-            double SC_mtx[][];
-
-            if( r.norm(rotax) == 0 )//CB already in the ideal position
-                SC_mtx = r.identity();
-            else{
-                SC_mtx = new double[3][3];
-                r.getRotMatrixRad(rotax[0], rotax[1], rotax[2], theta, SC_mtx);
-            }
-
-            int CAAtNum = res.getAtomNameToMolnum("CA");
-            rotateAtomList( res.getAtomList(false,true,false,false) , SC_mtx, actualCoordinates[3*CAAtNum],
-                actualCoordinates[3*CAAtNum+1], actualCoordinates[3*CAAtNum+2], false);
-
-            int HANum = res.getAtomNameToMolnum("HA");
-
-            t1 = r.get4thPoint(NCoord, CCoord, CACoord, 1.100f, 107.9f, -118.3f);
-            t2 = r.get4thPoint(CCoord, NCoord, CACoord, 1.100f, 108.1f, 118.2f);
-            double newHA[] = r.subtract( r.scale( r.add(t1,t2) , 0.5f), CACoord);
-            newHA = r.add( r.scale( newHA, 1.100f / r.norm(newHA) ), CACoord );
-
-            System.arraycopy(newHA, 0, actualCoordinates, HANum*3, 3);//Change the HA actualCoordinates
-        }
-
-        if(res.name.equalsIgnoreCase("PRO"))//Idealize the CG, CD and ring hydrogen positions
-            outcome = idealizeProRing(res);
-        //For proline, the above sidechain idealization operations do not move CD
-
-        return outcome;
-
-    }
-
-    
-    
-    Residue idealPro = null;//an ideal proline residue, used in proline idealization
-    //it won't be modified
-    //the first time we need it, we can load it from Amber96PolypeptideResidue
-    //and then we cache it because the loading takes a while
-
-    public boolean idealizeProRing(Residue res){
-        //Make an idealized ring for the given residue, given the current positions of the backbone atoms, CB, and CD
-        //The pucker specified in res.pucker will be applied:
-        //UP pucker means the smaller of the two possible solutions for chi1; DOWN pucker means the larger.
-        //The CA-N-CD and CA-CB-CG angles are adjusted to the ideal as they are likely to be too large after mutations, etc.
-        //Then chi1 is calculated, finding the two (UP and DOWN) solutions that maintain the ideal CG-CD bond length
-        //(from the Amber template)
-        //Returns true for success, false for failure
-
-        double CANCD_ideal = (double)(Math.PI*111.5/180);
-        double CACBCG_ideal = (double)(Math.PI*103.9/180);
-        //from Ho et al, Protein Sci 2005;14:1011
+	//Idealize the sidechain of residue res.
+	//This function is based on chiropraxis.sc.SidechainIdealizer.idealizeCB from KiNG
+	//The whole sidechain idealization (SidechainIdealizer.idealizeSidechain) is not performed because
+	//a mutated residue would already be in an idealized conformation, and if the residue is not already
+	//(e.g. because it's a wild-type rotamer) it probably shouldn't be
+	//This function operates on the actualCoordinates
+	public boolean idealizeResSidechain( Residue res){
+		//True return value indicates success
+
+		boolean outcome = true;
+
+		RotMatrix r = new RotMatrix();
+
+		//Coordinates of key atoms in the residue
+		double NCoord[] = getActualCoord(res.getAtomNameToMolnum("N"));
+		double CACoord[] = getActualCoord(res.getAtomNameToMolnum("CA"));
+		double CCoord[] = getActualCoord(res.getAtomNameToMolnum("C"));
+
+		if(res.name.equalsIgnoreCase("GLY")){
+			//No rotation matrix but two HAs to handle
+
+			int HASystem = 0;//The system used to name HA's.  0=HA2/HA3, 1=1HA/2HA, 2=2HA/3HA
+
+			int HANum = res.getAtomNameToMolnum("HA2");
+			if( HANum == -1 ){//It was called 1HA not HA2 maybe
+				HANum = res.getAtomNameToMolnum("1HA");
+				HASystem = 1;
+			}
+			if( HANum == -1 ){//Try the 2HA/3HA system
+				HANum = res.getAtomNameToMolnum("2HA");
+				HASystem = 2;
+			}
+			if( HANum == -1 ){
+				System.err.println("Error: could not parse HA names for " + res.fullName );
+				System.exit(1);
+			}
+
+
+			double t1[] = r.get4thPoint(NCoord, CCoord, CACoord, 1.100f, 109.3f, -121.6f);
+			double t2[] = r.get4thPoint(CCoord, NCoord, CACoord, 1.100f, 109.3f, 121.6f);
+
+			double newHA[] = r.subtract( r.scale( r.add(t1,t2) , 0.5f), CACoord);
+			newHA = r.add( r.scale( newHA, 1.100f / r.norm(newHA) ), CACoord );
+
+			System.arraycopy(newHA, 0, actualCoordinates, HANum*3, 3);//Change the HA actualCoordinates
+
+			if(HASystem == 0)
+				HANum = res.getAtomNameToMolnum("HA3");
+			else if (HASystem == 1)
+				HANum = res.getAtomNameToMolnum("2HA");
+			else//HASystem == 2
+				HANum = res.getAtomNameToMolnum("3HA");
+
+			if( HANum == -1 ){
+				System.err.println("Error: could not parse HA names for " + res.fullName );
+				System.exit(1);
+			}
+
+			t1 = r.get4thPoint(NCoord, CCoord, CACoord, 1.100f, 109.3f, 121.6f);
+			t2 = r.get4thPoint(CCoord, NCoord, CACoord, 1.100f, 109.3f, -121.6f);
+
+			newHA = r.subtract( r.scale( r.add(t1,t2) , 0.5f), CACoord);
+			newHA = r.add( r.scale( newHA, 1.100f / r.norm(newHA) ), CACoord );
+
+			System.arraycopy(newHA, 0, actualCoordinates, HANum*3, 3);//Change the HA actualCoordinates
+		}
+		else{//Will have a C-beta
+
+			double CBCoord[] = getActualCoord(res.getAtomNameToMolnum("CB"));
+
+			double[] t1, t2;
+
+			if(res.name.equalsIgnoreCase("ALA")) {
+				t1 = r.get4thPoint(NCoord, CCoord, CACoord, 1.536f, 110.1f, 122.9f);
+				t2 = r.get4thPoint(CCoord, NCoord, CACoord, 1.536f, 110.6f, -122.6f);
+			}
+			else if(res.name.equalsIgnoreCase("PRO")) {
+				t1 = r.get4thPoint(NCoord, CCoord, CACoord, 1.530f, 112.2f, 115.1f);
+				t2 = r.get4thPoint(CCoord, NCoord, CACoord, 1.530f, 103.0f, -120.7f);
+			}
+			else if( res.name.equalsIgnoreCase("VAL") || res.name.equalsIgnoreCase("THR") || res.name.equalsIgnoreCase("ILE") ) {
+				t1 = r.get4thPoint(NCoord, CCoord, CACoord, 1.540f, 109.1f, 123.4f);
+				t2 = r.get4thPoint(CCoord, NCoord, CACoord, 1.540f, 111.5f, -122.0f);
+			}
+			else { // anything else
+				t1 = r.get4thPoint(NCoord, CCoord, CACoord, 1.530f, 110.1f, 122.8f);
+				t2 = r.get4thPoint(CCoord, NCoord, CACoord, 1.530f, 110.5f, -122.6f);
+			}
+
+			double idealCB[] = r.scale(r.add(t1, t2), 0.5f);
+
+			//Now the rotation matrix for the sidechain will give the smallest rotation
+			//that maps CBCoord to idealCB
+			double ABOld[] = r.subtract(CBCoord, CACoord);
+			double ABNew[] = r.subtract(idealCB, CACoord);
+			double theta = r.getAngle( ABOld, ABNew );
+			double rotax[] = r.cross(ABOld, ABNew);
+			double SC_mtx[][];
+
+			if( r.norm(rotax) == 0 )//CB already in the ideal position
+				SC_mtx = r.identity();
+			else{
+				SC_mtx = new double[3][3];
+				r.getRotMatrixRad(rotax[0], rotax[1], rotax[2], theta, SC_mtx);
+			}
 
+			int CAAtNum = res.getAtomNameToMolnum("CA");
+			rotateAtomList( res.getAtomList(false,true,false,false) , SC_mtx, actualCoordinates[3*CAAtNum],
+					actualCoordinates[3*CAAtNum+1], actualCoordinates[3*CAAtNum+2], false);
 
-        RotMatrix r = new RotMatrix();
-
-        if(idealPro==null)
-            idealPro = new Amber96PolyPeptideResidue().getResidue("PRO");
+			int HANum = res.getAtomNameToMolnum("HA");
 
-        if( ! res.name.equalsIgnoreCase("PRO") ){
-            System.err.println("Error: trying to idealize the proline ring on a non-proline");
-            System.exit(1);
-        }
+			t1 = r.get4thPoint(NCoord, CCoord, CACoord, 1.100f, 107.9f, -118.3f);
+			t2 = r.get4thPoint(CCoord, NCoord, CACoord, 1.100f, 108.1f, 118.2f);
+			double newHA[] = r.subtract( r.scale( r.add(t1,t2) , 0.5f), CACoord);
+			newHA = r.add( r.scale( newHA, 1.100f / r.norm(newHA) ), CACoord );
 
+			System.arraycopy(newHA, 0, actualCoordinates, HANum*3, 3);//Change the HA actualCoordinates
+		}
 
-        //molecule atom numbers
-        int NNum = res.getAtomNameToMolnum("N");
-        int CANum = res.getAtomNameToMolnum("CA");
-        int CBNum = res.getAtomNameToMolnum("CB");
-        int CGNum = res.getAtomNameToMolnum("CG");
-        int CDNum = res.getAtomNameToMolnum("CD");
+		if(res.name.equalsIgnoreCase("PRO"))//Idealize the CG, CD and ring hydrogen positions
+			outcome = idealizeProRing(res);
+		//For proline, the above sidechain idealization operations do not move CD
 
-        //actual coordinates
-        double NCoord[] = getActualCoord(NNum);
-        double CACoord[] = getActualCoord(CANum);
-        double CBCoord[] = getActualCoord(CBNum);
-        double CGCoord[] = getActualCoord(CGNum);
-        double CDCoord[] = getActualCoord(CDNum);
-
-
-        //First adjust the bond angles
-        double ncd[] = r.subtract( CDCoord, NCoord );
-        double canhat[] = r.subtract( NCoord, CACoord );//Unit vector in CA --> N direction
-        double vhat[] = r.perpendicularComponent(ncd, canhat);
-        canhat = r.scale( canhat, 1/r.norm(canhat) );
-        vhat = r.scale( vhat, 1/r.norm(vhat) );
-        ncd = r.scale( r.add( r.scale( canhat, -(double)Math.cos(CANCD_ideal) ) ,
-                r.scale( vhat, (double)Math.sin(CANCD_ideal) ) ), r.norm(ncd) );
-        CDCoord = r.add( ncd , NCoord );
+		return outcome;
+
+	}
 
-        System.arraycopy( CDCoord, 0, actualCoordinates, 3*CDNum, 3 );//Store the new CD coordinates
 
-        double cbcg[] = r.subtract( CGCoord, CBCoord );
-        double cacbhat[] = r.subtract( CBCoord, CACoord );
-        double what[] = r.perpendicularComponent(cbcg, cacbhat);
-        cacbhat = r.scale( cacbhat, 1/r.norm(cacbhat) );//Unit vector in CA --> CB direction
-        what = r.scale( what, 1/r.norm(what) );
-        cbcg = r.scale( r.add( r.scale( cacbhat, -(double)Math.cos(CACBCG_ideal) ) ,
-                r.scale( what, (double)Math.sin(CACBCG_ideal) ) ), r.norm(cbcg) );
-        CGCoord = r.add( cbcg , CBCoord );
+
+	Residue idealPro = null;//an ideal proline residue, used in proline idealization
+	//it won't be modified
+	//the first time we need it, we can load it from Amber96PolypeptideResidue
+	//and then we cache it because the loading takes a while
 
-        System.arraycopy( CGCoord, 0, actualCoordinates, 3*CGNum, 3 );//Store the new CG coordinates (their torsion will be modified later)
-
-
-        //Now calculate chi1.
+	public boolean idealizeProRing(Residue res){
+		//Make an idealized ring for the given residue, given the current positions of the backbone atoms, CB, and CD
+		//The pucker specified in res.pucker will be applied:
+		//UP pucker means the smaller of the two possible solutions for chi1; DOWN pucker means the larger.
+		//The CA-N-CD and CA-CB-CG angles are adjusted to the ideal as they are likely to be too large after mutations, etc.
+		//Then chi1 is calculated, finding the two (UP and DOWN) solutions that maintain the ideal CG-CD bond length
+		//(from the Amber template)
+		//Returns true for success, false for failure
 
-        double dir2[] = r.perpendicularComponent( canhat , cacbhat);
-        dir2 = r.scale( dir2 , 1/r.norm(dir2) );
-        double dir3[] = r.cross( cacbhat , dir2 );
-        double dBG = r.norm(cbcg);
-        double sina = (double)Math.sin(CACBCG_ideal);
-        double cosa = (double)Math.cos(CACBCG_ideal);
-        //The position of CG will be given by CBCoord + dBG*(-cosa*cacbhat + sina*(dir2*cos(chi1)+dir3*sin(chi1)))
+		double CANCD_ideal = (double)(Math.PI*111.5/180);
+		double CACBCG_ideal = (double)(Math.PI*103.9/180);
+		//from Ho et al, Protein Sci 2005;14:1011
 
-        double CGCD = r.norm( r.subtract( idealPro.getAtomByName("CD").coord , idealPro.getAtomByName("CG").coord ) );
-        //We now get chi1 by making the CG-CD distance be chi1
-
-        double[] cbcd = r.subtract( CDCoord, CBCoord );
-        double r1 = r.dot( cbcd , cacbhat );
-        double r2 = r.dot( cbcd , dir2 );
-        double r3 = r.dot( cbcd , dir3 );
-
-        double A = ( (r1+cosa*dBG)*(r1+cosa*dBG) + r2*r2 + r3*r3 + dBG*dBG*sina*sina - CGCD*CGCD ) / (2*dBG*sina);
-        double R = (double)Math.sqrt( r2*r2 + r3*r3 );
-
-        if( Math.abs(A/R) > 1 ){
-            res.validConf = false;//This will stay false until we run this function again and return true, thus fixing the ring, or until we mutate the residue
-            validSC = false;
-            return false;
-        }
-        else{
-
-            double beta = (double)Math.atan2(r2, r3);
-            double asr = (double)Math.asin(A/R);
-
-            double newChi1;
-
-            if(res.pucker == ProlineFlip.UP)
-                newChi1 = asr - beta;
-            else//DOWN
-                newChi1 = (double)Math.PI - beta - asr;//Larger newChi1, since an arcsine is acute (puckers merge when asr = pi/2, i.e. A=R)
-
-
-            newChi1 = 180*newChi1/((double)Math.PI);//Convert to degrees
-
-            //Now move CG into place according to the new chi1
-            int CGList[] = { res.getAtomNameToMolnum("CG") };//Just moving CG
-            this.setTorsion( NNum, CANum, CBNum, CGNum, newChi1, CGList, 1, false);
-            //This will mess up the CG-HG bonds but idealizeRingHydrogens will fix that
-
-            idealizeRingHydrogens(res, idealPro);//Put the hydrogens in place
-
-            res.validConf = true;
-            updateValidSC();
-            return true;
-        }
-
-
-    }
-
-
-    public void idealizeRingHydrogens(Residue res, Residue idealPro){
-        //Idealize the sidechain hydrogens (those bonded to CB, CG, and CD) of a proline
-        //Does not change the heavy-atom coordinates
-
-        double HBAngle = 108.78f*(double)Math.PI/180;//HB1-CB-HB2 angle
-        double HGAngle = 108.47f*(double)Math.PI/180;
-        double HDAngle = 108.46f*(double)Math.PI/180;
-        //These values are from Allen et al, Chem. Eur. J. 2004, 10, 4512 – 4517
-        //which is an ab initio study of free neutral proline
-        //They provide constraints for structural refinement given heavy-atom positions,
-        //including constant values for the above angles plus linear combinations of angles like CA-CB-HB1
-        //It is probably not worthwhile to include these small corrections at runtime
-        //(seems to require solving a trig equation that's an 8th-order polynomial in half-angle tangent form,
-        //plus the polypeptide chain geometry might change things)
-        //So we assume C_2v symmetry (i.e. 2-fold rotational symmetry about heavy-atom-angle bisector)
-        //at CB, CG, and CD with the above angles
-
-        RotMatrix rm = new RotMatrix();
-
-        double HBDist = rm.norm( rm.subtract( idealPro.getAtomByName("HB2").coord , idealPro.getAtomByName("CB").coord ) );//CB-HB2 (or, assumed, CB-HB1 distance) (HB2 is nice because both HB1/2 and HB2/3 nomenclatures have it)
-        double HGDist = rm.norm( rm.subtract( idealPro.getAtomByName("HG2").coord , idealPro.getAtomByName("CG").coord ) );
-        double HDDist = rm.norm( rm.subtract( idealPro.getAtomByName("HD2").coord , idealPro.getAtomByName("CD").coord ) );
-
-
-        double CACoord[] = getActualCoord( res.getAtomNameToMolnum("CA") );
-        double CBCoord[] = getActualCoord( res.getAtomNameToMolnum("CB") );
-        double CGCoord[] = getActualCoord( res.getAtomNameToMolnum("CG") );
-        double CDCoord[] = getActualCoord( res.getAtomNameToMolnum("CD") );
-        double NCoord[] = getActualCoord( res.getAtomNameToMolnum("N") );
-
-        double CACB[] = rm.subtract(CBCoord,CACoord);
-        double CBCG[] = rm.subtract(CGCoord,CBCoord);
-        double CGCD[] = rm.subtract(CDCoord,CGCoord);
-        double CDN[] = rm.subtract(NCoord,CDCoord);
-
-
-        double BBisector[] = rm.average( CACB, rm.scale(CBCG,-1) );//Bisector of the HB1-CB-HB2 angle
-        double BPerpendicular[] = rm.cross( CACB, CBCG );//Perpendicular to the CA-CB-CG plane
-        double GBisector[] = rm.average( CBCG, rm.scale(CGCD,-1) );//Bisector of the HB1-CB-HB2 angle
-        double GPerpendicular[] = rm.cross( CBCG, CGCD );//Perpendicular to the CA-CB-CG plane
-        double DBisector[] = rm.average( CGCD, rm.scale(CDN,-1) );//Bisector of the HB1-CB-HB2 angle
-        double DPerpendicular[] = rm.cross( CGCD, CDN );//Perpendicular to the CA-CB-CG plane
-
-        //We scale these vectors so they can be used as components of the C-H bond vectors
-        BBisector = rm.scale( BBisector, HBDist * (double)Math.cos(HBAngle/2) / rm.norm(BBisector) );
-        GBisector = rm.scale( GBisector, HGDist* (double)Math.cos(HGAngle/2) / rm.norm(GBisector) );
-        DBisector = rm.scale( DBisector, HDDist* (double)Math.cos(HDAngle/2) / rm.norm(DBisector) );
-        BPerpendicular = rm.scale( BPerpendicular, HBDist * (double)Math.sin(HBAngle/2) / rm.norm(BPerpendicular) );
-        GPerpendicular = rm.scale( GPerpendicular, HGDist * (double)Math.sin(HGAngle/2) / rm.norm(GPerpendicular) );
-        DPerpendicular = rm.scale( DPerpendicular, HDDist * (double)Math.sin(HDAngle/2) / rm.norm(DPerpendicular) );
-
-
-        //Calculate the hydrogen coordinates
-        //Using the AMBER hydrogen-naming system (HB1, HB2 etc. as in the AA templates)
-        double HB1Coord[] = rm.add( CBCoord, rm.add(BBisector, BPerpendicular) );
-        double HB2Coord[] = rm.add( CBCoord, rm.subtract(BBisector, BPerpendicular) );
-        double HG1Coord[] = rm.add( CGCoord, rm.add(GBisector, GPerpendicular) );
-        double HG2Coord[] = rm.add( CGCoord, rm.subtract(GBisector, GPerpendicular) );
-        double HD1Coord[] = rm.add( CDCoord, rm.subtract(DBisector, DPerpendicular) );
-        double HD2Coord[] = rm.add( CDCoord, rm.add(DBisector, DPerpendicular) );
-
-
-        if( res.getAtomByName("HB1") != null ){//HB1-HB2 naming
-
-            System.arraycopy( HB1Coord, 0, actualCoordinates, 3*res.getAtomNameToMolnum("HB1"), 3 );
-            System.arraycopy( HB2Coord, 0, actualCoordinates, 3*res.getAtomNameToMolnum("HB2"), 3 );
-            System.arraycopy( HG1Coord, 0, actualCoordinates, 3*res.getAtomNameToMolnum("HG1"), 3 );
-            System.arraycopy( HG2Coord, 0, actualCoordinates, 3*res.getAtomNameToMolnum("HG2"), 3 );
-            System.arraycopy( HD1Coord, 0, actualCoordinates, 3*res.getAtomNameToMolnum("HD1"), 3 );
-            System.arraycopy( HD2Coord, 0, actualCoordinates, 3*res.getAtomNameToMolnum("HD2"), 3 );
-
-        }
-        else if (res.getAtomByName("HB2") != null){//HB2-HB3 naming
-
-            System.arraycopy( HB1Coord, 0, actualCoordinates, 3*res.getAtomNameToMolnum("HB2"), 3 );
-            System.arraycopy( HB2Coord, 0, actualCoordinates, 3*res.getAtomNameToMolnum("HB3"), 3 );
-            System.arraycopy( HG1Coord, 0, actualCoordinates, 3*res.getAtomNameToMolnum("HG2"), 3 );
-            System.arraycopy( HG2Coord, 0, actualCoordinates, 3*res.getAtomNameToMolnum("HG3"), 3 );
-            System.arraycopy( HD1Coord, 0, actualCoordinates, 3*res.getAtomNameToMolnum("HD2"), 3 );
-            System.arraycopy( HD2Coord, 0, actualCoordinates, 3*res.getAtomNameToMolnum("HD3"), 3 );
-        }
-        else if (res.getAtomByName("2HB") != null){//2HB-3HB naming
-
-            System.arraycopy( HB1Coord, 0, actualCoordinates, 3*res.getAtomNameToMolnum("2HB"), 3 );
-            System.arraycopy( HB2Coord, 0, actualCoordinates, 3*res.getAtomNameToMolnum("3HB"), 3 );
-            System.arraycopy( HG1Coord, 0, actualCoordinates, 3*res.getAtomNameToMolnum("2HG"), 3 );
-            System.arraycopy( HG2Coord, 0, actualCoordinates, 3*res.getAtomNameToMolnum("3HG"), 3 );
-            System.arraycopy( HD1Coord, 0, actualCoordinates, 3*res.getAtomNameToMolnum("2HD"), 3 );
-            System.arraycopy( HD2Coord, 0, actualCoordinates, 3*res.getAtomNameToMolnum("3HD"), 3 );
-        }
-        else{
-            System.err.println("Error: Can't parse atom names for " + res.fullName);
-            System.exit(1);
-        }
-
-    }
-
-
-    //Find and assign the successors to each perturbation in perts
-    //(Q is a successor of P iff P's state affects Q's, i.e. if P' and Q's affected residues overlap
-    //and Q comes after P in perts)
-    //Assign predecessors too (if P is a successor of Q, Q is a predecessor of P)
-
-    public void findPerturbationSuccessors(){
-
-            ArrayList<PriorityQueue<Integer>> scc = new ArrayList<PriorityQueue<Integer>>(perts.length);
-
-            //First find direct successors (overlapping perturbations later in perts)
-            for(int a=0;a<perts.length;a++){
-                scc.add(a, new PriorityQueue<Integer>());
-                Perturbation pert1 = perts[a];
-                for(int b=a+1;b<perts.length;b++){
-                    Perturbation pert2 = perts[b];
-                    for(int c=0;c<pert1.resDirectlyAffected.length;c++){
-                        for(int d=0;d<pert2.resDirectlyAffected.length;d++){
-                            if( pert1.resDirectlyAffected[c] == pert2.resDirectlyAffected[d] ){//Overlap
-                                if( !scc.get(a).contains(b) )
-                                    scc.get(a).add(b);
-                            }
-                        }
-                    }
-                }
-            }
-
-            //Now iterate until all successors are found
-            boolean done = false;
-
-            while( !done ){
-                done = true;
-
-                for(int a=0;a<perts.length;a++){
-                    PriorityQueue<Integer> newSuccessors = new PriorityQueue<Integer>();
-
-                    for( int sccNum1 : scc.get(a) ){
-                        for( int sccNum2 : scc.get(sccNum1) ){
-                            if( !scc.get(a).contains(sccNum2) ){
-                                if( !newSuccessors.contains(sccNum2) )
-                                    newSuccessors.add(sccNum2);
-                                done = false;//Keep iteratively adding successors of successors of perturbation P as successors of perturbation P
-                            }
-                        }
-                    }
-                    int numNew = newSuccessors.size();
-                    for( int b=0; b<numNew; b++ )
-                        scc.get(a).add(newSuccessors.poll());
-                }
-            }
-
-            int numPred[] = new int[perts.length];//Counting predecessors
-
-            //Copy the successors into the Perturbation.successors arrays, in ascending order
-            for(int a=0;a<perts.length;a++){
-                Perturbation pert = perts[a];
-                int numscc = scc.get(a).size();
-                pert.successors = new int[numscc];
-                for(int b=0; b<numscc; b++){
-                    pert.successors[b] = scc.get(a).poll();
-                    numPred[pert.successors[b]]++;
-                }
-
-                //Use the previous perturbations' successor arrays to make a predecessors array
-                pert.predecessors = new int[numPred[a]];
-                int predNum = 0;
-                for(int b=0;b<a;b++){
-                    for(int c=0; c<perts[b].successors.length; c++){
-                        if( perts[b].successors[c] == a ){
-                            pert.predecessors[predNum] = b;
-                            predNum++;
-                        }
-                    }
-                }
-            }
-
-
-    }
-
-    //Assign the affectedPerts to a given residue in the molecule
-    //These are its perturbations' successors that are not already in res.perts
-    public void assignAffectedPerts( Residue res ){
-
-        if(res.perts != null){
-            PriorityQueue<Integer> affected = new PriorityQueue<Integer>();
-            for(int b=0;b<res.perts.length;b++){
-                Perturbation pert = perts[res.perts[b]];
-                for(int c=0;c<pert.successors.length;c++){
-                    if( !affected.contains(pert.successors[c]) ){
-                        boolean inPerts = false;
-                        for(int d=b;d<res.perts.length;d++){//Check if it is also in perts (it would come after pert in perts)
-                            if( res.perts[d] == pert.successors[c] )
-                                inPerts=true;
-                        }
-                        if(!inPerts)
-                            affected.add(pert.successors[c]);
-                    }
-                }
-            }
-            int numAffected = affected.size();
-            res.affectedPerts = new int[numAffected];
-            for(int b=0;b<numAffected;b++)
-                res.affectedPerts[b] = affected.poll();
-        }
-
-    }
-
-
-
-    public boolean checkNBonded(int molResNum){
-        //Check if the given residue is bonded to anything on the amino side
-        //This refers to connectivity rather than the presence of extra hydrogens (as in Residue.nterm)
-
-        Atom N = residue[molResNum].getAtomByName( "N" );
-
-        if( N != null ){//Only meaningful for protein residues
-            //(or maybe other stuff with N's)
-
-            for( int bonded : N.bond ){
-                if( atom[bonded].moleculeResidueNumber != molResNum )
-                    return true;
-            }
-        }
-
-        return false;
-    }
-
-
-
-    public boolean checkCBonded(int molResNum){
-        //Check if the given residue is bonded to anything on the carboxyl side
-
-        Atom C = residue[molResNum].getAtomByName( "C" );
-
-        if ( C != null ){
-            
-            for( int bonded : C.bond ){
-                if( atom[bonded].moleculeResidueNumber != molResNum )
-                    return true;
-            }
-        }
-
-        return false;
-    }
-
-
-    public void updateValidSC(){//See if any of the residues are in an invalid SC conformation
-        //update validSC accordingly
-        validSC = true;
-        for(Residue res : residue){
-            if(!res.validConf){
-                validSC = false;
-                return;
-            }
-        }
-    }
-
-    public void updateValidBB(){
-        //Check if any of the perturbations are in an invalid state
-        //and update validBB accordingly
-        validBB = true;
-        for(Perturbation pert : perts){
-            if(pert.invalidState){
-                validBB = false;
-                return;
-            }
-        }
-    }
-
-
-    //This function returns recorded perturbation parameter values to the default values for the current state
-    //It does not actually change the geometry,
-    //but is intended to be used along with updateCoordinates when returning from a minimized conformation
-    //to the corresponding unminimized conformation with the current RC assignment
-    public void revertPertParamsToCurState(){
-        for( Perturbation pert : perts ){
-            pert.curParam = ( pert.maxParams[pert.curState] + pert.minParams[pert.curState] )/2;
-            //pert.oldCoords = null;//get rid of (possibly minimized) backups.  Can be an issue if try to put discrete perturbations on top of continuous
-            //we now check for this problem when reading perturbation files
-        }
-        
-        //Also, Perturbation.storeResBB and Perturbation.restoreResBB rely on the strand
-        //rotation/translation information to tell if the strand has been rotated/translated for minimization
-        //so we will reset these to null as well, indicating a return to the original reference frame,
-        //even though these aren't technically perturbation parameters
-        for( Strand str : strand ){
-            if(str.rotTrans){
-                str.strStartCOM = null;
-                str.curRotAngles = null;
-                str.curTrans = null;
-                str.curRotMatrix = null;
-            }
-        }
-    }
-    
-    
-
-    
-    public void setAllEval() {
-            for(Residue r: residue)
-                    r.setEnergyEval(true, true);
-
-    }
+
+		RotMatrix r = new RotMatrix();
+
+		if(idealPro==null)
+			idealPro = new Amber96PolyPeptideResidue().getResidue("PRO");
+
+		if( ! res.name.equalsIgnoreCase("PRO") ){
+			System.err.println("Error: trying to idealize the proline ring on a non-proline");
+			System.exit(1);
+		}
+
+
+		//molecule atom numbers
+		int NNum = res.getAtomNameToMolnum("N");
+		int CANum = res.getAtomNameToMolnum("CA");
+		int CBNum = res.getAtomNameToMolnum("CB");
+		int CGNum = res.getAtomNameToMolnum("CG");
+		int CDNum = res.getAtomNameToMolnum("CD");
+
+		//actual coordinates
+		double NCoord[] = getActualCoord(NNum);
+		double CACoord[] = getActualCoord(CANum);
+		double CBCoord[] = getActualCoord(CBNum);
+		double CGCoord[] = getActualCoord(CGNum);
+		double CDCoord[] = getActualCoord(CDNum);
+
+
+		//First adjust the bond angles
+		double ncd[] = r.subtract( CDCoord, NCoord );
+		double canhat[] = r.subtract( NCoord, CACoord );//Unit vector in CA --> N direction
+		double vhat[] = r.perpendicularComponent(ncd, canhat);
+		canhat = r.scale( canhat, 1/r.norm(canhat) );
+		vhat = r.scale( vhat, 1/r.norm(vhat) );
+		ncd = r.scale( r.add( r.scale( canhat, -(double)Math.cos(CANCD_ideal) ) ,
+				r.scale( vhat, (double)Math.sin(CANCD_ideal) ) ), r.norm(ncd) );
+		CDCoord = r.add( ncd , NCoord );
+
+		System.arraycopy( CDCoord, 0, actualCoordinates, 3*CDNum, 3 );//Store the new CD coordinates
+
+		double cbcg[] = r.subtract( CGCoord, CBCoord );
+		double cacbhat[] = r.subtract( CBCoord, CACoord );
+		double what[] = r.perpendicularComponent(cbcg, cacbhat);
+		cacbhat = r.scale( cacbhat, 1/r.norm(cacbhat) );//Unit vector in CA --> CB direction
+		what = r.scale( what, 1/r.norm(what) );
+		cbcg = r.scale( r.add( r.scale( cacbhat, -(double)Math.cos(CACBCG_ideal) ) ,
+				r.scale( what, (double)Math.sin(CACBCG_ideal) ) ), r.norm(cbcg) );
+		CGCoord = r.add( cbcg , CBCoord );
+
+		System.arraycopy( CGCoord, 0, actualCoordinates, 3*CGNum, 3 );//Store the new CG coordinates (their torsion will be modified later)
+
+
+		//Now calculate chi1.
+
+		double dir2[] = r.perpendicularComponent( canhat , cacbhat);
+		dir2 = r.scale( dir2 , 1/r.norm(dir2) );
+		double dir3[] = r.cross( cacbhat , dir2 );
+		double dBG = r.norm(cbcg);
+		double sina = (double)Math.sin(CACBCG_ideal);
+		double cosa = (double)Math.cos(CACBCG_ideal);
+		//The position of CG will be given by CBCoord + dBG*(-cosa*cacbhat + sina*(dir2*cos(chi1)+dir3*sin(chi1)))
+
+		double CGCD = r.norm( r.subtract( idealPro.getAtomByName("CD").coord , idealPro.getAtomByName("CG").coord ) );
+		//We now get chi1 by making the CG-CD distance be chi1
+
+		double[] cbcd = r.subtract( CDCoord, CBCoord );
+		double r1 = r.dot( cbcd , cacbhat );
+		double r2 = r.dot( cbcd , dir2 );
+		double r3 = r.dot( cbcd , dir3 );
+
+		double A = ( (r1+cosa*dBG)*(r1+cosa*dBG) + r2*r2 + r3*r3 + dBG*dBG*sina*sina - CGCD*CGCD ) / (2*dBG*sina);
+		double R = (double)Math.sqrt( r2*r2 + r3*r3 );
+
+		if( Math.abs(A/R) > 1 ){
+			res.validConf = false;//This will stay false until we run this function again and return true, thus fixing the ring, or until we mutate the residue
+			validSC = false;
+			return false;
+		}
+		else{
+
+			double beta = (double)Math.atan2(r2, r3);
+			double asr = (double)Math.asin(A/R);
+
+			double newChi1;
+
+			if(res.pucker == ProlineFlip.UP)
+				newChi1 = asr - beta;
+			else//DOWN
+			newChi1 = (double)Math.PI - beta - asr;//Larger newChi1, since an arcsine is acute (puckers merge when asr = pi/2, i.e. A=R)
+
+
+			newChi1 = 180*newChi1/((double)Math.PI);//Convert to degrees
+
+			//Now move CG into place according to the new chi1
+			int CGList[] = { res.getAtomNameToMolnum("CG") };//Just moving CG
+			this.setTorsion( NNum, CANum, CBNum, CGNum, newChi1, CGList, 1, false);
+			//This will mess up the CG-HG bonds but idealizeRingHydrogens will fix that
+
+			idealizeRingHydrogens(res, idealPro);//Put the hydrogens in place
+
+			res.validConf = true;
+			updateValidSC();
+			return true;
+		}
+
+
+	}
+
+
+	public void idealizeRingHydrogens(Residue res, Residue idealPro){
+		//Idealize the sidechain hydrogens (those bonded to CB, CG, and CD) of a proline
+		//Does not change the heavy-atom coordinates
+
+		double HBAngle = 108.78f*(double)Math.PI/180;//HB1-CB-HB2 angle
+		double HGAngle = 108.47f*(double)Math.PI/180;
+		double HDAngle = 108.46f*(double)Math.PI/180;
+		//These values are from Allen et al, Chem. Eur. J. 2004, 10, 4512 – 4517
+		//which is an ab initio study of free neutral proline
+		//They provide constraints for structural refinement given heavy-atom positions,
+		//including constant values for the above angles plus linear combinations of angles like CA-CB-HB1
+		//It is probably not worthwhile to include these small corrections at runtime
+		//(seems to require solving a trig equation that's an 8th-order polynomial in half-angle tangent form,
+		//plus the polypeptide chain geometry might change things)
+		//So we assume C_2v symmetry (i.e. 2-fold rotational symmetry about heavy-atom-angle bisector)
+		//at CB, CG, and CD with the above angles
+
+		RotMatrix rm = new RotMatrix();
+
+		double HBDist = rm.norm( rm.subtract( idealPro.getAtomByName("HB2").coord , idealPro.getAtomByName("CB").coord ) );//CB-HB2 (or, assumed, CB-HB1 distance) (HB2 is nice because both HB1/2 and HB2/3 nomenclatures have it)
+		double HGDist = rm.norm( rm.subtract( idealPro.getAtomByName("HG2").coord , idealPro.getAtomByName("CG").coord ) );
+		double HDDist = rm.norm( rm.subtract( idealPro.getAtomByName("HD2").coord , idealPro.getAtomByName("CD").coord ) );
+
+
+		double CACoord[] = getActualCoord( res.getAtomNameToMolnum("CA") );
+		double CBCoord[] = getActualCoord( res.getAtomNameToMolnum("CB") );
+		double CGCoord[] = getActualCoord( res.getAtomNameToMolnum("CG") );
+		double CDCoord[] = getActualCoord( res.getAtomNameToMolnum("CD") );
+		double NCoord[] = getActualCoord( res.getAtomNameToMolnum("N") );
+
+		double CACB[] = rm.subtract(CBCoord,CACoord);
+		double CBCG[] = rm.subtract(CGCoord,CBCoord);
+		double CGCD[] = rm.subtract(CDCoord,CGCoord);
+		double CDN[] = rm.subtract(NCoord,CDCoord);
+
+
+		double BBisector[] = rm.average( CACB, rm.scale(CBCG,-1) );//Bisector of the HB1-CB-HB2 angle
+		double BPerpendicular[] = rm.cross( CACB, CBCG );//Perpendicular to the CA-CB-CG plane
+		double GBisector[] = rm.average( CBCG, rm.scale(CGCD,-1) );//Bisector of the HB1-CB-HB2 angle
+		double GPerpendicular[] = rm.cross( CBCG, CGCD );//Perpendicular to the CA-CB-CG plane
+		double DBisector[] = rm.average( CGCD, rm.scale(CDN,-1) );//Bisector of the HB1-CB-HB2 angle
+		double DPerpendicular[] = rm.cross( CGCD, CDN );//Perpendicular to the CA-CB-CG plane
+
+		//We scale these vectors so they can be used as components of the C-H bond vectors
+		BBisector = rm.scale( BBisector, HBDist * (double)Math.cos(HBAngle/2) / rm.norm(BBisector) );
+		GBisector = rm.scale( GBisector, HGDist* (double)Math.cos(HGAngle/2) / rm.norm(GBisector) );
+		DBisector = rm.scale( DBisector, HDDist* (double)Math.cos(HDAngle/2) / rm.norm(DBisector) );
+		BPerpendicular = rm.scale( BPerpendicular, HBDist * (double)Math.sin(HBAngle/2) / rm.norm(BPerpendicular) );
+		GPerpendicular = rm.scale( GPerpendicular, HGDist * (double)Math.sin(HGAngle/2) / rm.norm(GPerpendicular) );
+		DPerpendicular = rm.scale( DPerpendicular, HDDist * (double)Math.sin(HDAngle/2) / rm.norm(DPerpendicular) );
+
+
+		//Calculate the hydrogen coordinates
+		//Using the AMBER hydrogen-naming system (HB1, HB2 etc. as in the AA templates)
+		double HB1Coord[] = rm.add( CBCoord, rm.add(BBisector, BPerpendicular) );
+		double HB2Coord[] = rm.add( CBCoord, rm.subtract(BBisector, BPerpendicular) );
+		double HG1Coord[] = rm.add( CGCoord, rm.add(GBisector, GPerpendicular) );
+		double HG2Coord[] = rm.add( CGCoord, rm.subtract(GBisector, GPerpendicular) );
+		double HD1Coord[] = rm.add( CDCoord, rm.subtract(DBisector, DPerpendicular) );
+		double HD2Coord[] = rm.add( CDCoord, rm.add(DBisector, DPerpendicular) );
+
+
+		if( res.getAtomByName("HB1") != null ){//HB1-HB2 naming
+
+			System.arraycopy( HB1Coord, 0, actualCoordinates, 3*res.getAtomNameToMolnum("HB1"), 3 );
+			System.arraycopy( HB2Coord, 0, actualCoordinates, 3*res.getAtomNameToMolnum("HB2"), 3 );
+			System.arraycopy( HG1Coord, 0, actualCoordinates, 3*res.getAtomNameToMolnum("HG1"), 3 );
+			System.arraycopy( HG2Coord, 0, actualCoordinates, 3*res.getAtomNameToMolnum("HG2"), 3 );
+			System.arraycopy( HD1Coord, 0, actualCoordinates, 3*res.getAtomNameToMolnum("HD1"), 3 );
+			System.arraycopy( HD2Coord, 0, actualCoordinates, 3*res.getAtomNameToMolnum("HD2"), 3 );
+
+		}
+		else if (res.getAtomByName("HB2") != null){//HB2-HB3 naming
+
+			System.arraycopy( HB1Coord, 0, actualCoordinates, 3*res.getAtomNameToMolnum("HB2"), 3 );
+			System.arraycopy( HB2Coord, 0, actualCoordinates, 3*res.getAtomNameToMolnum("HB3"), 3 );
+			System.arraycopy( HG1Coord, 0, actualCoordinates, 3*res.getAtomNameToMolnum("HG2"), 3 );
+			System.arraycopy( HG2Coord, 0, actualCoordinates, 3*res.getAtomNameToMolnum("HG3"), 3 );
+			System.arraycopy( HD1Coord, 0, actualCoordinates, 3*res.getAtomNameToMolnum("HD2"), 3 );
+			System.arraycopy( HD2Coord, 0, actualCoordinates, 3*res.getAtomNameToMolnum("HD3"), 3 );
+		}
+		else if (res.getAtomByName("2HB") != null){//2HB-3HB naming
+
+			System.arraycopy( HB1Coord, 0, actualCoordinates, 3*res.getAtomNameToMolnum("2HB"), 3 );
+			System.arraycopy( HB2Coord, 0, actualCoordinates, 3*res.getAtomNameToMolnum("3HB"), 3 );
+			System.arraycopy( HG1Coord, 0, actualCoordinates, 3*res.getAtomNameToMolnum("2HG"), 3 );
+			System.arraycopy( HG2Coord, 0, actualCoordinates, 3*res.getAtomNameToMolnum("3HG"), 3 );
+			System.arraycopy( HD1Coord, 0, actualCoordinates, 3*res.getAtomNameToMolnum("2HD"), 3 );
+			System.arraycopy( HD2Coord, 0, actualCoordinates, 3*res.getAtomNameToMolnum("3HD"), 3 );
+		}
+		else{
+			System.err.println("Error: Can't parse atom names for " + res.fullName);
+			System.exit(1);
+		}
+
+	}
+
+
+	//Find and assign the successors to each perturbation in perts
+	//(Q is a successor of P iff P's state affects Q's, i.e. if P' and Q's affected residues overlap
+	//and Q comes after P in perts)
+	//Assign predecessors too (if P is a successor of Q, Q is a predecessor of P)
+
+	public void findPerturbationSuccessors(){
+
+		ArrayList<PriorityQueue<Integer>> scc = new ArrayList<PriorityQueue<Integer>>(perts.length);
+
+		//First find direct successors (overlapping perturbations later in perts)
+		for(int a=0;a<perts.length;a++){
+			scc.add(a, new PriorityQueue<Integer>());
+			Perturbation pert1 = perts[a];
+			for(int b=a+1;b<perts.length;b++){
+				Perturbation pert2 = perts[b];
+				for(int c=0;c<pert1.resDirectlyAffected.length;c++){
+					for(int d=0;d<pert2.resDirectlyAffected.length;d++){
+						if( pert1.resDirectlyAffected[c] == pert2.resDirectlyAffected[d] ){//Overlap
+							if( !scc.get(a).contains(b) )
+								scc.get(a).add(b);
+						}
+					}
+				}
+			}
+		}
+
+		//Now iterate until all successors are found
+		boolean done = false;
+
+		while( !done ){
+			done = true;
+
+			for(int a=0;a<perts.length;a++){
+				PriorityQueue<Integer> newSuccessors = new PriorityQueue<Integer>();
+
+				for( int sccNum1 : scc.get(a) ){
+					for( int sccNum2 : scc.get(sccNum1) ){
+						if( !scc.get(a).contains(sccNum2) ){
+							if( !newSuccessors.contains(sccNum2) )
+								newSuccessors.add(sccNum2);
+							done = false;//Keep iteratively adding successors of successors of perturbation P as successors of perturbation P
+						}
+					}
+				}
+				int numNew = newSuccessors.size();
+				for( int b=0; b<numNew; b++ )
+					scc.get(a).add(newSuccessors.poll());
+			}
+		}
+
+		int numPred[] = new int[perts.length];//Counting predecessors
+
+		//Copy the successors into the Perturbation.successors arrays, in ascending order
+		for(int a=0;a<perts.length;a++){
+			Perturbation pert = perts[a];
+			int numscc = scc.get(a).size();
+			pert.successors = new int[numscc];
+			for(int b=0; b<numscc; b++){
+				pert.successors[b] = scc.get(a).poll();
+				numPred[pert.successors[b]]++;
+			}
+
+			//Use the previous perturbations' successor arrays to make a predecessors array
+			pert.predecessors = new int[numPred[a]];
+			int predNum = 0;
+			for(int b=0;b<a;b++){
+				for(int c=0; c<perts[b].successors.length; c++){
+					if( perts[b].successors[c] == a ){
+						pert.predecessors[predNum] = b;
+						predNum++;
+					}
+				}
+			}
+		}
+
+
+	}
+
+	//Assign the affectedPerts to a given residue in the molecule
+	//These are its perturbations' successors that are not already in res.perts
+	public void assignAffectedPerts( Residue res ){
+
+		if(res.perts != null){
+			PriorityQueue<Integer> affected = new PriorityQueue<Integer>();
+			for(int b=0;b<res.perts.length;b++){
+				Perturbation pert = perts[res.perts[b]];
+				for(int c=0;c<pert.successors.length;c++){
+					if( !affected.contains(pert.successors[c]) ){
+						boolean inPerts = false;
+						for(int d=b;d<res.perts.length;d++){//Check if it is also in perts (it would come after pert in perts)
+							if( res.perts[d] == pert.successors[c] )
+								inPerts=true;
+						}
+						if(!inPerts)
+							affected.add(pert.successors[c]);
+					}
+				}
+			}
+			int numAffected = affected.size();
+			res.affectedPerts = new int[numAffected];
+			for(int b=0;b<numAffected;b++)
+				res.affectedPerts[b] = affected.poll();
+		}
+
+	}
+
+
+
+	public boolean checkNBonded(int molResNum){
+		//Check if the given residue is bonded to anything on the amino side
+		//This refers to connectivity rather than the presence of extra hydrogens (as in Residue.nterm)
+
+		Atom N = residue[molResNum].getAtomByName( "N" );
+
+		if( N != null ){//Only meaningful for protein residues
+			//(or maybe other stuff with N's)
+
+			for( int bonded : N.bond ){
+				if( atom[bonded].moleculeResidueNumber != molResNum )
+					return true;
+			}
+		}
+
+		return false;
+	}
+
+
+
+	public boolean checkCBonded(int molResNum){
+		//Check if the given residue is bonded to anything on the carboxyl side
+
+		Atom C = residue[molResNum].getAtomByName( "C" );
+
+		if ( C != null ){
+
+			for( int bonded : C.bond ){
+				if( atom[bonded].moleculeResidueNumber != molResNum )
+					return true;
+			}
+		}
+
+		return false;
+	}
+
+
+	public void updateValidSC(){//See if any of the residues are in an invalid SC conformation
+		//update validSC accordingly
+		validSC = true;
+		for(Residue res : residue){
+			if(!res.validConf){
+				validSC = false;
+				return;
+			}
+		}
+	}
+
+	public void updateValidBB(){
+		//Check if any of the perturbations are in an invalid state
+		//and update validBB accordingly
+		validBB = true;
+		for(Perturbation pert : perts){
+			if(pert.invalidState){
+				validBB = false;
+				return;
+			}
+		}
+	}
+
+
+	//This function returns recorded perturbation parameter values to the default values for the current state
+	//It does not actually change the geometry,
+	//but is intended to be used along with updateCoordinates when returning from a minimized conformation
+	//to the corresponding unminimized conformation with the current RC assignment
+	public void revertPertParamsToCurState(){
+		for( Perturbation pert : perts ){
+			pert.curParam = ( pert.maxParams[pert.curState] + pert.minParams[pert.curState] )/2;
+			//pert.oldCoords = null;//get rid of (possibly minimized) backups.  Can be an issue if try to put discrete perturbations on top of continuous
+			//we now check for this problem when reading perturbation files
+		}
+
+		//Also, Perturbation.storeResBB and Perturbation.restoreResBB rely on the strand
+		//rotation/translation information to tell if the strand has been rotated/translated for minimization
+		//so we will reset these to null as well, indicating a return to the original reference frame,
+		//even though these aren't technically perturbation parameters
+		for( Strand str : strand ){
+			if(str.rotTrans){
+				str.strStartCOM = null;
+				str.curRotAngles = null;
+				str.curTrans = null;
+				str.curRotMatrix = null;
+			}
+		}
+	}
+
+
+
+
+	public void setAllEval() {
+		for(Residue r: residue)
+			r.setEnergyEval(true, true);
+
+	}
 
 	/**
 	 * Checks to see if two residues are neighbors based on the current neighbor list
@@ -3197,6 +3218,180 @@ public class Molecule implements Serializable{
 
 	}
 
+	public void saveMolecule(String fname, double energy,boolean tmpCoordinates){
+		backupAtomCoord();
+		boolean printSegID = false;
+		try{
+			FileOutputStream fileOutputStream = new FileOutputStream(fname);
+			BufferedOutputStream bufferedOutputStream = new BufferedOutputStream(
+					fileOutputStream);
+			PrintStream printStream = new PrintStream(bufferedOutputStream);
+			Hashtable params = new Hashtable(7);
+			params.put("printSegID",new Boolean(printSegID));
+			params.put("comment","");
+			params.put("energy", energy);
+			params.put("showConnect",new Boolean(true));
+			new SaveMolecule(this, printStream, params,tmpCoordinates);
+			printStream.close();
+		}
+		catch (IOException e) {
+			System.out.println("ERROR: An io exception occurred while writing file "+fname);
+			System.exit(0);
+		}
+		catch ( Exception e ){
+			System.out.println(e.toString());
+			e.printStackTrace();
+			System.out.println("ERROR: An exception occurred while writing file");
+			System.exit(0);
+		}
+		restoreAtomCoord();
+	}
 
+	/**
+	 * Goes through all residues in the molecule and determines
+	 * which residues are neighbors based on the distace cutoff.
+	 * 
+	 * This should only be called when all of the allowed AAtypes
+	 * for all of the residues has already been set.
+	 */
+	public void genDistNeighborList(double Dcut){
+		neighborList = new boolean[residue.length][residue.length];
+		ArrayList<ArrayList<Rotamer>> rotsForPos = new ArrayList<ArrayList<Rotamer>>(residue.length);
+		ArrayList<Rotamer> argRots = null;
+		//First mutate all mutable residues to ARG (longest/most flexible AA)
+		for(int i=0; i<residue.length;i++){
+			if(residue[i].isMutable){
+				if(strand[residue[i].strandNumber].isProtein){
+					MutUtils.changeResidueType(this, i, "ARG", true, true);
+					if(argRots == null)
+						argRots = residue[i].rl.getAAType("ARG").getTemplRot();
+					rotsForPos.add(argRots);
+				}else{
+					//else leave as the small molecule rotamers
+					rotsForPos.add(residue[i].rl.getAAType(residue[i].name).getTemplRot());
+				}
+			}else{
+				rotsForPos.add(null);
+			}
+
+		}
+
+		for(int i = 0; i<residue.length;i++){
+			Residue r1 = residue[i];
+			neighborList[i][i] = true;
+			int numRot1 = 1; 
+			if(r1.isMutable)
+				numRot1 = rotsForPos.get(i).size(); 
+			for(int j = i+1; j<residue.length;j++){
+				Residue r2 = residue[j];
+				int numRot2 = 1;
+				if(r2.isMutable)
+					numRot2 = rotsForPos.get(j).size();
+
+				int rot1=0;
+				boolean areNeighbors = false;
+				while(!areNeighbors && rot1 < numRot1){
+					if(r1.isMutable)
+						MutUtils.applyRotamer(this, rotsForPos.get(i).get(rot1), r1);
+					for(int rot2=0; rot2<numRot2;rot2++){
+						if(r2.isMutable)
+							MutUtils.applyRotamer(this, rotsForPos.get(j).get(rot2), r2);
+						if(r1.getDist(r2, true) <= Dcut){
+							areNeighbors = true;
+							break;
+						}
+
+					}
+					rot1++;
+				}
+				if(areNeighbors){
+					neighborList[i][j] = true;
+					neighborList[j][i] = true; //Want it to be symmetric
+				}else{
+					neighborList[i][j] = false;
+					neighborList[j][i] = false;
+				}
+
+			}
+		}			
+	}
+
+	public void dumpNeighborList(){
+
+		for(int i=0; i<neighborList.length;i++){
+			System.out.print(i+" ("+residue[i].fullName+") :");
+			for(int j=0; j<neighborList[i].length;j++){
+				if(neighborList[i][j])
+					System.out.print(" "+j);
+			}
+			System.out.println("");
+		}
+
+	}
+
+	public int numMutableForStrand(int strand){
+		int numMutable = 0;
+		for(Residue r: this.strand[strand].residue){
+			if(r.isMutable)
+				numMutable++;
+		}
+		return numMutable;
+	}
+
+	public void setAARotLib(String rotFileName) {
+		if(aaRotLib == null)
+			aaRotLib = new RotamerLibrary(rotFileName, true);
+	}
+
+	public void setGenRotLib(String rotFileName) {
+		if(genRotLib == null)
+			genRotLib = new RotamerLibrary(rotFileName, false);
+	}
+
+	public RotamerLibrary rotLibForStrand(int str){
+		if(strand[str].isProtein)
+			return aaRotLib;
+		else
+			return genRotLib;
+	}
+
+	/**
+	 * Convert the molecule back to the original sequence and restore
+	 * the original backbone conformation.
+	 * 
+	 */
+	public void origMol() {
+		for(int pertNum=perts.length-1; pertNum>=0; pertNum--){//Undoing perturbations, in reverse order
+			perts[pertNum].undo();
+			perts[pertNum].curParam = 0.0;
+			perts[pertNum].curState = 0;
+			perts[pertNum].invalidState = false;
+		}
+		
+		for(Residue r: residue){
+			if(r.isMutable){
+				MutUtils.changeResidueType(this, r.moleculeResidueNumber, r.defaultAA, true);
+			}
+		}
+		
+	}
+
+	public void copyMutableInfo(Molecule mol) {
+		aaRotLib = mol.aaRotLib;
+		genRotLib = mol.genRotLib;
+		
+		for(int i=0; i<strand.length;i++){
+			strand[i].rcl = mol.strand[i].rcl;
+			strand[i].rl = mol.strand[i].rl;
+		}
+		
+		for(int i=0; i<mol.residue.length;i++){
+			if(mol.residue[i].isMutable){
+				residue[i].copyMutInfo(mol.residue[i]);
+			}
+		}
+		
+		
+	}
 
 }

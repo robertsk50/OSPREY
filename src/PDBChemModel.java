@@ -450,7 +450,9 @@ class PDBChemModel {
             //Incomplete residues are mutated if enough backbone information is available
             //and deleted otherwise
 
-
+        	//KER: Make sure we have AARotamerLibrarySet
+        	m.setAARotLib(EnvironmentVars.aaRotLibFile);
+        	
             AminoAcidTemplates aat = null;
             GenericResidueTemplates grt = null;
 
@@ -604,7 +606,7 @@ class PDBChemModel {
                             //Fix the residue by changing it to the template if possible
                             //We will fix it using the AA rotamer library (from EnvironmentVars)
 
-                            StrandRotamers sr = new StrandRotamers( EnvironmentVars.aaRotLib, m.strand[res.strandNumber] );
+                            StrandRotamers sr = new StrandRotamers( m.aaRotLib, m.strand[res.strandNumber] );
                             ProbeStericCheck psc = new ProbeStericCheck();
                             RotMatrix r = new RotMatrix();
 
@@ -615,16 +617,17 @@ class PDBChemModel {
                             sr.changeResidueType(m, res.strandResidueNumber, res.name, true);
 
 
-                            int numRot = EnvironmentVars.aaRotLib.getNumRotamers( res.name );
+                            AARotamerType aaType = m.aaRotLib.getAAType(res.name);
+                            int numRot = m.aaRotLib.getNumRotamers( res.name );
 
                             double minMSDGood = Double.POSITIVE_INFINITY;//Lowest MSD of a sterically good rotamer to the template
                             double minMSDBad = Double.POSITIVE_INFINITY;//Lowest MSD of a sterically bad rotamer to the template
                             //(These are based on atoms of the same name in the residue and the template)
 
-                            int argminMSDGood = -1;//The corresponding rotamer indices
-                            int argminMSDBad = -1;
+                            Rotamer argminMSDGood = null;//The corresponding rotamer indices
+                            Rotamer argminMSDBad = null;
 
-                            for(int rot=0; rot<numRot; rot++){
+                            for(Rotamer rot: aaType.rotamers){
 
                                 sr.applyRotamer(m, res.strandResidueNumber, rot);
 
@@ -671,10 +674,10 @@ class PDBChemModel {
                             }
 
 
-                            if( argminMSDGood > -1 )//If there are any sterically good rotamers
+                            if( argminMSDGood != null)//If there are any sterically good rotamers
                                 //Apply the one closest (in MSD) to the original geometry
                                 sr.applyRotamer(m, res.strandResidueNumber, argminMSDGood);
-                            else if( argminMSDBad > -1 ){//All rotamers are sterically bad so apply the one closest (in MSD) to the original geometry
+                            else if( argminMSDBad != null ){//All rotamers are sterically bad so apply the one closest (in MSD) to the original geometry
                                 //If argminMSDGood == argminMSDBad == -1 there are no rotamers so we don't need to assign one
                                 sr.applyRotamer(m, res.strandResidueNumber, argminMSDBad);
                                 System.out.println( "Warning: " + res.fullName + " incomplete but no sterically good rotamers found; applying clashing rotamer" );

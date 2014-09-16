@@ -169,14 +169,18 @@ public class ClashFilter {
         }
         
         //ContSCObjFunction of = ((ContSCObjFunction)ccdMin.objFcn);
-        int AANums[] = new int[level+1];
-        int rots[] = new int[level+1];
-        for(int res=0; res<=level; res++){
-            AANums[res] = seq[res];
-            rots[res] = conf[res];
+        Index3[] indices = new Index3[level+1];
+        for(int res=0; res<=level;res++){
+        	indices[res] = new Index3(res,seq[res],conf[res]);
         }
+//        int AANums[] = new int[level+1];
+//        int rots[] = new int[level+1];
+//        for(int res=0; res<=level; res++){
+//            AANums[res] = seq[res];
+//            rots[res] = conf[res];
+//        }
             
-        CETObjFunction lof = cetm.getObjFunc(AANums,rots,false,false,null);
+        CETObjFunction lof = cetm.getObjFunc(indices, false,false,null);
         CCDMinimizer lmin = new CCDMinimizer(lof,false);
         DoubleMatrix1D optDOFs = lmin.minimize();
         

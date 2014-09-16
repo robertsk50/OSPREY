@@ -60,10 +60,12 @@ import cern.colt.matrix.DoubleFactory2D;
 import cern.colt.matrix.DoubleMatrix2D;
 import cern.colt.matrix.linalg.Algebra;
 import cern.jet.math.Functions;
+
 import java.math.BigInteger;
 import java.util.Arrays;
 import java.util.ArrayList;
 import java.util.BitSet;
+import java.util.Random;
 
 
 //This is a modular CCD minimizer
@@ -76,6 +78,9 @@ import java.util.BitSet;
 
 public class CCDMinimizer {
 
+	static long seed = 42;
+	Random rand = new Random(seed);
+	
     ObjectiveFunction objFcn;
 
     DoubleMatrix1D x;//Current values of degrees of freedom
@@ -144,7 +149,7 @@ public class CCDMinimizer {
 
         long minStartTime = System.currentTimeMillis();
         
-                //First figure out the constraints and initial values
+        //First figure out the constraints and initial values
         //(since the minimizer might be used for many rotameric states, etc.,
         //this can't be done in the constructor)
         DoubleMatrix1D constr[] = objFcn.getConstraints();
@@ -784,7 +789,7 @@ public class CCDMinimizer {
 
         while(beta==0){
             int randDOF = new java.util.Random().nextInt(numDOFs);
-            double newVal = x.get(randDOF)+1e-5*Math.random();
+            double newVal = x.get(randDOF)+1e-5*rand.nextDouble();
             if(isOutOfRange(newVal,randDOF))
                 newVal = getEdgeDOFVal(newVal,randDOF);
             x.set(randDOF,newVal);
@@ -826,7 +831,7 @@ public class CCDMinimizer {
         for(int c=0; c<maxConsideredPts && a<numCheckPts; c++){
 
             for(int dof=0; dof<numDOFs; dof++){
-                double r = 2*Math.random()-1;//uniformly distributed from -1 to 1
+                double r = 2*rand.nextDouble()-1;//uniformly distributed from -1 to 1
                 double change = rangeFac*objFcn.getInitStepSize(dof)*r;//getStepSize(dof,0)*r;
                 x.set(dof, xCur.get(dof)+change);
             }

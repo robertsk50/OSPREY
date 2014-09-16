@@ -63,7 +63,8 @@ public class EnvironmentVars {
 		AMBER, CHARMM22, CHARMM19NEUTRAL, CHARMM19
 	}
 	
-	static String dataDir = "./";
+	static String dataDir = "./"; //Directory where all of the data files are stored
+	static String localDir = "./"; //Local directory where we can quickly write to and delete files
 	static FORCEFIELD forcefld; 
 
 	//static BigInteger maxKSconfs;
@@ -75,15 +76,16 @@ public class EnvironmentVars {
 	
 	public static String ksConfDir = "ksConfs";
 	
-	public static RotamerLibrary aaRotLib;
-
-        public static boolean autoFix = true;//Should structures being read in be autofixed?
+//	public static RotamerLibrary aaRotLib;
+	public static String aaRotLibFile;
 	
-        
-        
-        public static boolean useMPLP = false;
-        public static int MPLP_iterations = 100;
-        
+    public static boolean autoFix = true;//Should structures being read in be autofixed?
+
+    
+    
+    public static boolean useMPLP = false;
+    public static int MPLP_iterations = 100;
+    
         
         
 	public static String getDataDir() {
@@ -96,6 +98,14 @@ public class EnvironmentVars {
 		}
 		EnvironmentVars.dataDir = dd;
 	}
+	
+	public static void setLocalDir(String ld) {
+		if(!ld.endsWith("/") || !ld.endsWith("\\")){
+			ld = ld.concat("/");
+		}
+		EnvironmentVars.localDir = ld;
+	}
+	
 	
 	public static void setForcefld(String frcefld) {
 		forcefld = FORCEFIELD.valueOf(frcefld.toUpperCase());
@@ -187,8 +197,8 @@ public class EnvironmentVars {
 		entropyScaling = es;
 	}
 	
-	public static void setAArotLib(String rl){
-		aaRotLib = new RotamerLibrary(rl, true);
+	public static void setAArotLibFile(String rlFile){
+		aaRotLibFile = rlFile;//new RotamerLibrary(rl, true);
 	}
 
 

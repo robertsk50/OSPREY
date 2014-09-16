@@ -84,9 +84,6 @@ public class BackrubMinimizer implements Serializable {
 	
 	private int MAX_NUM_ATOMS_RES = 30; //the max number of atoms for a given residue; this is increased as needed for big ligands
 	
-	int mutRes2Strand[] = null;
-	int mutRes2StrandMutIndex[] = null;
-	
 	Molecule m = null;
 	Amber96ext a96ff = null;
 	
@@ -102,7 +99,7 @@ public class BackrubMinimizer implements Serializable {
 	int totalNonTransRotStrands = 0;
 	
 	//int residueMap[] = null; //the mapping between AS and sysStrand-relative residue numbering
-	int strandMut[][] = null;
+	MutableResParams strandMut = null;
 	
 	//int ligResNum = -1; // the residue index of the ligand in the flexResAtomList, flexResListSize
 	//int ligStrNum = -1; // the ligand strand number (if ligStrNum == -1 then there is no ligand)
@@ -146,20 +143,21 @@ public class BackrubMinimizer implements Serializable {
 	}
 	
 	//Initialize for the system strand only
-	public void initialize(Molecule mol, Amber96ext theA96ff, int strMut[][], String brFile, boolean hS, double stThresh, int numStrands, boolean readFile) {
+	public void initialize(Molecule mol, Amber96ext theA96ff, MutableResParams strMut, String brFile, 
+			boolean hS, double stThresh, int numStrands, boolean readFile) {
 		
 		m = mol;
 		a96ff = theA96ff;
 		numberOfStrands = numStrands;		
 		
 		strandMut = strMut; //the numbering in residueMap[] is system-strand-relative
-		initMutRes2Str(strMut);
+		
 
 		//NumMutRes (Don't count non-protein strands)
 		numMutRes = 0;
-		for(int i=0;i<strandMut.length;i++){
-			if(m.strand[i].isProtein)
-				numMutRes += strandMut[i].length;
+		for(int i=0;i<strandMut.allMut.length;i++){
+			if(m.strand[strandMut.resStrand[i]].isProtein)
+				numMutRes ++;
 		}
 		
 		backrubFile = brFile;
@@ -309,12 +307,9 @@ public class BackrubMinimizer implements Serializable {
 		//Apply the best backrubs combination and translate/rotate the ligand (if present) accordingly
 		for (int i=0; i<numMutRes; i++){
 			// Check with allowed AAs
-			int str = mutRes2Strand[i];
-			int strResNum = strandMut[str][mutRes2StrandMutIndex[i]];
-			
-			Residue curRes = m.strand[str].residue[strResNum];
+			Residue curRes = m.residue[strandMut.allMut[i]];
 			if ( (minEbrSample[i]!=null)&&(minEbrSample[i][0]!=0.0f) )
-				br.applyBackrub(m, str, curRes.strandResidueNumber, minEbrSample[i][0], false, minEbrSample[i][1], minEbrSample[i][2]);
+				br.applyBackrub(m, curRes.strandNumber, curRes.strandResidueNumber, minEbrSample[i][0], false, minEbrSample[i][1], minEbrSample[i][2]);
 		}
 		for(int str=0;str<numberOfStrands;str++){
 			if(m.strand[str].rotTrans){
@@ -366,11 +361,9 @@ public class BackrubMinimizer implements Serializable {
 		}
 		else {
 			// Check with allowed AAs
-			int str = mutRes2Strand[curDepth];
-			int strResNum = strandMut[str][mutRes2StrandMutIndex[curDepth]];
-			
-			Residue curRes = m.strand[str].residue[strResNum];
-			
+			Residue curRes = m.residue[strandMut.allMut[curDepth]];
+			int str = curRes.strandNumber;
+			int strResNum = curRes.strandResidueNumber;
 			//Backrubs are only applied for the residues currently marked as flexible;
 			//If shellRun or templateOnly are true, then this is a pairwise matrix energy precomputation involving the shell, and so
 			//		backrubs are applied for all residues in residueMap[], not just the ones marked as flexible
@@ -429,12 +422,9 @@ public class BackrubMinimizer implements Serializable {
 	public void applyMaxBackrub(){
 		for (int i=0; i<numMutRes; i++){
 			// Check with allowed AAs
-			int str = mutRes2Strand[i];
-			int strResNum = strandMut[str][mutRes2StrandMutIndex[i]];
-			
-			Residue curRes = m.strand[str].residue[strResNum];
+			Residue curRes = m.residue[strandMut.allMut[i]];
 			if ( (maxEbrSample[i]!=null)&&(maxEbrSample[i][0]!=0.0f) )
-				br.applyBackrub(m, str, curRes.strandResidueNumber, maxEbrSample[i][0], false, maxEbrSample[i][1], maxEbrSample[i][2]);
+				br.applyBackrub(m, curRes.strandNumber, curRes.strandResidueNumber, maxEbrSample[i][0], false, maxEbrSample[i][1], maxEbrSample[i][2]);
 		}
 		
 		for(int i=0; i<numberOfStrands;i++)
@@ -817,10 +807,9 @@ public class BackrubMinimizer implements Serializable {
 		
 		for (int curDepth=0; curDepth<useBRforCurRot.length; curDepth++){
 			// Check with allowed AAs
-			int str = mutRes2Strand[curDepth];
-			int strResNum = strandMut[str][mutRes2StrandMutIndex[curDepth]];
-			
-			Residue curRes = m.strand[str].residue[strResNum];
+			Residue curRes = m.residue[strandMut.allMut[curDepth]];
+			int str = curRes.strandNumber;
+			int strResNum = curRes.strandResidueNumber;
 			
 			if (curRes.flexible) { //perform the check only for flexible residues, since rotamers are assigned only for the flexible residues
 			
@@ -874,8 +863,8 @@ public class BackrubMinimizer implements Serializable {
 		
 		for (int i=0; i<useBRforCurRot.length; i++){
 			// Check with allowed AAs
-			int str = mutRes2Strand[i];
-			int strResNum = strandMut[str][mutRes2StrandMutIndex[i]];
+			int str = strandMut.resStrand[i];
+			int strResNum = strandMut.resStrandNum[i];
 			
 			if (m.strand[str].residue[strResNum].flexible){ //only check for the flexible residues
 				boolean allPruned = true;
@@ -922,11 +911,10 @@ public class BackrubMinimizer implements Serializable {
 				}
 				else if (useBRsample[i][j]){ //for each allowed big rotation, determine the rotation angles for the two small rotations
 					// Check with allowed AAs
-					int str = mutRes2Strand[i];
-					int strResNum = strandMut[str][mutRes2StrandMutIndex[i]];
+					Residue curRes = m.residue[strandMut.allMut[i]];
+					int str = curRes.strandNumber;
+					int strResNum = curRes.strandResidueNumber;
 					
-					
-					Residue curRes = m.strand[str].residue[strResNum];
 					
 					double initTaus[] = new double [3]; //get the initial tau values
 					initTaus[0] = getTau(m,str,strResNum-1);
@@ -1063,59 +1051,56 @@ public class BackrubMinimizer implements Serializable {
 	
 	//Generate an exclusion list of atoms not to be checked in steric checks, since their position is unknown due to possible backrubs;
 	//The residue numbers in resMap[] are strand-relative
-	private int [][] generateExcludeListSteric(Molecule m, int strandMut[][], int aboveInd, boolean shellRun, boolean templateOnly){
+	private int [][] generateExcludeListSteric(Molecule m, MutableResParams strandMut, int aboveInd, boolean shellRun, boolean templateOnly){
 		
 		int excludeList[][] = new int[numMutRes][];
-		int ctr = -1;
-		for (int str=0; str<strandMut.length;str++){
-			if(m.strand[str].isProtein){
-				for (int i=0; i<strandMut[str].length; i++){
-					ctr++;
-					
+		for (int i=0; i<strandMut.allMut.length;i++){
+			if(m.strand[strandMut.resStrand[i]].isProtein){
+							
 					//KER: if this is the most C-terminal or N-terminal then don't allow backrub to occur
-					if(strandMut[str][i]-1 < 0 || strandMut[str][i]+1 >= m.strand[str].residue.length){
+					if(strandMut.resStrandNum[i]-1 < 0 || strandMut.resStrandNum[i]+1 >= m.strand[strandMut.resStrand[i]].residue.length){
 						//KER: Don't allow backrubs so turn all backrubs false except the one with 0 change
-						for(int q=0; q<useBRsample[ctr].length;q++)
-							useBRsample[ctr][q] = false;
+						for(int q=0; q<useBRsample[i].length;q++)
+							useBRsample[i][q] = false;
 						            
-						int midPoint = (useBRsample[ctr].length-1)/2;
-						useBRsample[ctr][midPoint] = true;
-						excludeList[ctr] = new int[0];
+						int midPoint = (useBRsample[i].length-1)/2;
+						useBRsample[i][midPoint] = true;
+						excludeList[i] = new int[0];
 						continue;
 					}
 					
-					Residue prevRes = m.strand[str].residue[strandMut[str][i]-1];
-					Residue curRes = m.strand[str].residue[strandMut[str][i]];
-					Residue nextRes = m.strand[str].residue[strandMut[str][i]+1];
+					Residue prevRes = m.residue[strandMut.allMut[i]-1];
+					Residue curRes = m.residue[strandMut.allMut[i]];
+					Residue nextRes = m.residue[strandMut.allMut[i]+1];
 					
 					
 					
-					if ( (ctr>aboveInd) || ( (ctr<aboveInd) && (!curRes.flexible) && (!(shellRun || templateOnly)) ) ) { //exclude all
+					if ( (i>aboveInd) || ( (i<aboveInd) && (!curRes.flexible) && (!(shellRun || templateOnly)) ) ) { //exclude all
 						
-						excludeList[ctr] = new int[2 + curRes.numberOfAtoms + 2];
+						excludeList[i] = new int[2 + curRes.numberOfAtoms + 2];
 						
-						excludeList[ctr][0] = prevRes.getAtomNameToMolnum("C");
-						excludeList[ctr][1] = prevRes.getAtomNameToMolnum("O");
+						excludeList[i][0] = prevRes.getAtomNameToMolnum("C");
+						excludeList[i][1] = prevRes.getAtomNameToMolnum("O");
 						
 						for (int j=0; j<curRes.numberOfAtoms; j++)
-							excludeList[ctr][2+j] = curRes.atom[j].moleculeAtomNumber;
+							excludeList[i][2+j] = curRes.atom[j].moleculeAtomNumber;
 						
-						excludeList[ctr][curRes.numberOfAtoms+2] = nextRes.getAtomNameToMolnum("N");
-						excludeList[ctr][curRes.numberOfAtoms+3] = nextRes.getAtomNameToMolnum("H");
+						excludeList[i][curRes.numberOfAtoms+2] = nextRes.getAtomNameToMolnum("N");
+						excludeList[i][curRes.numberOfAtoms+3] = nextRes.getAtomNameToMolnum("H");
 					}
-					else if ( (ctr<aboveInd) && (!curRes.flexible) ) { //residue in resMap[], but not flexible, so exclude only the side-chain atoms of this residue
+					else if ( (i<aboveInd) && (!curRes.flexible) ) { //residue in resMap[], but not flexible, so exclude only the side-chain atoms of this residue
 						
-						excludeList[ctr] = new int[curRes.numberOfAtoms];
+						excludeList[i] = new int[curRes.numberOfAtoms];
 						for (int j=0; j<curRes.numberOfAtoms; j++){
 							if ( ! (curRes.atom[j].getIsBBatom() || curRes.atom[j].name.equalsIgnoreCase("CB")) )
-								excludeList[ctr][j] = curRes.atom[j].moleculeAtomNumber;
+								excludeList[i][j] = curRes.atom[j].moleculeAtomNumber;
 							else
-								excludeList[ctr][j] = -1;
+								excludeList[i][j] = -1;
 						}				
 					}
 					else //do not exclude anything, since no atoms will change their position
-						excludeList[ctr] = new int[0];
-				}
+						excludeList[i] = new int[0];
+				
 			}
 		}
 		
@@ -1255,8 +1240,8 @@ public class BackrubMinimizer implements Serializable {
 		double minIntra = bigE;
 		double maxIntra = -bigE;
 		
-		int str = mutRes2Strand[resMapPos];
-		int strResNum = strandMut[str][mutRes2StrandMutIndex[resMapPos]];
+		int str = strandMut.resStrand[resMapPos];
+		int strResNum = strandMut.resStrandNum[resMapPos];
 		
 		Residue curRes = m.strand[str].residue[strResNum];
 		
@@ -1294,21 +1279,21 @@ public class BackrubMinimizer implements Serializable {
 	}
 	
 	
-	public void initMutRes2Str(int strandMut[][]){
-		int totalLength=0;
-		for(int i=0;i<strandMut.length;i++)
-			for(int j=0;j<strandMut[i].length;j++)
-				totalLength++;
-		
-		mutRes2Strand = new int[totalLength];
-		mutRes2StrandMutIndex = new int[totalLength];
-		int ctr=0;
-		for(int i=0;i<strandMut.length;i++)
-			for(int j=0;j<strandMut[i].length;j++){
-				mutRes2Strand[ctr] = i;
-				mutRes2StrandMutIndex[ctr] = j;
-				ctr++;
-			}
-	}
+//	public void initMutRes2Str(int strandMut[][]){
+//		int totalLength=0;
+//		for(int i=0;i<strandMut.length;i++)
+//			for(int j=0;j<strandMut[i].length;j++)
+//				totalLength++;
+//		
+//		mutRes2Strand = new int[totalLength];
+//		mutRes2StrandMutIndex = new int[totalLength];
+//		int ctr=0;
+//		for(int i=0;i<strandMut.length;i++)
+//			for(int j=0;j<strandMut[i].length;j++){
+//				mutRes2Strand[ctr] = i;
+//				mutRes2StrandMutIndex[ctr] = j;
+//				ctr++;
+//			}
+//	}
 	
 }

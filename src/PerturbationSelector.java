@@ -73,8 +73,7 @@ public class PerturbationSelector {
 
     //Now some parameters
 
-    public PerturbationSelector(int numMut, int mutRes2Strand[], int mutRes2StrandMutIndex[], 
-            int strandMut[][], boolean addWTRotamers, Molecule molec,
+    public PerturbationSelector(int numMut, MutableResParams strandMut, boolean addWTRotamers, Molecule molec,
             StrandRotamers[] strandRot, double minrmsd, String startPF, boolean onlyStart){
 
         addWTRot = addWTRotamers;
@@ -83,9 +82,7 @@ public class PerturbationSelector {
         flexMolResNum = new int[numMutable];
 
         for(int pos=0; pos<numMutable; pos++){
-            int str = mutRes2Strand[pos];
-            int strResNum = strandMut[str][mutRes2StrandMutIndex[pos]];
-            flexMolResNum[pos] = molec.strand[str].residue[strResNum].moleculeResidueNumber;
+            flexMolResNum[pos] = strandMut.allMut[pos];
         }
 
 
@@ -178,7 +175,7 @@ public class PerturbationSelector {
         for(int str=0; str<m.numberOfStrands; str++){
             if(addWTRot)
                 sRC[str].storeWTRotamers(m);
-            sRC[str].addUnperturbedRCs(addWTRot);
+            sRC[str].addUnperturbedRCs(addWTRot,m);
         }
 
 
@@ -431,23 +428,16 @@ public class PerturbationSelector {
         //and rotamers (i.e. the unperturbed RCs already in place)
         //Add them to the unperturbed RCs in the RC handlers
         for(int curPos=0; curPos<numMutable; curPos++){
-
-            Residue res = getResidue(curPos);
+        
+        	Residue res = getResidue(curPos);
             int resNumStates = res.pertStates.length;
 
 
             if(resNumStates > 1){//There is at least one perturbed state
-                
-                int[][] oldRCRots = sRC[res.strandNumber].RCRots[res.strandResidueNumber];
-                //These are the unperturbed RCs
-
-                int newRCRots[][] = new int[oldRCRots.length][];
-                int newRCPertStates[][] = new int[oldRCRots.length][];
-
-                for(int AA=0;AA<oldRCRots.length;AA++){
-
-                    if( oldRCRots[AA] != null ){//If this AA type is allowed at this position
-
+               
+            	for(AARotamerType aaType: res.AATypesAllowed()){
+            	for(Rotamer rot: aaType.getPosSpecRot(res.getResNumberString())){
+            	
                         boolean goodState[] = new boolean[resNumStates];//Indicates which perturbation states pass the Ramachandran filter for this residue type
                         int resGoodStates = 0;
 
@@ -461,7 +451,7 @@ public class PerturbationSelector {
 
                             goodState[stateNum] = true;
 
-                            String AAType = sRC[res.strandNumber].rl.getAAName(AA);
+                            String AAType = rot.aaType.name;
 
 
                             if( /*( curPos < numSiteResidues ) &&*/ ( stateNum > 0 ) &&
@@ -485,26 +475,23 @@ public class PerturbationSelector {
                                 resGoodStates++;
                         }
 
-                        newRCRots[AA] = new int[ oldRCRots[AA].length * resGoodStates ];
-                        newRCPertStates[AA] = new int[ oldRCRots[AA].length * resGoodStates ];
-                        for( int rotNum=0; rotNum<oldRCRots[AA].length; rotNum++ ){
-                            int b=0;
-                            for( int stateNum=0; stateNum<resNumStates; stateNum++){
-                                if( goodState[stateNum] ){
-                                    newRCRots[AA][b*oldRCRots[AA].length + rotNum] = oldRCRots[AA][rotNum];//This ordering of RCs puts unperturbed ones first
-                                    newRCPertStates[AA][b*oldRCRots[AA].length + rotNum] = stateNum;
-                                    b++;
-                                }
+                        
+                        for( int stateNum=0; stateNum<resNumStates; stateNum++){
+                            if( goodState[stateNum] ){
+                                ResidueConformation rc = sRC[res.strandNumber].rcl.addResidueConformation(rot, stateNum, res.strandResidueNumber);
+                                res.setAllowable(rc);
                             }
                         }
-                    }
+                    
                 }
+            	}
 
-                sRC[res.strandNumber].RCRots[res.strandResidueNumber] = newRCRots;
-                sRC[res.strandNumber].RCPertStates[res.strandResidueNumber] = newRCPertStates;
             }
-        }
-
+            }
+            
+//            sRC[res.strandNumber].RCRots[res.strandResidueNumber] = newRCRots;
+//            sRC[res.strandNumber].RCPertStates[res.strandResidueNumber] = newRCPertStates;
+            
 
         for(int str=0; str<m.numberOfStrands; str++)
             sRC[str].countRCs();
@@ -610,7 +597,6 @@ public class PerturbationSelector {
     private Residue getResidue(int curPos){//Get the residue at a given flexible position
         return m.residue[flexMolResNum[curPos]];
     }
-
 
 
     //Check parametric incompatibility of a pair of perturbation states

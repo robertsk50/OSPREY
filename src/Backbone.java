@@ -79,13 +79,13 @@ public class Backbone implements Serializable {
 	public double getFiPsi(Molecule m, int strandNum, int resNum, int angleType){
 		
 		if ((angleType==0)
-				&&((resNum==0)||(m.residuesAreBBbonded(strandNum, resNum-1, strandNum, resNum)))) {
+				&&((resNum==0)||(m.residuesAreBBbonded(resNum-1, resNum)))) {
                     //phi angle needed and (N-terminus or no prev residue), so no phi angle			
                     return 0.0;
 		}
 		else if ((angleType==1)
 				&&((resNum==(m.strand[strandNum].numberOfResidues-1))
-                                ||(m.residuesAreBBbonded(strandNum, resNum, strandNum, resNum+1)))) {
+                                ||(m.residuesAreBBbonded( resNum, resNum+1)))) {
                     //psi angle needed and (C-terminus or no next residue), so no psi angle			
                     return 0.0;
 		}
@@ -135,31 +135,31 @@ public class Backbone implements Serializable {
 		}
 	}
 	
-	public void applyFiPsi(Molecule m, int strandNum, int resNum, double alpha, int angleType){
+	public void applyFiPsi(Molecule m, int str, int strResNum, double alpha, int angleType){
 		
 		if ((angleType==0)
-				&&((resNum==0)
-                                ||(m.residuesAreBBbonded(strandNum, resNum-1, strandNum, resNum)))) { 
+				&&((m.strand[str].residue[strResNum].strandResidueNumber==0)
+                                ||(m.residuesAreBBbonded(str, strResNum-1, str, strResNum)))) { 
                         //phi angle needed and (N-terminus or no prev residue), so no phi angle                        
                         System.out.println("Warning: invalid phi angle.");
 			return;
 		}
 		else if ((angleType==1)
-				&&((resNum==(m.strand[strandNum].numberOfResidues-1))
-                                ||(m.residuesAreBBbonded(strandNum, resNum, strandNum, resNum+1)))) { 
+				&&((strResNum==(m.strand[str].numberOfResidues-1))
+                                ||(m.residuesAreBBbonded(str, strResNum, str, strResNum+1)))) { 
                         //psi angle needed and (C-terminus or no next residue), so no psi angle			
                         System.out.println("Warning: invalid psi angle.");
 			return;
 		}
 		else {
 		
-			Residue curRes = m.strand[strandNum].residue[resNum];
+			Residue curRes = m.strand[str].residue[strResNum];
 			Residue prevRes = null;
 			Residue nextRes = null;
 			if(angleType == 0)
-				prevRes = m.strand[strandNum].residue[resNum-1];
+				prevRes = m.strand[str].residue[strResNum-1];
 			if(angleType == 1)
-				nextRes = m.strand[strandNum].residue[resNum+1];
+				nextRes = m.strand[str].residue[strResNum+1];
 			
 			int atomList[] = new int[m.numberOfAtoms]; //list of atoms to be rotated
 			
@@ -179,7 +179,7 @@ public class Backbone implements Serializable {
 			atomList[at[2].moleculeAtomNumber]=0;
 					
 			// Now find all atoms that need to be rotated
-			getAtomsToRotate(m,strandNum,at[2],atomList,angleType);
+			getAtomsToRotate(m,curRes.strandNumber, at[2],atomList,angleType);
 
 			// Copy atoms over in atomList, ie. if current atomList[q]==2 then
 			//  the new atomList[] should include q (ie. atom q counts)

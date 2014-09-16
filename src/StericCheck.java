@@ -85,7 +85,7 @@ public class StericCheck {
 	//the mapping from residue number to AS num and from AS num to res num
 	//int curResToASMap[] = null;
 	//int residueMap[] = null;
-	int strandMut[][] = null;
+	MutableResParams strandMut = null;
 	int numberOfStrands = 0;
 	//the current molecule
 	Molecule m = null;
@@ -165,7 +165,7 @@ public class StericCheck {
 		//logPS = logPSP;
 	}*/
 	
-	StericCheck (int curAANumP[],/*int curResToASMapP[],*/int strandMutP[][],boolean eliminatedRotAtPosRedP[],
+	StericCheck (int curAANumP[],/*int curResToASMapP[],*/MutableResParams strandMut,boolean eliminatedRotAtPosRedP[],
 			int numRotForResP[],Molecule mP, double overlapThreshP, boolean hS, BigInteger numConfsLeftP, 
 			BigInteger numConfsAboveLevelP[], int numMutableP, int numberOfStrandsP, StrandRotamers strandRotP[],
 			int mutRes2StrandP[], int mutRes2StrandMutIndexP[], boolean doPerts){
@@ -174,7 +174,7 @@ public class StericCheck {
 		//curResToASMap = curResToASMapP;
 		//residueMap = residueMapP;
 		//numInAS = residueMap.length;
-		strandMut = strandMutP;
+		this.strandMut = strandMut;
 		numMutable = numMutableP;
 		
 		m = mP;
@@ -217,121 +217,121 @@ public class StericCheck {
 	//	assigned for levels 0...(curTopLevel-1) and curNode should be applied at curTopLevel;
 	//Returns true if the partial conformation is sterically allowed
 	//Called by A*
-	public boolean checkAllowedSteric (int curTopLevel, int curConf[], int curNode){		
-		
-		//As the rotamers given to A* are only the non-pruned ones, there is a difference between the
-		//	rotamer numbers returned by A* and the actual rotamer numbers for each residue (that is,
-		//	A* may return rot 4 for res 3, but rot 3 for res 3 may be pruned, and so the actual number
-		//	of the rot to be applied for res 3 is 5)
-		int curPruningInd = 0;
-		int curRotInd, compInd;
-		int conf[] = new int[curTopLevel+1];
-		for (int curRes=0; curRes<=curTopLevel; curRes++){//compute the actual rot numbers for levels 0...curTopLevel
-			curRotInd = 0;
-			for (int curRot=0; curRot<numRotForRes[curRes]; curRot++){
-				if (!eliminatedRot[curPruningInd]){
-					if (curRes==curTopLevel) //the rotamer (curNode) for curTopLevel is not a part of curConf[]
-						compInd = curNode;
-					else
-						compInd = curConf[curRes];
-					
-					if (curRotInd==compInd)
-						conf[curRes] = curRot;
-					curRotInd++;
-				}
-				curPruningInd++;
-			}
-		}
-
-		//Backup the atom coordinates, so that they can be restored after the steric check, as 
-		//		applyRotamer() changes both the actualCoordinates[] and the atom coordinates,
-		//		so we cannot restore the original position just using m.updateCoordinates()
-		m.backupAtomCoord();
-		
-		//Apply the rotamers of the current partial conformation (up to level (curTopLevel-1))
-		int curAS = 0;
-		boolean applyLig = false;
-		
-		//If there is a ligand and curTopLevel is the ligand level (full conformation), apply the lig rotamer;
-		//	otherwise, curTopLevel is an AS residue
-		/*if ((ligPresent)&&(curTopLevel==numInAS)){ //apply the ligand rotamer
-			if (grl.getNumRotForAAtype(ligAANum)!=0){//not GLY or ALA
-				ligROT.applyRotamer(m, 0, conf[curTopLevel]);//the ligand level
-			}
-			applyLig = true;
-		}*/
-		for(int i=0; i<=curTopLevel;i++){
-				//int curL = oldLevelToNew[i];
-				int str = mutRes2Strand[i];
-				int strResNum = strandMut[str][mutRes2StrandMutIndex[i]];
-		//for (int str=0; str<numberOfStrands;str++){
-		//	for(int i=0;i<strandMut[str].length;i++){
-		//		if(curAS>curTopLevel)
-		//			break;
-				int molResNum = m.strand[str].residue[strResNum].moleculeResidueNumber;
-
-                                if(doPerturbations)
-                                        ((StrandRCs)strandRot[str]).applyRC(m, strResNum, conf[curAS]);
-                                else if (strandRot[str].rl.getNumRotForAAtype(curAANum[molResNum])!=0){//not GLY or ALA
-					strandRot[str].applyRotamer(m, strResNum, conf[curAS]);
-                                }
-		//		curAS++; //prepare the next AS residue
-		//	}
-		}
-		
-		/*for (int curRes=0; curRes<m.strand[sysStrNum].numberOfResidues; curRes++){
-			if (curAS<curTopLevel){ //apply for AS res 0...(curTopLevel-1)
-				if (curResToASMap[curRes]!=-1){//make a change only to the AS residues: use the native type for the other residues
-										
-					if (rl.getNumRotForAAtype(curAANum[residueMap[curAS]])!=0){//not GLY or ALA
-						sysLR.applyRotamer(m, curRes, conf[curAS]);
-					}
-					curAS++; //prepare the next AS residue
-				}
-			}
-			else if (!applyLig) { //we need to apply an AS rot at curTopLevel, as there is no ligand
-				if (curResToASMap[curRes]!=-1){
-					if (rl.getNumRotForAAtype(curAANum[residueMap[curAS]])!=0)//not GLY or ALA
-						sysLR.applyRotamer(m, curRes, conf[curTopLevel]);
-					break;
-				}
-			}
-			else //we have already applied all of the rotamers for the given partial conformation
-				break;
-		}*/
-		
-		/*logPS.println("curTopLevel "+curTopLevel+" curNode "+curNode+" curConf ");
-		for (int i=0;i<=curTopLevel;i++)logPS.print(conf[i]+" ");logPS.println();
-		if (!ligPresent){
-			for (int i=0;i<=curTopLevel;i++)logPS.print(sysLR.getCurRotNum(residueMap[i])+" ");logPS.println();logPS.flush();
-		}
-		else{
-			for (int i=0;i<curTopLevel;i++)logPS.print(sysLR.getCurRotNum(residueMap[i])+" ");
-			logPS.print(ligROT.getCurRotNum(0));logPS.println();logPS.flush();
-		}*/
-		
-		boolean allowedSteric = true;
-		//int curTL = oldLevelToNew[curTopLevel];
-		int str = mutRes2Strand[curTopLevel];
-		int strResNum = strandMut[str][mutRes2StrandMutIndex[curTopLevel]];
-		//Do the steric checks
-		/*if ((ligPresent)&&(curTopLevel==numInAS)) //check the ligand (which is at the top level) against all other residues
-			allowedSteric = RS_CheckAllSterics(ligStrNum,0);
-		else*/ 
-			allowedSteric = RS_CheckAllSterics(str,strResNum);
-		
-		m.restoreAtomCoord(); //restore the atom coordinates
-		m.updateCoordinates(); //restore the actualCoordinates
-		
-		if (!allowedSteric){ //decrease the number of remaining conformations
-			numConfsLeft = numConfsLeft.subtract(numConfsAboveLevel[curTopLevel]);
-			numConfsPrunedByS = numConfsPrunedByS.add(numConfsAboveLevel[curTopLevel]);
-		}
-		//logPS.println("allowedSteric "+allowedSteric+" confsLeft "+numConfsLeft+" confsPrunedByS "+numConfsPrunedByS);
-		//logPS.println();logPS.flush();
-		
-		return allowedSteric;
-	}
+//	public boolean checkAllowedSteric (int curTopLevel, int curConf[], int curNode){		
+//		
+//		//As the rotamers given to A* are only the non-pruned ones, there is a difference between the
+//		//	rotamer numbers returned by A* and the actual rotamer numbers for each residue (that is,
+//		//	A* may return rot 4 for res 3, but rot 3 for res 3 may be pruned, and so the actual number
+//		//	of the rot to be applied for res 3 is 5)
+//		int curPruningInd = 0;
+//		int curRotInd, compInd;
+//		int conf[] = new int[curTopLevel+1];
+//		for (int curRes=0; curRes<=curTopLevel; curRes++){//compute the actual rot numbers for levels 0...curTopLevel
+//			curRotInd = 0;
+//			for (int curRot=0; curRot<numRotForRes[curRes]; curRot++){
+//				if (!eliminatedRot[curPruningInd]){
+//					if (curRes==curTopLevel) //the rotamer (curNode) for curTopLevel is not a part of curConf[]
+//						compInd = curNode;
+//					else
+//						compInd = curConf[curRes];
+//					
+//					if (curRotInd==compInd)
+//						conf[curRes] = curRot;
+//					curRotInd++;
+//				}
+//				curPruningInd++;
+//			}
+//		}
+//
+//		//Backup the atom coordinates, so that they can be restored after the steric check, as 
+//		//		applyRotamer() changes both the actualCoordinates[] and the atom coordinates,
+//		//		so we cannot restore the original position just using m.updateCoordinates()
+//		m.backupAtomCoord();
+//		
+//		//Apply the rotamers of the current partial conformation (up to level (curTopLevel-1))
+//		int curAS = 0;
+//		boolean applyLig = false;
+//		
+//		//If there is a ligand and curTopLevel is the ligand level (full conformation), apply the lig rotamer;
+//		//	otherwise, curTopLevel is an AS residue
+//		/*if ((ligPresent)&&(curTopLevel==numInAS)){ //apply the ligand rotamer
+//			if (grl.getNumRotForAAtype(ligAANum)!=0){//not GLY or ALA
+//				ligROT.applyRotamer(m, 0, conf[curTopLevel]);//the ligand level
+//			}
+//			applyLig = true;
+//		}*/
+//		for(int i=0; i<=curTopLevel;i++){
+//				//int curL = oldLevelToNew[i];
+//				int str = strandMut.resStrand[i];
+//				int strResNum = strandMut.resStrandNum[i];
+//		//for (int str=0; str<numberOfStrands;str++){
+//		//	for(int i=0;i<strandMut[str].length;i++){
+//		//		if(curAS>curTopLevel)
+//		//			break;
+//				int molResNum = m.strand[str].residue[strResNum].moleculeResidueNumber;
+//
+//                                if(doPerturbations)
+//                                        ((StrandRCs)strandRot[str]).applyRC(m, strResNum, conf[curAS]);
+//                                else if (strandRot[str].rl.getNumRotForAAtype(curAANum[molResNum])!=0){//not GLY or ALA
+//					strandRot[str].applyRotamer(m, strResNum, conf[curAS]);
+//                                }
+//		//		curAS++; //prepare the next AS residue
+//		//	}
+//		}
+//		
+//		/*for (int curRes=0; curRes<m.strand[sysStrNum].numberOfResidues; curRes++){
+//			if (curAS<curTopLevel){ //apply for AS res 0...(curTopLevel-1)
+//				if (curResToASMap[curRes]!=-1){//make a change only to the AS residues: use the native type for the other residues
+//										
+//					if (rl.getNumRotForAAtype(curAANum[residueMap[curAS]])!=0){//not GLY or ALA
+//						sysLR.applyRotamer(m, curRes, conf[curAS]);
+//					}
+//					curAS++; //prepare the next AS residue
+//				}
+//			}
+//			else if (!applyLig) { //we need to apply an AS rot at curTopLevel, as there is no ligand
+//				if (curResToASMap[curRes]!=-1){
+//					if (rl.getNumRotForAAtype(curAANum[residueMap[curAS]])!=0)//not GLY or ALA
+//						sysLR.applyRotamer(m, curRes, conf[curTopLevel]);
+//					break;
+//				}
+//			}
+//			else //we have already applied all of the rotamers for the given partial conformation
+//				break;
+//		}*/
+//		
+//		/*logPS.println("curTopLevel "+curTopLevel+" curNode "+curNode+" curConf ");
+//		for (int i=0;i<=curTopLevel;i++)logPS.print(conf[i]+" ");logPS.println();
+//		if (!ligPresent){
+//			for (int i=0;i<=curTopLevel;i++)logPS.print(sysLR.getCurRotNum(residueMap[i])+" ");logPS.println();logPS.flush();
+//		}
+//		else{
+//			for (int i=0;i<curTopLevel;i++)logPS.print(sysLR.getCurRotNum(residueMap[i])+" ");
+//			logPS.print(ligROT.getCurRotNum(0));logPS.println();logPS.flush();
+//		}*/
+//		
+//		boolean allowedSteric = true;
+//		//int curTL = oldLevelToNew[curTopLevel];
+//		int str = strandMut.resStrand[curTopLevel];
+//		int strResNum = strandMut.resStrandNum[curTopLevel];
+//		//Do the steric checks
+//		/*if ((ligPresent)&&(curTopLevel==numInAS)) //check the ligand (which is at the top level) against all other residues
+//			allowedSteric = RS_CheckAllSterics(ligStrNum,0);
+//		else*/ 
+//			allowedSteric = RS_CheckAllSterics(str,strResNum);
+//		
+//		m.restoreAtomCoord(); //restore the atom coordinates
+//		m.updateCoordinates(); //restore the actualCoordinates
+//		
+//		if (!allowedSteric){ //decrease the number of remaining conformations
+//			numConfsLeft = numConfsLeft.subtract(numConfsAboveLevel[curTopLevel]);
+//			numConfsPrunedByS = numConfsPrunedByS.add(numConfsAboveLevel[curTopLevel]);
+//		}
+//		//logPS.println("allowedSteric "+allowedSteric+" confsLeft "+numConfsLeft+" confsPrunedByS "+numConfsPrunedByS);
+//		//logPS.println();logPS.flush();
+//		
+//		return allowedSteric;
+//	}
 	
 	// This function is similar to RS_CheckSterics
 	// This version checks all residues against the target residue rather
@@ -355,9 +355,10 @@ public class StericCheck {
 			for (int i=0; i<curASToResMap[str].length; i++)
 				curASToResMap[str][i] = false;
 		}
-		for(int str=0;str<numberOfStrands;str++){
-			for (int i=0; i<strandMut[str].length; i++)
-				curASToResMap[str][strandMut[str][i]] = true;
+		for(int i=0; i<strandMut.allMut.length;i++){
+			int str = strandMut.resStrand[i];
+			int strResNum = strandMut.resStrandNum[i];
+			curASToResMap[str][strResNum] = true;
 	
 		}		
 		

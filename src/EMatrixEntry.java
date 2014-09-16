@@ -57,10 +57,12 @@ public class EMatrixEntry implements Serializable{
 	boolean applyMutation(Molecule m, ArrayList<ArrayList<Integer>> resByPos,boolean addHydrogens, boolean connectResidues){return false;}
 	void setEnergyEval(Molecule m, ArrayList<ArrayList<Integer>> resByPos, boolean scEval,boolean bbEval){}
 	void setSCEnergyEval(Molecule m,ArrayList<ArrayList<Integer>> resByPos, boolean scEval){}
-	void applyRotamer(ArrayList<ArrayList<Integer>> resByPos, Molecule m){}
+	void applyRC(ArrayList<ArrayList<Integer>> resByPos, Molecule m){}
 	void flexible(Molecule m, ArrayList<ArrayList<Integer>> resByPos, boolean flex){}
 	int numNonWT(Molecule m,ArrayList<ArrayList<Integer>> resByPos) {return 0;}
 	String printRes(Molecule m,ArrayList<ArrayList<Integer>> resByPos) {return "";}
+	public boolean[] transRotStrands(Molecule m,ArrayList<ArrayList<Integer>> resByPos, MutableResParams strandMut) {return null;}
+	
 	
 	public void set(EMatrixEntrySlim eme){
 		//maxE = eme.maxE;
@@ -100,6 +102,8 @@ public class EMatrixEntry implements Serializable{
 	public boolean isPruned() {
 		return pruned;
 	}
+
+	
 
 	/*public void setPrunedIsSteric(boolean prunedIsSteric) {
 		this.prunedIsSteric = prunedIsSteric;

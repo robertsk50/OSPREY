@@ -92,9 +92,7 @@ public class StrandRotamers implements Serializable {
 	private String curAAType[] = null;    //the three-letter code currently assumed by each residue in the strand
 	protected int curRotNum[] = null;     //the rotamer number currently assumed by each residue in the strand
 
-
 	Amber96PolyPeptideResidue ppr;//residues templates (for mutations)
-
 
 	// Generic constructor
 	StrandRotamers(String rotFilename, Strand s) {
@@ -191,9 +189,9 @@ public class StrandRotamers implements Serializable {
 
 	// Returns the number of allowable residue types
 	//  for the specified residue
-	public int getNumAllowable(int resIndex){
-		return(numAllowable[resIndex]);
-	}
+//	public int getNumAllowable(int resIndex){
+//		return(numAllowable[resIndex]);
+//	}
 
 	// Returns the numberOfResidues
 	public int getNumResidues(){
@@ -438,17 +436,19 @@ public class StrandRotamers implements Serializable {
 	}
 
 	// This function converts residue (resNum) to the conformation specified by rotamer rotNum
-	public boolean applyRotamer(Molecule m, int resNum, int rotNum) {
+	public boolean applyRotamer(Molecule m, int resNum, Rotamer rot) {
 
-		int aaNum = rl.getAARotamerIndex(m.strand[strandNumber].residue[resNum].name);
+//		int aaNum = rl.getAARotamerIndex(m.strand[strandNumber].residue[resNum].name);
+//		Rotamer rot = rl.getRot(rotNum);
+		AARotamerType aaType = rot.aaType;
 		// If this AA has no rotamers return false
-		if (aaNum == -1)
-			return false;
-		// If the rotamer number is out of range return false
-		if (rotNum >= rl.getNumRotForAAtype(aaNum))
-			return false;
+//		if (aaNum == -1)
+//			return false;
+//		// If the rotamer number is out of range return false
+//		if (rotNum >= rl.getNumRotForAAtype(aaNum))
+//			return false;
 
-		int aaDihedrals = rl.getNumDihedrals(aaNum);
+		int aaDihedrals = aaType.numDihedrals();
 		Residue localResidue = m.strand[strandNumber].residue[resNum];
 		int atomList[] = new int[localResidue.numberOfAtoms];
 		int alSize = 0;
@@ -462,7 +462,7 @@ public class StrandRotamers implements Serializable {
 			// Find atoms involved in the dihedral
 			for(int q=0;q<localResidue.numberOfAtoms;q++) {
 				for(int w=0;w<4;w++) {
-					if (localResidue.atom[q].name.equalsIgnoreCase(rl.getDihedralAtomNames(aaNum,i,w))) {
+					if (localResidue.atom[q].name.equalsIgnoreCase(aaType.dihedralAtomNames[i][w])) {
 						at[w] = localResidue.atom[q];
 						atNum[w] = q;
 					}
@@ -498,10 +498,10 @@ public class StrandRotamers implements Serializable {
 			//  in the atomList rotate
 			m.setTorsion(at[0].moleculeAtomNumber,at[1].moleculeAtomNumber,
 					at[2].moleculeAtomNumber,at[3].moleculeAtomNumber,
-					rl.getRotamerValues(aaNum,rotNum,i),atomList,alSize);
+					rot.values[i],atomList,alSize);
 		}
 
-		curRotNum[resNum] = rotNum;
+		curRotNum[resNum] = rot.rlIndex;
 		return true;
 	}
 
@@ -1110,35 +1110,6 @@ public class StrandRotamers implements Serializable {
 		r.atom[localH].coord[2] = (double)(CANew.coord[2]+(CBOld.coord[2]-CANew.coord[2])*magNew/magOld);
 	}
 
-	public void addOrigRots(int[][] strandMut,RotamerLibrary rl, Molecule m){
-
-		if(! rl.isAddedRotamers()){
-			for(int str=0; str<strandMut.length;str++){
-				for(int res=0; res<strandMut[str].length;res++){
-					Residue curRes = m.strand[str].residue[strandMut[str][res]];
-					//Get Num Dihedrals
-					int numDiheds = rl.getNumDihedrals(rl.getAARotamerIndex(curRes.name));
-					if(numDiheds<=0)
-						continue;
-					int[] diheds = new int[numDiheds]; 
-					int atoms[] = new int[4];
-					//get all dihedrals
-					for(int i=0; i<numDiheds; i++){
-						atoms = rl.getDihedralInfo(m, curRes.strandNumber, curRes.strandResidueNumber, i);
-						diheds[i] = (int) Math.round(curRes.atom[atoms[3]].torsion(curRes.atom[atoms[0]], curRes.atom[atoms[1]], curRes.atom[atoms[2]]));
-					}
-					//System.out.print("Str: "+str+" Res: "+res+" ");
-					rl.addRotamer(curRes.name, diheds);
-					//System.out.println("");
-				}
-
-			}
-			rl.setAddedRotamers(true);
-		}
-		else{
-			System.out.println("DEBUG: ALREADY ADDED ROTAMERS");
-		}
-	}
 	
 	private static void moveCBOldGly(Atom CBOld, Atom CBNew, Atom CAOld, Atom CANew){
 		double magOld = CBOld.distance(CAOld);

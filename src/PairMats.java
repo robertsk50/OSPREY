@@ -682,6 +682,81 @@ public class PairMats implements Serializable {
 		
 	}
 
+	public boolean[][][][][][] copyPairPruned() {
+		boolean toMatrix[][][][][][] = new boolean[pruned.length][][][][][];
+		if(pruned == null){
+			System.err.println("setSplitFlags was given a null array");
+			System.exit(0);
+		}
+		for (int p1=0; p1<pruned.length; p1++){
+			if (pruned[p1]!=null){
+				toMatrix[p1] = new boolean[pruned[p1].length][][][][];
+				for (int a1=0; a1<pruned[p1].length; a1++){
+					if (pruned[p1][a1]!=null){
+						toMatrix[p1][a1] = new boolean[pruned[p1][a1].length][][][];
+						for (int r1=0; r1<pruned[p1][a1].length; r1++){
+							if (pruned[p1][a1][r1]!=null){
+								toMatrix[p1][a1][r1] = new boolean[pruned[p1][a1][r1].length][][];
+								for (int p2=0; p2<pruned[p1][a1][r1].length; p2++){
+									if (pruned[p1][a1][r1][p2]!=null){
+										toMatrix[p1][a1][r1][p2] = new boolean[pruned[p1][a1][r1][p2].length][];
+										for (int a2=0; a2<pruned[p1][a1][r1][p2].length; a2++){
+											if (pruned[p1][a1][r1][p2][a2]!=null){
+												toMatrix[p1][a1][r1][p2][a2] = new boolean[pruned[p1][a1][r1][p2][a2].length];
+												for (int r2=0; r2<pruned[p1][a1][r1][p2][a2].length; r2++){
+													toMatrix[p1][a1][r1][p2][a2][r2] = pruned[p1][a1][r1][p2][a2][r2];
+												}
+												//System.arraycopy(pruned[p1][a1][r1][p2][a2], 0, toMatrix[p1][a1][r1][p2][a2], 0, pruned[p1][a1][r1][p2][a2].length);
+											}
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+			}				
+		}
+		
+		return toMatrix;
+	}
+
+	public void setPairPruned(boolean[][][][][][] fromMatrix) {
+		boolean pruned[][][][][][] = new boolean[fromMatrix.length][][][][][];
+		if(fromMatrix == null){
+			System.err.println("setSplitFlags was given a null array");
+			System.exit(0);
+		}
+		for (int p1=0; p1<fromMatrix.length; p1++){
+			if (fromMatrix[p1]!=null){
+				pruned[p1] = new boolean[fromMatrix[p1].length][][][][];
+				for (int a1=0; a1<fromMatrix[p1].length; a1++){
+					if (fromMatrix[p1][a1]!=null){
+						pruned[p1][a1] = new boolean[fromMatrix[p1][a1].length][][][];
+						for (int r1=0; r1<fromMatrix[p1][a1].length; r1++){
+							if (fromMatrix[p1][a1][r1]!=null){
+								pruned[p1][a1][r1] = new boolean[fromMatrix[p1][a1][r1].length][][];
+								for (int p2=0; p2<fromMatrix[p1][a1][r1].length; p2++){
+									if (fromMatrix[p1][a1][r1][p2]!=null){
+										pruned[p1][a1][r1][p2] = new boolean[fromMatrix[p1][a1][r1][p2].length][];
+										for (int a2=0; a2<fromMatrix[p1][a1][r1][p2].length; a2++){
+											if (fromMatrix[p1][a1][r1][p2][a2]!=null){
+												pruned[p1][a1][r1][p2][a2] = new boolean[fromMatrix[p1][a1][r1][p2][a2].length];
+												for (int r2=0; r2<fromMatrix[p1][a1][r1][p2][a2].length; r2++){
+													pruned[p1][a1][r1][p2][a2][r2] = fromMatrix[p1][a1][r1][p2][a2][r2];
+												}
+												//System.arraycopy(fromMatrix[p1][a1][r1][p2][a2], 0, pruned[p1][a1][r1][p2][a2], 0, fromMatrix[p1][a1][r1][p2][a2].length);
+											}
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+			}				
+		}
+	}
 
 
 	

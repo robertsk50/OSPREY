@@ -31,7 +31,7 @@ public class PBChangeEFcn extends EnergyFunction {
     
     static String delphiFolder = "OSPREY_delphi";
     
-    public PBChangeEFcn(Molecule molec, int str1, int strResNum1, int str2, int strResNum2){
+    public PBChangeEFcn(Molecule molec, Residue r1, Residue r2){
         //if pairwise, then we must have valid strand and strand res. num. arguments
         //non-pairwise flagged by str2==-1 (e.g. this is found for shell runs in RotamerSearch)
         
@@ -49,10 +49,10 @@ public class PBChangeEFcn extends EnergyFunction {
         
         origE = mCopyE();
         
-        if(str2!=-1){//pairwise
+        if(r2 != null){//pairwise
             pairwise = true;
-            res1 = m.strand[str1].residue[strResNum1].moleculeResidueNumber;
-            res2 = m.strand[str2].residue[strResNum2].moleculeResidueNumber;
+            res1 = r1.moleculeResidueNumber;
+            res2 = r2.moleculeResidueNumber;
         }
     }
 

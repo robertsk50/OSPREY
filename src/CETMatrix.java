@@ -54,10 +54,13 @@
 
 import cern.colt.matrix.DoubleFactory1D;
 import cern.colt.matrix.DoubleFactory2D;
+
 import java.io.Serializable;
+
 import cern.colt.matrix.DoubleMatrix1D;
 import cern.colt.matrix.DoubleMatrix2D;
 import cern.jet.math.Functions;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -74,6 +77,7 @@ public class CETMatrix implements Serializable {
     ContETerm intraAndShellBounds[][][] = null;
     ContETerm pairwiseBounds[][][][][][] = null;
     
+    int[][][][] supRot;
     
     int numRes;
     double ivalCutoff;//RCs unpruned at this ival are guaranteed to be included in this matrix
@@ -81,62 +85,98 @@ public class CETMatrix implements Serializable {
 
     DegreeOfFreedom[] DOFList;
     
-    String resAATypes[][];//Names of AA types for each residue
+    AARotamerType resAATypes[][];//Names of AA types for each residue
 
 
 
-    public CETMatrix(int numMutable, int[][] strandMut, RotamerSearch rs){
+//    public CETMatrix(int numMutable, MutableResParams strandMut, RotamerSearch rs){
+//
+//        numRes = numMutable;
+//        DOFList = rs.m.DOFs;
+//
+//        intraAndShellBounds = new ContETerm[numRes][][];
+//        pairwiseBounds = new ContETerm[numRes][][][][][];
+//        
+//        resAATypes = new AARotamerType[numRes][];
+//
+//        //First residue number within active site 
+//        for(int p1=0; p1<strandMut.allMut.length;p1++){
+//        	
+//        	int str1 = strandMut.resStrand[p1];
+//        	int strResNum1 = strandMut.resStrandNum[p1];
+//
+//                intraAndShellBounds[p1] = new ContETerm[rs.strandRot[str1].rl.getNumAAallowed()][];
+//                pairwiseBounds[p1] = new ContETerm[rs.strandRot[str1].rl.getNumAAallowed()][][][][];
+//                
+//                resAATypes[p1] = rs.strandRot[str1].rl.getAAtypesAllowed();
+//
+//                for (int a1=0; a1<rs.strandRot[str1].getNumAllowable(strResNum1); a1++){
+//                    int curAAind1 = rs.strandRot[str1].getIndexOfNthAllowable(strResNum1,a1);
+//                    int numRot1 = rs.getNumRot(str1, strResNum1, curAAind1);
+//
+//                    intraAndShellBounds[p1][curAAind1] = new ContETerm[numRot1];
+//                    pairwiseBounds[p1][curAAind1] = new ContETerm[numRot1][][][];
+//
+//                    for (int r1=0; r1<numRot1; r1++){
+//                        pairwiseBounds[p1][curAAind1][r1] = new ContETerm[numRes][][];
+//
+//                        
+//                        for (int p2=0;p2<strandMut.allMut.length;p2++){
+//                        	int str2 = strandMut.resStrand[p2];
+//                        	int strResNum2 = strandMut.resStrandNum[p2];
+//
+//                                        pairwiseBounds[p1][curAAind1][r1][p2] = new ContETerm[rs.strandRot[str2].rl.getNumAAallowed()][];
+//                                        for (int a2=0; a2<rs.strandRot[str2].getNumAllowable(strResNum2); a2++){
+//
+//                                            int curAAind2 = rs.strandRot[str2].getIndexOfNthAllowable(strResNum2,a2);
+//                                            int numRot2 = rs.getNumRot( str2, strResNum2, curAAind2 );
+//                                            pairwiseBounds[p1][curAAind1][r1][p2][curAAind2] = new ContETerm[numRot2];
+//                                        }
+//                                
+//                                
+//                        }
+//                    }
+//                }
+//
+//            }
+//    }
 
-        numRes = numMutable;
-        DOFList = rs.m.DOFs;
+    public CETMatrix(Emat emat, Molecule m){
 
-        intraAndShellBounds = new ContETerm[numRes][][];
-        pairwiseBounds = new ContETerm[numRes][][][][][];
-        
-        resAATypes = new String[numRes][];
+    	numRes = emat.resByPos.size();
+        DOFList = m.DOFs;
+        supRot = emat.singles.supRot;
+    	
+		intraAndShellBounds = new ContETerm[emat.singles.E.length][][];
+        pairwiseBounds = new ContETerm[emat.singles.E.length][][][][][];
 
-        int p1 = 0;//First residue number within active site (not a loop variable because we loop over strands str1, then positions i within a strand)
+		//Runtime runtime = Runtime.getRuntime();
+		for(int p1=0; p1<emat.singles.E.length;p1++){
+			int[] p1ind = {p1};
+			intraAndShellBounds[p1] = new ContETerm[emat.singles.E[p1].length][];
+			pairwiseBounds[p1] = new ContETerm[emat.singles.E[p1].length][][][][];
 
-        for (int str1=0; str1<strandMut.length; str1++){
-            for (int i=0; i<strandMut[str1].length; i++){
-
-                intraAndShellBounds[p1] = new ContETerm[rs.strandRot[str1].rl.getNumAAallowed()][];
-                pairwiseBounds[p1] = new ContETerm[rs.strandRot[str1].rl.getNumAAallowed()][][][][];
-                
-                resAATypes[p1] = rs.strandRot[str1].rl.getAAtypesAllowed();
-
-                for (int a1=0; a1<rs.strandRot[str1].getNumAllowable(strandMut[str1][i]); a1++){
-                    int curAAind1 = rs.strandRot[str1].getIndexOfNthAllowable(strandMut[str1][i],a1);
-                    int numRot1 = rs.getNumRot(str1, strandMut[str1][i], curAAind1);
-
-                    intraAndShellBounds[p1][curAAind1] = new ContETerm[numRot1];
-                    pairwiseBounds[p1][curAAind1] = new ContETerm[numRot1][][][];
-
-                    for (int r1=0; r1<numRot1; r1++){
-                        pairwiseBounds[p1][curAAind1][r1] = new ContETerm[numRes][][];
-
-                        int p2=0;
-                        for (int str2=0;str2<strandMut.length;str2++){
-                                for (int j=0; j<strandMut[str2].length; j++){
-
-                                        pairwiseBounds[p1][curAAind1][r1][p2] = new ContETerm[rs.strandRot[str2].rl.getNumAAallowed()][];
-                                        for (int a2=0; a2<rs.strandRot[str2].getNumAllowable(strandMut[str2][j]); a2++){
-
-                                            int curAAind2 = rs.strandRot[str2].getIndexOfNthAllowable(strandMut[str2][j],a2);
-                                            int numRot2 = rs.getNumRot( str2, strandMut[str2][j], curAAind2 );
-                                            pairwiseBounds[p1][curAAind1][r1][p2][curAAind2] = new ContETerm[numRot2];
-                                        }
-                                        p2++;
-                                }
-                        }
-                    }
-                }
-
-                p1++;
-            }
-        }
-    }
-
+			for(int a1=0;a1<emat.singles.E[p1].length;a1++){
+				int[] p1a1ind = {p1,a1};
+				intraAndShellBounds[p1][a1] = new ContETerm[emat.singles.E[p1][a1].length];
+				pairwiseBounds[p1][a1] = new ContETerm[emat.singles.E[p1][a1].length][][][];
+				for(int r1=0; r1<emat.singles.E[p1][a1].length;r1++){
+					int[] p1a1r1ind = {p1,a1,r1};
+					pairwiseBounds[p1][a1][r1] = new ContETerm[emat.singles.E.length][][];
+					for(int p2=0; p2<emat.singles.E.length;p2++){
+						if(p1!=p2 && emat.areNeighbors(p1,p2,m)  ){
+							int[] p1a1r1p2ind = {p1,a1,r1,p2};
+							pairwiseBounds[p1][a1][r1][p2] = new ContETerm[emat.singles.E[p2].length][];
+							for(int a2=0;a2<emat.singles.E[p2].length;a2++){
+								int[] p1a1r1p2a2ind = {p1,a1,r1,p2,a2};
+								pairwiseBounds[p1][a1][r1][p2][a2] = new ContETerm[emat.singles.E[p2][a2].length];
+							}
+						}
+					}
+				}
+			}
+		}
+	}
 
 
 
@@ -162,28 +202,48 @@ public class CETMatrix implements Serializable {
 
         if(res1 == -1)//Template run: nothing to merge in
             return;
-        else if(res2 == -1) {
-            intraAndShellBounds[res1] = M.intraAndShellBounds[res1];
+        else if(res2 == -1) { //We only compute the CETs that need to be computed
+        	
+        		for(int a1=0; a1<intraAndShellBounds[res1].length;a1++){
+        			for(int r1=0; r1<intraAndShellBounds[res1][a1].length;r1++){
+        				if(M.intraAndShellBounds[res1][a1][r1] != null)
+        					intraAndShellBounds[res1][a1][r1] = M.intraAndShellBounds[res1][a1][r1];
+        			}
+        		}
+//            intraAndShellBounds[res1] = M.intraAndShellBounds[res1];
         }
         else{
 
-            for(int AAind=0; AAind<pairwiseBounds[res1].length; AAind++){
-                if( pairwiseBounds[res1][AAind] != null ){
-                    for(int rot=0; rot<pairwiseBounds[res1][AAind].length; rot++){
-                        pairwiseBounds[res1][AAind][rot][res2] = M.pairwiseBounds[res1][AAind][rot][res2];
-                    }
-
-                }
-            }
-
-            for(int AAind=0; AAind<pairwiseBounds[res2].length; AAind++){
-                if( pairwiseBounds[res2][AAind] != null ){
-                    for(int rot=0; rot<pairwiseBounds[res2][AAind].length; rot++){
-                        pairwiseBounds[res2][AAind][rot][res1] = M.pairwiseBounds[res2][AAind][rot][res1];
-                    }
-
-                }
-            }
+        	for(int a1=0; a1<intraAndShellBounds[res1].length;a1++){
+    			for(int r1=0; r1<intraAndShellBounds[res1][a1].length;r1++){
+    				for(int a2=0; a2<intraAndShellBounds[res2].length;a2++){
+    	    			for(int r2=0; r2<intraAndShellBounds[res2][a2].length;r2++){
+    	    				if(M.pairwiseBounds[res1][a1][r1][res2][a2][r2] != null){
+    	    					pairwiseBounds[res1][a1][r1][res2][a2][r2] = M.pairwiseBounds[res1][a1][r1][res2][a2][r2];
+    	    					pairwiseBounds[res2][a2][r2][res1][a1][r1] = M.pairwiseBounds[res1][a1][r1][res2][a2][r2];
+    	    				}
+    	    			}
+    	    		}
+    			}
+    		}
+        	
+//            for(int AAind=0; AAind<pairwiseBounds[res1].length; AAind++){
+//                if( pairwiseBounds[res1][AAind] != null ){
+//                    for(int rot=0; rot<pairwiseBounds[res1][AAind].length; rot++){
+//                        pairwiseBounds[res1][AAind][rot][res2] = M.pairwiseBounds[res1][AAind][rot][res2];
+//                    }
+//
+//                }
+//            }
+//
+//            for(int AAind=0; AAind<pairwiseBounds[res2].length; AAind++){
+//                if( pairwiseBounds[res2][AAind] != null ){
+//                    for(int rot=0; rot<pairwiseBounds[res2][AAind].length; rot++){
+//                        pairwiseBounds[res2][AAind][rot][res1] = M.pairwiseBounds[res2][AAind][rot][res1];
+//                    }
+//
+//                }
+//            }
         }
     }
 
@@ -192,6 +252,11 @@ public class CETMatrix implements Serializable {
         tryMolecCompression(res,AAind,rot,b);
         intraAndShellBounds[res][AAind][rot] = b;
     }
+    
+    public void setShellRotE(int[] i, ContETerm b) {
+    	tryMolecCompression(i[0],i[1],i[2],b);
+        intraAndShellBounds[i[0]][i[1]][i[2]] = b;
+	}
 
     public void setPairwiseE(int res1, int AAind1, int rot1, int res2, int AAind2,
             int rot2, ContETerm b){
@@ -200,6 +265,14 @@ public class CETMatrix implements Serializable {
 
         pairwiseBounds[res1][AAind1][rot1][res2][AAind2][rot2] = b;
         pairwiseBounds[res2][AAind2][rot2][res1][AAind1][rot1] = b;
+    }
+    
+    public void setPairwiseE(int[] i, ContETerm b){
+        
+        tryMolecCompression(i[0],i[1],i[2],i[3],i[4],i[5],b);
+
+        pairwiseBounds[i[0]][i[1]][i[2]][i[3]][i[4]][i[5]] = b;
+        pairwiseBounds[i[3]][i[4]][i[5]][i[0]][i[1]][i[2]] = b;
     }
     
     
@@ -293,25 +366,25 @@ public class CETMatrix implements Serializable {
     }
 
 
-    public ContETerm[] getCETList(int[] AAIndices, int rot[]){
+    public ContETerm[] getCETList(Index3[] i){
         //given the AAs and rotamers assigned so far, get the list of LSBs
         //we'll use to compute the A* lower bound
 
-        int numTerms = (AAIndices.length+1)*AAIndices.length/2;
+        int numTerms = (i.length+1)*i.length/2;
 
         ContETerm terms[] = new ContETerm[numTerms];
 
         int termCount = 0;
 
-        for(int res=0; res<AAIndices.length; res++){
+        for(int res=0; res<i.length; res++){
             //Note: this works if all residues are assigned
             //or just the first several
 
-            terms[termCount] = intraAndShellBounds[res][AAIndices[res]][rot[res]];
+            terms[termCount] = intraAndShellBounds[i[res].pos][i[res].aa][i[res].rot];
             termCount++;
 
             for(int res2=0; res2<res; res2++){
-                terms[termCount] = pairwiseBounds[res][AAIndices[res]][rot[res]][res2][AAIndices[res2]][rot[res2]];
+                terms[termCount] = pairwiseBounds[i[res].pos][i[res].aa][i[res].rot][i[res2].pos][i[res2].aa][i[res2].rot];
                 termCount++;
             }
         }
@@ -326,13 +399,13 @@ public class CETMatrix implements Serializable {
     
     
     
-    public CETObjFunction getObjFunc( int[] AAIndices, int rot[], boolean includeMinE, boolean rcs, ContSCObjFunction sveOF){
+    public CETObjFunction getObjFunc( Index3[] indices, boolean includeMinE, boolean rcs, ContSCObjFunction sveOF){
         //Get the objective function for the given rotamers
         //if !rcs: given as (AA#, rot#) assignments for each residue (can be -1)
         //if rcs: given as RC set assignments, in AStarAxe.RCSets numbering, stored in rot (AAIndices can be null)
         //if sveOF isn't null we can use it to assign DOFs for any SVEs this objective function may call
         
-        ContETerm terms[] = getCETList(AAIndices, rot);
+        ContETerm terms[] = getCETList(indices);
 
         //we'll minimize over all DOFs that the terms depend on
         //constraints will be taken from DOFmin, DOFmax in the bounds
@@ -582,6 +655,83 @@ public class CETMatrix implements Serializable {
         else
             typeCounts.put(descr, 1);
     }
+
+
+
+
+    /**
+     * Copy over the terms from an older CETMatrix 
+     * @param cetm An old CET matrix that already has some CET entries computed 
+     * @param emat Emat that was used to create the current CETMatrix
+     */
+	public void copyOverTerms(CETMatrix cetm) {
+		//We copy over a term when we find two supRot entries that match between
+		//the old cetm and the new emat
+		
+		//Loop through the new matrix since every term in the old matrix should be in
+		//the new matrix
+		for(int p1=0; p1<intraAndShellBounds.length;p1++ ){
+			for(int a1=0; a1<intraAndShellBounds[p1].length;a1++ ){
+				int oldR1 = 0;
+				for(int r1=0; r1<intraAndShellBounds[p1][a1].length;r1++ ){
+					if(oldR1 < cetm.supRot[p1][a1].length && supRot[p1][a1][r1][0] == cetm.supRot[p1][a1][oldR1][0]){ //0 index assumes no super rotamers;
+						intraAndShellBounds[p1][a1][r1] = cetm.intraAndShellBounds[p1][a1][oldR1];
+						
+						for(int p2=p1+1; p2<intraAndShellBounds.length;p2++ ){
+							for(int a2=0; a2<intraAndShellBounds[p2].length;a2++ ){
+								int oldR2 = 0;
+								for(int r2=0; r2<intraAndShellBounds[p2][a2].length;r2++ ){
+									if(oldR2 < cetm.supRot[p2][a2].length && supRot[p2][a2][r2][0] == cetm.supRot[p2][a2][oldR2][0]){
+										pairwiseBounds[p1][a1][r1][p2][a2][r2] = cetm.pairwiseBounds[p1][a1][oldR1][p2][a2][oldR2];
+										pairwiseBounds[p2][a2][r2][p1][a1][r1] = cetm.pairwiseBounds[p2][a2][oldR2][p1][a1][oldR1];
+										oldR2++;
+									}
+								}
+							}
+						}
+						oldR1++;
+					}
+				}
+			}
+		}
+		
+		
+		
+	}
+
+
+
+
+	/** 
+	 * Set the runParams for each OneMutation to only compute Ematrix
+	 * entries for RCs that don't have computed CETs
+	 * @param mutArray OneMutation array that holds MPI information for Ematrix computation
+	 */
+	public void updateMutArray(OneMutation[] mutArray) {
+		for(OneMutation mut: mutArray){
+			if(mut.runParams != null){ //Will be null for TEMPL and INTRA runs
+				mut.runParams.rotamers = new ArrayList<Index3>();
+				for(int p1=0; p1<mut.resMut.length;p1++){
+					if(mut.resMut[p1] > 0){
+						for(int a1=0; a1<intraAndShellBounds[p1].length;a1++){
+							for(int r1=0; r1<intraAndShellBounds[p1][a1].length;r1++){
+								if(intraAndShellBounds[p1][a1][r1] == null)
+									mut.runParams.rotamers.add(new Index3(p1,a1,r1));
+							}
+						}
+					}
+				}
+			}
+		}
+		
+	}
+
+
+
+
+
+
+	
 
 
     

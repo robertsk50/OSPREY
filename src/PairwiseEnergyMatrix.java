@@ -3,21 +3,21 @@
 
 	OSPREY Protein Redesign Software Version 2.1 beta
 	Copyright (C) 2001-2012 Bruce Donald Lab, Duke University
-	
+
 	OSPREY is free software: you can redistribute it and/or modify
 	it under the terms of the GNU Lesser General Public License as 
 	published by the Free Software Foundation, either version 3 of 
 	the License, or (at your option) any later version.
-	
+
 	OSPREY is distributed in the hope that it will be useful,
 	but WITHOUT ANY WARRANTY; without even the implied warranty of
 	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 	GNU Lesser General Public License for more details.
-	
+
 	You should have received a copy of the GNU Lesser General Public
 	License along with this library; if not, see:
 	      <http://www.gnu.org/licenses/>.
-		
+
 	There are additional restrictions imposed on the use and distribution
 	of this open-source code, including: (A) this header must be included
 	in any modification or extension of the code; (B) you are required to
@@ -25,7 +25,7 @@
 	for the various different modules of our software, together with a
 	complete list of requirements and restrictions are found in the
 	document license.pdf enclosed with this distribution.
-	
+
 	Contact Info:
 			Bruce Donald
 			Duke University
@@ -35,10 +35,10 @@
 			NC 27708-0129 
 			USA
 			e-mail:   www.cs.duke.edu/brd/
-	
+
 	<signature of Bruce Donald>, Mar 1, 2012
 	Bruce Donald, Professor of Computer Science
-*/
+ */
 
 ///////////////////////////////////////////////////////////////////////////////////////////////
 //	PairwiseEnergyMatrix.java
@@ -68,7 +68,7 @@
 
 public class PairwiseEnergyMatrix {
 
-        double eMatrix[][][][][][] = null;
+	double eMatrix[][][][][][] = null;
 
 	/* 
 	 * Initialize the pairwise energy matrices: each matrix has 6 dimensions;
@@ -85,72 +85,72 @@ public class PairwiseEnergyMatrix {
 	 * 		ligPresent determines if a ligand is present in the input structure;
 	 * 		useLig determines if the ligand will be used in the current computation (e.g., useLig will be false for SHL-AS)
 	 */
-        public PairwiseEnergyMatrix(){
-            
-        }
+	public PairwiseEnergyMatrix(){
 
-
-	public PairwiseEnergyMatrix(int numMutable, int resMut[], int[][] strandMut,
-			RotamerSearch rs, boolean shellRun, boolean intraRun, boolean initAll) {
-		
-		int numPos = numMutable+1;
-		/*if (ligPresent)
-			numPos++;*/
-		eMatrix = new double[numPos][][][][][];
-		int p1 = 0;
-		for (int str1=0; str1<strandMut.length; str1++){
-                    for (int i=0; i<strandMut[str1].length; i++){
-			if (resMut[p1] == 1) {
-                            eMatrix[p1] = new double[rs.strandRot[str1].rl.getNumAAallowed()][][][][];
-                            for (int a1=0; a1<rs.strandRot[str1].getNumAllowable(strandMut[str1][i]); a1++){
-                                int curAAind1 = rs.strandRot[str1].getIndexOfNthAllowable(strandMut[str1][i],a1);
-                                int numRot1 = rs.getNumRot(str1, strandMut[str1][i], curAAind1);
-                                eMatrix[p1][curAAind1] = new double[numRot1][][][];
-                                for (int r1=0; r1<numRot1; r1++){
-                                    eMatrix[p1][curAAind1][r1] = new double[numPos][][];
-                                    int p2=0;
-                                    for (int str2=0;str2<strandMut.length;str2++){
-                                            for (int j=0; j<strandMut[str2].length; j++){
-                                                    if ((initAll)||((!intraRun)&&(p2!=p1))){
-                                                            eMatrix[p1][curAAind1][r1][p2] = new double[rs.strandRot[str2].rl.getNumAAallowed()][];
-                                                            for (int a2=0; a2<rs.strandRot[str2].getNumAllowable(strandMut[str2][j]); a2++){
-                                                                int curAAind2 = rs.strandRot[str2].getIndexOfNthAllowable(strandMut[str2][j],a2);
-                                                                int numRot2 = rs.getNumRot( str2, strandMut[str2][j], curAAind2 );
-                                                                eMatrix[p1][curAAind1][r1][p2][curAAind2] = new double[numRot2];
-                                                                for (int r2=0; r2<numRot2; r2++){
-                                                                        eMatrix[p1][curAAind1][r1][p2][curAAind2][r2] = 0.0f;
-                                                                }
-                                                            }
-                                                    }
-                                                    if (p2==p1) {
-                                                            //Be able to store intra rotamer energy and energy with each strand template
-                                                            eMatrix[p1][curAAind1][r1][p2] = new double[1][2];
-                                                    }
-                                                    p2++;
-                                            }
-                                    }
-                                }
-                            }
-			}
-			p1++;		
-                    }
-		}
-
-		if (shellRun){
-			eMatrix[numPos-1] = new double[1][1][1][1][1];
-		}
-		
 	}
-	
-	
+
+
+//	public PairwiseEnergyMatrix(int numMutable, int resMut[], int[][] strandMut,
+//			RotamerSearch rs, boolean shellRun, boolean intraRun, boolean initAll) {
+//
+//		int numPos = numMutable+1;
+//		/*if (ligPresent)
+//			numPos++;*/
+//		eMatrix = new double[numPos][][][][][];
+//		int p1 = 0;
+//		for (int str1=0; str1<strandMut.length; str1++){
+//			for (int i=0; i<strandMut[str1].length; i++){
+//				if (resMut[p1] == 1) {
+//					eMatrix[p1] = new double[rs.strandRot[str1].rl.getNumAAallowed()][][][][];
+//					for (int a1=0; a1<rs.strandRot[str1].getNumAllowable(strandMut[str1][i]); a1++){
+//						int curAAind1 = rs.strandRot[str1].getIndexOfNthAllowable(strandMut[str1][i],a1);
+//						int numRot1 = rs.getNumRot(str1, strandMut[str1][i], curAAind1);
+//						eMatrix[p1][curAAind1] = new double[numRot1][][][];
+//						for (int r1=0; r1<numRot1; r1++){
+//							eMatrix[p1][curAAind1][r1] = new double[numPos][][];
+//							int p2=0;
+//							for (int str2=0;str2<strandMut.length;str2++){
+//								for (int j=0; j<strandMut[str2].length; j++){
+//									if ((initAll)||((!intraRun)&&(p2!=p1))){
+//										eMatrix[p1][curAAind1][r1][p2] = new double[rs.strandRot[str2].rl.getNumAAallowed()][];
+//										for (int a2=0; a2<rs.strandRot[str2].getNumAllowable(strandMut[str2][j]); a2++){
+//											int curAAind2 = rs.strandRot[str2].getIndexOfNthAllowable(strandMut[str2][j],a2);
+//											int numRot2 = rs.getNumRot( str2, strandMut[str2][j], curAAind2 );
+//											eMatrix[p1][curAAind1][r1][p2][curAAind2] = new double[numRot2];
+//											for (int r2=0; r2<numRot2; r2++){
+//												eMatrix[p1][curAAind1][r1][p2][curAAind2][r2] = 0.0f;
+//											}
+//										}
+//									}
+//									if (p2==p1) {
+//										//Be able to store intra rotamer energy and energy with each strand template
+//										eMatrix[p1][curAAind1][r1][p2] = new double[1][2];
+//									}
+//									p2++;
+//								}
+//							}
+//						}
+//					}
+//				}
+//				p1++;		
+//			}
+//		}
+//
+//		if (shellRun){
+//			eMatrix[numPos-1] = new double[1][1][1][1][1];
+//		}
+//
+//	}
+
+
 	//Returns a new independent six-dimensional matrix that is a copy of fromMatrix[][][][][][]
 	public PairwiseEnergyMatrix copy(){
-		
-                PairwiseEnergyMatrix newM = new PairwiseEnergyMatrix();
+
+		PairwiseEnergyMatrix newM = new PairwiseEnergyMatrix();
 
 		if (eMatrix==null)
 			return null;
-		
+
 		newM.eMatrix = new double[eMatrix.length][][][][][];
 		for (int p1=0; p1<newM.eMatrix.length; p1++){
 			if (eMatrix[p1]!=null){
@@ -178,42 +178,42 @@ public class PairwiseEnergyMatrix {
 				}
 			}				
 		}
-		
+
 		return newM;
 	}
 
 
 
 
-        //Accessing and changing elements of energy matrices
+	//Accessing and changing elements of energy matrices
 
 
 
 
 
 
-        //The following methods access elements based on residue number among the flexible residues,
-        //AA index, and rotamer (or RC) number
+	//The following methods access elements based on residue number among the flexible residues,
+	//AA index, and rotamer (or RC) number
 
 
-        public void setPairwiseE(int res1, int AA1, int rot1, int res2, int AA2, int rot2, double val){
-            eMatrix[res1][AA1][rot1][res2][AA2][rot2] = val;
-            eMatrix[res2][AA2][rot2][res1][AA1][rot1] = val;
-        }
+	public void setPairwiseE(int res1, int AA1, int rot1, int res2, int AA2, int rot2, double val){
+		eMatrix[res1][AA1][rot1][res2][AA2][rot2] = val;
+		eMatrix[res2][AA2][rot2][res1][AA1][rot1] = val;
+	}
 
-        public double getPairwiseE(int res1, int AA1, int rot1, int res2, int AA2, int rot2){
-            return eMatrix[res1][AA1][rot1][res2][AA2][rot2];
-        }
+	public double getPairwiseE(int res1, int AA1, int rot1, int res2, int AA2, int rot2){
+		return eMatrix[res1][AA1][rot1][res2][AA2][rot2];
+	}
 
-        //Add the given value to the specified pairwise energy
-        public void addToPairwiseE(int res1, int AA1, int rot1, int res2, int AA2, int rot2, double val){
-            eMatrix[res1][AA1][rot1][res2][AA2][rot2] += val;
-            eMatrix[res2][AA2][rot2][res1][AA1][rot1] += val;
-        }
+	//Add the given value to the specified pairwise energy
+	public void addToPairwiseE(int res1, int AA1, int rot1, int res2, int AA2, int rot2, double val){
+		eMatrix[res1][AA1][rot1][res2][AA2][rot2] += val;
+		eMatrix[res2][AA2][rot2][res1][AA1][rot1] += val;
+	}
 
 
-        //Shell energy
-        public double getShellShellE(){
+	//Shell energy
+	public double getShellShellE(){
 		double shlshlE = 0.0f;
 		for(int i=0; i<eMatrix[eMatrix.length-1][0][0][0].length;i++){
 			for(int j=i; j<eMatrix[eMatrix.length-1][0][0][0][0].length;j++){
@@ -224,12 +224,12 @@ public class PairwiseEnergyMatrix {
 	}
 
 
-        public void setShellShellE(double val){
-                eMatrix[eMatrix.length-1][0][0][0][0][0] = val;
+	public void setShellShellE(double val){
+		eMatrix[eMatrix.length-1][0][0][0][0][0] = val;
 	}
 
 
-        //Shell-rotamer energy
+	//Shell-rotamer energy
 	public double getShellRotE(int pos, int AANum, int rot){
 		double shlRotE = 0.0f;
 		//Skip the first energy which is the intra-rot energy still
@@ -243,192 +243,193 @@ public class PairwiseEnergyMatrix {
 		eMatrix[pos][AANum][rot][pos][0][1] = val;
 	}
 
-        public void addToShellRotE(int pos, int AANum, int rot, double val){
+	public void addToShellRotE(int pos, int AANum, int rot, double val){
 		eMatrix[pos][AANum][rot][pos][0][1] += val;
 	}
 
 
 
-        //Intra + shell-interaction energy for a rotamer or RC
-        public double getIntraAndShellE(int pos, int AANum, int rot){
-            double E = 0.0f;
-            for(int i=0; i<eMatrix[pos][AANum][rot][pos][0].length;i++){
-                    E += eMatrix[pos][AANum][rot][pos][0][i];
-            }
-            
-            return E;
-        }
-
-
-
-        //Intra energies
-        public void setIntraE(int res1, int AA1, int rot1, double val){
-            eMatrix[res1][AA1][rot1][res1][0][0] = val;
-        }
-
-        public double getIntraE(int res1, int AA1, int rot1){
-            return eMatrix[res1][AA1][rot1][res1][0][0];
-        }
-
-        //Add the given value to the specified pairwise energy
-        public void addToIntraE(int res1, int AA1, int rot1, double val){
-            eMatrix[res1][AA1][rot1][res1][0][0] += val;
-        }
-
-
-
-
-        //Ways to reorganize the energies
-
-
-        
-        //Generate reduced energy matrix for A*
-        //eliminatedRotAtRes is reduced to contain only the entries for the current sequence
-        //(if singleSeq, for use in K*) or for sequences being considered if !singleSeq
-        //the energy matrix is reduced to a 2D matrix containing only unpruned rotamers/RCs
-        //Called from RotamerSearch
-        //eliminatedRotAtPosRed is filled in
-        //if rs.useFlagsAStar==true then the split and triple flags are reduced too
-        public ReducedEnergyMatrix reduceMatrix(boolean eliminatedRotAtPosRed[],
-			int numRotForRes[], int numRotForResNonPruned[], int treeLevels,
-			int numTotalRotRedNonPruned, int numMutable, int strandMut[][],
-                        int numTotalRotRed, RotamerSearch rs, boolean singleSeq,
-                        boolean splitFlagsRed[][], boolean tripleFlagsRed[][][]){
-
-
-                int indicesEMatrixPos[] = new int[numTotalRotRedNonPruned]; //original (in the non-reduced matrices) indices of non-pruned rot to be included
-		int indicesEMatrixAA[] = new int[numTotalRotRedNonPruned];
-		int indicesEMatrixRot[] = new int[numTotalRotRedNonPruned];
-		double arpMatrixRed[][] = new double[numTotalRotRedNonPruned+eMatrix[eMatrix.length-1][0][0][0][0].length][numTotalRotRedNonPruned+1];//include the intra-energies in the last column
-		
-
-		int curIndexRed = 0;//index into the reduced matrices
-		int pruningIndex = 0;//index into the reduced MinDEE matrix
-
-		for (int curLevel=0; curLevel<treeLevels; curLevel++){
-			int str = rs.mutRes2Strand[curLevel];
-			int strResNum = strandMut[str][rs.mutRes2StrandMutIndex[curLevel]];
-                        int molResNum = rs.m.strand[str].residue[strResNum].moleculeResidueNumber;
-
-                        int numAA=1;
-                        if(!singleSeq)//not a K* run
-                            numAA = rs.strandRot[str].getNumAllowable(strResNum);
-
-                        for (int curAA=0; curAA<numAA; curAA++){ //for all allowed AA's
-
-
-                                int index, newRot;
-                                
-                                if(singleSeq){
-                                    index = rs.curAANum[molResNum];
-                                    newRot = numRotForRes[curLevel];
-                                }
-                                else{
-                                    index = rs.strandRot[str].getIndexOfNthAllowable(strResNum,curAA);
-                                    newRot = rs.getNumRot(str, strResNum, index);
-                                }
-
-
-                                for (int curRot=0; curRot<newRot; curRot++){ //for all rotamers for the given AA
-
-                                        if (!rs.eliminatedRotAtRes.get(curLevel,index,curRot)){ //not pruned, so add its index
-                                                indicesEMatrixPos[curIndexRed] = curLevel;
-                                                indicesEMatrixAA[curIndexRed] = index;
-                                                indicesEMatrixRot[curIndexRed] = curRot;
-                                                curIndexRed++;
-                                        }
-                                        eliminatedRotAtPosRed[pruningIndex] = rs.eliminatedRotAtRes.get(curLevel,index,curRot);
-                                        //logPS.println(pruningIndex+" "+curIndex+" "+eliminatedRotAtRes[curIndex]);logPS.flush();
-                                        pruningIndex++;
-                                }
-                        }
+	//Intra + shell-interaction energy for a rotamer or RC
+	public double getIntraAndShellE(int pos, int AANum, int rot){
+		double E = 0.0f;
+		for(int i=0; i<eMatrix[pos][AANum][rot][pos][0].length;i++){
+			E += eMatrix[pos][AANum][rot][pos][0][i];
 		}
 
-
-                
-                if(!singleSeq){
-                    
-                    System.out.println("pruneIndex "+pruningIndex);
-                    for (int i=0;i<curIndexRed;i++)System.out.print("("+indicesEMatrixPos[i]+" "+indicesEMatrixAA[i]+" "+indicesEMatrixRot[i]+") ");System.out.println("curIndexRed "+curIndexRed);
-                }
+		return E;
+	}
 
 
 
-		//Reduce the min energy matrix
-		for (int curRot1=0; curRot1<numTotalRotRedNonPruned; curRot1++){
-			int p1 = indicesEMatrixPos[curRot1];
-			int a1 = indicesEMatrixAA[curRot1];
-			int r1 = indicesEMatrixRot[curRot1];
-			for (int curRot2=0; curRot2<numTotalRotRedNonPruned; curRot2++){
-				if (curRot1!=curRot2){
-					int p2 = indicesEMatrixPos[curRot2];
-					if (p1!=p2) {//not the same residue position
-						int a2 = indicesEMatrixAA[curRot2];
-						int r2 = indicesEMatrixRot[curRot2];
-						arpMatrixRed[curRot1][curRot2] = getPairwiseE(p1,a1,r1,p2,a2,r2);//pairwise
-					}
-				}
-			}
-			arpMatrixRed[curRot1][numTotalRotRedNonPruned] = getIntraE(p1,a1,r1);//store intra-energies in the last column
-			for(int i=0; i<eMatrix[p1][a1][r1][p1][0].length-1;i++)
-				arpMatrixRed[numTotalRotRedNonPruned+i][curRot1] = eMatrix[p1][a1][r1][p1][0][1+i];//store shell-rotamer E in the last rows
-		}
+	//Intra energies
+	public void setIntraE(int res1, int AA1, int rot1, double val){
+		eMatrix[res1][AA1][rot1][res1][0][0] = val;
+	}
+
+	public double getIntraE(int res1, int AA1, int rot1){
+		return eMatrix[res1][AA1][rot1][res1][0][0];
+	}
+
+	//Add the given value to the specified pairwise energy
+	public void addToIntraE(int res1, int AA1, int rot1, double val){
+		eMatrix[res1][AA1][rot1][res1][0][0] += val;
+	}
 
 
 
-                if(splitFlagsRed!=null){//Reduce the flags for pruned tuples, if we are provided with a splitFlagsRed array to put them in
-                    
-                    for(int a=0;a<numTotalRotRedNonPruned;a++){
-                        for(int b=0;b<numTotalRotRedNonPruned;b++){
-                            if(indicesEMatrixPos[a]!=indicesEMatrixPos[b])//Pairs of rotamers at the same residue aren't meaningful
-                                splitFlagsRed[a][b] = rs.splitFlags[indicesEMatrixPos[a]][indicesEMatrixAA[a]][indicesEMatrixRot[a]]
-                                        [indicesEMatrixPos[b]][indicesEMatrixAA[b]][indicesEMatrixRot[b]];
-                        }
 
-                        if(rs.useTriples){
-
-                            tripleFlagsRed[a] = new boolean[a][];//There are at most a-1 values of b such that a>b>=0
-
-                            for(int b=0; indicesEMatrixPos[b] < indicesEMatrixPos[a]; b++){
-
-                                tripleFlagsRed[a][b] = new boolean[b];
-
-                                //tripleFlags doesn't store triples repeating a residue position; this criterion accounts for this
-                                for(int c=0; indicesEMatrixPos[c] < indicesEMatrixPos[b]; c++)
-                                    tripleFlagsRed[a][b][c] = rs.tripleFlags[indicesEMatrixPos[a]][indicesEMatrixAA[a]][indicesEMatrixRot[a]]
-                                            [indicesEMatrixPos[b]][indicesEMatrixAA[b]][indicesEMatrixRot[b]]
-                                            [indicesEMatrixPos[c]][indicesEMatrixAA[c]][indicesEMatrixRot[c]];
-                            }
-                        }
-                    }
-                }
-
-                
+	//Ways to reorganize the energies
 
 
 
-                return new ReducedEnergyMatrix( numTotalRotRedNonPruned, arpMatrixRed,
-                        indicesEMatrixPos, indicesEMatrixAA, indicesEMatrixRot );
+	//Generate reduced energy matrix for A*
+	//eliminatedRotAtRes is reduced to contain only the entries for the current sequence
+	//(if singleSeq, for use in K*) or for sequences being considered if !singleSeq
+	//the energy matrix is reduced to a 2D matrix containing only unpruned rotamers/RCs
+	//Called from RotamerSearch
+	//eliminatedRotAtPosRed is filled in
+	//if rs.useFlagsAStar==true then the split and triple flags are reduced too
+//	public ReducedEnergyMatrix reduceMatrix(boolean eliminatedRotAtPosRed[],
+//			int numRotForRes[], int numRotForResNonPruned[], int treeLevels,
+//			int numTotalRotRedNonPruned, int numMutable, int strandMut[][],
+//			int numTotalRotRed, RotamerSearch rs, boolean singleSeq,
+//			boolean splitFlagsRed[][], boolean tripleFlagsRed[][][]){
+//
+//
+//		int indicesEMatrixPos[] = new int[numTotalRotRedNonPruned]; //original (in the non-reduced matrices) indices of non-pruned rot to be included
+//		int indicesEMatrixAA[] = new int[numTotalRotRedNonPruned];
+//		int indicesEMatrixRot[] = new int[numTotalRotRedNonPruned];
+//		double arpMatrixRed[][] = new double[numTotalRotRedNonPruned+eMatrix[eMatrix.length-1][0][0][0][0].length][numTotalRotRedNonPruned+1];//include the intra-energies in the last column
+//
+//
+//		int curIndexRed = 0;//index into the reduced matrices
+//		int pruningIndex = 0;//index into the reduced MinDEE matrix
+//
+//		for (int curLevel=0; curLevel<treeLevels; curLevel++){
+//			Residue r = rs.m.residue[rs.strandMut.allMut[curLevel]];
+//			int str = r.strandNumber;
+//			int strResNum = r.strandResidueNumber;
+//			int molResNum = r.moleculeResidueNumber;
+//
+//			int numAA=1;
+//			if(!singleSeq)//not a K* run
+//			numAA = rs.strandRot[str].getNumAllowable(strResNum);
+//
+//			for (int curAA=0; curAA<numAA; curAA++){ //for all allowed AA's
+//
+//
+//				int index, newRot;
+//
+//				if(singleSeq){
+//					index = rs.curAANum[molResNum];
+//					newRot = numRotForRes[curLevel];
+//				}
+//				else{
+//					index = rs.strandRot[str].getIndexOfNthAllowable(strResNum,curAA);
+//					newRot = rs.getNumRot(str, strResNum, index);
+//				}
+//
+//
+//				for (int curRot=0; curRot<newRot; curRot++){ //for all rotamers for the given AA
+//
+//					if (!rs.getMinMatrix().getSinglePruned(curLevel,index,curRot)){ //not pruned, so add its index
+//						indicesEMatrixPos[curIndexRed] = curLevel;
+//						indicesEMatrixAA[curIndexRed] = index;
+//						indicesEMatrixRot[curIndexRed] = curRot;
+//						curIndexRed++;
+//					}
+//					eliminatedRotAtPosRed[pruningIndex] = rs.getMinMatrix().getSinglePruned(curLevel,index,curRot);
+//					//logPS.println(pruningIndex+" "+curIndex+" "+eliminatedRotAtRes[curIndex]);logPS.flush();
+//					pruningIndex++;
+//				}
+//			}
+//		}
+//
+//
+//
+//		if(!singleSeq){
+//
+//			System.out.println("pruneIndex "+pruningIndex);
+//			for (int i=0;i<curIndexRed;i++)System.out.print("("+indicesEMatrixPos[i]+" "+indicesEMatrixAA[i]+" "+indicesEMatrixRot[i]+") ");System.out.println("curIndexRed "+curIndexRed);
+//		}
+//
+//
+//
+//		//Reduce the min energy matrix
+//		for (int curRot1=0; curRot1<numTotalRotRedNonPruned; curRot1++){
+//			int p1 = indicesEMatrixPos[curRot1];
+//			int a1 = indicesEMatrixAA[curRot1];
+//			int r1 = indicesEMatrixRot[curRot1];
+//			for (int curRot2=0; curRot2<numTotalRotRedNonPruned; curRot2++){
+//				if (curRot1!=curRot2){
+//					int p2 = indicesEMatrixPos[curRot2];
+//					if (p1!=p2) {//not the same residue position
+//						int a2 = indicesEMatrixAA[curRot2];
+//						int r2 = indicesEMatrixRot[curRot2];
+//						arpMatrixRed[curRot1][curRot2] = getPairwiseE(p1,a1,r1,p2,a2,r2);//pairwise
+//					}
+//				}
+//			}
+//			arpMatrixRed[curRot1][numTotalRotRedNonPruned] = getIntraE(p1,a1,r1);//store intra-energies in the last column
+//			for(int i=0; i<eMatrix[p1][a1][r1][p1][0].length-1;i++)
+//				arpMatrixRed[numTotalRotRedNonPruned+i][curRot1] = eMatrix[p1][a1][r1][p1][0][1+i];//store shell-rotamer E in the last rows
+//		}
+//
+//
+//
+//		if(splitFlagsRed!=null){//Reduce the flags for pruned tuples, if we are provided with a splitFlagsRed array to put them in
+//
+//			for(int a=0;a<numTotalRotRedNonPruned;a++){
+//				for(int b=0;b<numTotalRotRedNonPruned;b++){
+//					if(indicesEMatrixPos[a]!=indicesEMatrixPos[b])//Pairs of rotamers at the same residue aren't meaningful
+//						splitFlagsRed[a][b] = rs.getMinMatrix().getPairPruned(indicesEMatrixPos[a],indicesEMatrixAA[a],indicesEMatrixRot[a],
+//								indicesEMatrixPos[b],indicesEMatrixAA[b],indicesEMatrixRot[b]);
+//				}
+//
+//				if(rs.useTriples){
+//
+//					tripleFlagsRed[a] = new boolean[a][];//There are at most a-1 values of b such that a>b>=0
+//
+//					for(int b=0; indicesEMatrixPos[b] < indicesEMatrixPos[a]; b++){
+//
+//						tripleFlagsRed[a][b] = new boolean[b];
+//
+//						//tripleFlags doesn't store triples repeating a residue position; this criterion accounts for this
+//						for(int c=0; indicesEMatrixPos[c] < indicesEMatrixPos[b]; c++)
+//							tripleFlagsRed[a][b][c] = rs.tripleFlags[indicesEMatrixPos[a]][indicesEMatrixAA[a]][indicesEMatrixRot[a]]
+//									[indicesEMatrixPos[b]][indicesEMatrixAA[b]][indicesEMatrixRot[b]]
+//											[indicesEMatrixPos[c]][indicesEMatrixAA[c]][indicesEMatrixRot[c]];
+//					}
+//				}
+//			}
+//		}
+//
+//
+//
+//
+//
+//		return new ReducedEnergyMatrix( numTotalRotRedNonPruned, arpMatrixRed,
+//				indicesEMatrixPos, indicesEMatrixAA, indicesEMatrixRot );
+//
+//	}
 
-        }
-        
 
 
 
-        
-        
 
-	
+
+
+
 	//Called by slave nodes to generate cObj.compEE[] entries to return to the main node
-        //Called as a method of the minimum-energy matrix with the maximum-energy matrix as an argument
+	//Called as a method of the minimum-energy matrix with the maximum-energy matrix as an argument
 	//The two matrices should have the same structure (i.e., a computed entry in one matrix should also be computed in the other)
 	public SamplingEEntries [] generateCompEE(PairwiseEnergyMatrix maxM){
-		
+
 		if ( maxM == null ) {
 			System.out.println("ERROR: cannot generate compEE[] entries from a null PEM matrix.");
 			System.exit(1);
 		}
-		
+
 		else {
 			SamplingEEntries compEE[] = new SamplingEEntries[100];
 			int curEntry = 0;
@@ -444,7 +445,7 @@ public class PairwiseEnergyMatrix {
 												if (eMatrix[p1][a1][r1][p2][a2]!=null){
 													for (int r2=0; r2<eMatrix[p1][a1][r1][p2][a2].length; r2++){
 														if ( (eMatrix[p1][a1][r1][p2][a2][r2]!=0.0f) || (maxM.eMatrix[p1][a1][r1][p2][a2][r2]!=0.0f) ) {
-														
+
 															compEE[curEntry] = new SamplingEEntries();
 															compEE[curEntry].i1 = p1;
 															compEE[curEntry].i2 = a1;
@@ -454,9 +455,9 @@ public class PairwiseEnergyMatrix {
 															compEE[curEntry].i6 = r2;
 															compEE[curEntry].minE = eMatrix[p1][a1][r1][p2][a2][r2];
 															compEE[curEntry].maxE = maxM.eMatrix[p1][a1][r1][p2][a2][r2];
-															
+
 															curEntry++;
-															
+
 															if (curEntry>=compEE.length){
 																SamplingEEntries tmp[] = new SamplingEEntries[compEE.length*2];
 																System.arraycopy(compEE, 0, tmp, 0, compEE.length);
@@ -474,14 +475,14 @@ public class PairwiseEnergyMatrix {
 					}
 				}				
 			}
-			
+
 			SamplingEEntries tmp[] = new SamplingEEntries[curEntry];
 			System.arraycopy(compEE, 0, tmp, 0, curEntry);
 			compEE = tmp;
-			
+
 			return compEE;
 		}
-		
+
 		return null;
 	}
 
@@ -489,13 +490,13 @@ public class PairwiseEnergyMatrix {
 
 
 
-        //Initialing other matrices to contain information on rotamer pairs
-        //Using the same sets of rotamer pairs at this pairwise energy matrix
+	//Initialing other matrices to contain information on rotamer pairs
+	//Using the same sets of rotamer pairs at this pairwise energy matrix
 
-        //Pairwise matrix of booleans (used for split flags)
-        public boolean[][][][][][] initializePairwiseBooleanMatrix(){
+	//Pairwise matrix of booleans (used for split flags)
+	public boolean[][][][][][] initializePairwiseBooleanMatrix(){
 
-                boolean toMatrix[][][][][][] = new boolean[eMatrix.length][][][][][];
+		boolean toMatrix[][][][][][] = new boolean[eMatrix.length][][][][][];
 		//KER: we only want the pairwise interactions and not the shell-shell in the last row
 		for (int p1=0; p1<eMatrix.length-1; p1++){
 			if (eMatrix[p1]!=null){
@@ -527,17 +528,17 @@ public class PairwiseEnergyMatrix {
 			}
 		}
 
-                return toMatrix;
-        }
+		return toMatrix;
+	}
 
 
 
 
-        //Pairwise matrix of doubles (used for Ec in BoundFlags)
-        //Initialize with the given value
-        public double[][][][][][] initializePairwiseDoubleMatrix(double val){
+	//Pairwise matrix of doubles (used for Ec in BoundFlags)
+	//Initialize with the given value
+	public double[][][][][][] initializePairwiseDoubleMatrix(double val){
 
-                double toMatrix[][][][][][] = new double[eMatrix.length][][][][][];
+		double toMatrix[][][][][][] = new double[eMatrix.length][][][][][];
 		//KER: we only want the pairwise interactions and not the shell-shell in the last row
 		for (int p1=0; p1<toMatrix.length-1; p1++){
 			if (eMatrix[p1]!=null){
@@ -572,7 +573,7 @@ public class PairwiseEnergyMatrix {
 		return toMatrix;
 
 
-        }
+	}
 
 
 }

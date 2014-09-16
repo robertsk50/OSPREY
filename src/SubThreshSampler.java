@@ -87,7 +87,8 @@ public class SubThreshSampler {
     
     
     DoubleMatrix1D x;//current sample value
-    Random random = new Random();//a random
+    static long seed = 42;
+    Random random = new Random(seed);//a random
     
     static boolean adaptiveScale = true;//if true, then we adaptively choose our samplingScale at each step
     //it will be a function of x, and samplingScale will be specific to x
@@ -359,7 +360,7 @@ public class SubThreshSampler {
                 double qforward = Q(x,y,samplingScale);
                 DoubleMatrix1D ySamplingScale = getScaleAdaptive(y);
                 double qback = Q(y,x,ySamplingScale);
-                if(qback/qforward > Math.random())//going to accept
+                if(qback/qforward > random.nextDouble())//going to accept
                     samplingScale = ySamplingScale;
                 else
                     return false;

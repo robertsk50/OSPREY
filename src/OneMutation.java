@@ -67,18 +67,22 @@ import java.math.BigInteger;
  * and can contain the computed score. Implements a method for comparing two sequences that is used for sorting
  * all sequences with respect to different criteria.
  */
-public class OneMutation implements RyanComparable, Comparable
+public class OneMutation implements Comparable
 {
 
 	int mutNum = -1;
 	BigDecimal score = new BigDecimal("0.0");
 	double vol = 0.0f;
-	String resTypes[] = null;
+	int resTypes[] = null;
 	int resMut[] = null;
 	Index3 index[] = null;
 	String flagMutType = null;
 	BigInteger numConfUB = null; //num conformations for the unbound sequence
 	BigInteger numConfB = null; //num conformations for the bound sequence
+	EmatCalcParams runParams = null;
+	int[] pairStartEnd;
+	
+	int duplicateMut[] = null;
 	
 	private boolean sortScores = false; //if true, then sort by score (default is false; should only be set using the method below)
 	
@@ -124,12 +128,22 @@ public class OneMutation implements RyanComparable, Comparable
 	
 	// Returns true if the passed mutation sequence and this
 	//  mutation sequence are the same. Otherwise returns 0.
-	public boolean isSame(String anotherMutation[]) {
+//	public boolean isSame(String anotherMutation[]) {
+//		for(int i=0;i<anotherMutation.length;i++) {
+//			if (!anotherMutation[i].equalsIgnoreCase(resTypes[i]))
+//				return(false);
+//		}
+//		return(true);
+//	}
+
+	// Returns true if the passed mutation sequence and this
+	//  mutation sequence are the same. Otherwise returns 0.
+	public boolean isSame(int anotherMutation[]) {
 		for(int i=0;i<anotherMutation.length;i++) {
-			if (!anotherMutation[i].equalsIgnoreCase(resTypes[i]))
+			if (! (anotherMutation[i] == (resTypes[i])) )
 				return(false);
 		}
 		return(true);
-	}	
+	}
 
 }

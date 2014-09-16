@@ -122,7 +122,7 @@ public class DegreeOfFreedom implements RyanComparable, Serializable {//DOF for 
     static boolean makeMutDOFs = true;//signals us to create mutation DOFs
     //associated with mutation to a particular AA type (mutAANum)
     //redundant with AATYPE, but suitable for making ellipse bounds
-    int mutAANum;
+    AARotamerType mutAANum;
     
     //Compatibility with RCs
 
@@ -143,23 +143,23 @@ public class DegreeOfFreedom implements RyanComparable, Serializable {//DOF for 
     //Constructor for AA-type, mutation, or dihedral DOFs
     //if mutDOF==true we give mutAANum instead of dihedNumber
     public DegreeOfFreedom(int DOFNumber, int strNumber, int strResNumber, int flexResNumber, 
-            String WT, int dihedNumber, StrandRotamers strandRot, boolean mutDOF){
+            String WT, AARotamerType mutAAtype, int dihedNumber, StrandRotamers strandRot, boolean mutDOF, Molecule m){
 
         DOFNum = DOFNumber;
         strandNum = strNumber;
         strResNum = strResNumber;
         flexResAffected = new int[] { flexResNumber };
 
-        if(dihedNumber == -1)
-            initAATypeDOF(flexResNumber, WT, strandRot);
-        else if(mutDOF)
-            initMutDOF(flexResNumber, dihedNumber, strandRot);
+        if(mutDOF)
+        	initMutDOF(m.strand[strNumber].residue[strResNumber], flexResNumber, mutAAtype, strandRot);
+        else if(dihedNumber == -1)
+            initAATypeDOF(m.strand[strNumber].residue[strResNumber], flexResNumber, WT, strandRot);
         else
-            initSCDihedral(flexResNumber, dihedNumber, strandRot);
+            initSCDihedral(flexResNumber, dihedNumber, strandRot, m.strand[strNumber].residue[strResNumber]);
     }
     
 
-    public final void initAATypeDOF(int flexResNumber, String WT, StrandRotamers strandRot ){
+    public final void initAATypeDOF(Residue r, int flexResNumber, String WT, StrandRotamers strandRot ){
         
             type = AATYPE;
             //continuous = false;
@@ -167,68 +167,79 @@ public class DegreeOfFreedom implements RyanComparable, Serializable {//DOF for 
             WTAAType = WT;
             WTAANum = strandRot.rl.getAARotamerIndex(WT);
 
-            numIntervals = strandRot.getNumAllowable(strResNum);
+            numIntervals = r.AATypesAllowed().size();//strandRot.getNumAllowable(strResNum);
             WTCompatible = new boolean[numIntervals];
             AATypeSets = new String[numIntervals];
 
             compatibleRCs = initializeBitSets(numIntervals, 1, strandRot.rl.getNumAAallowed());
             
-            for(int AA=0; AA<numIntervals; AA++){
-                int AAIndex = strandRot.getIndexOfNthAllowable(strResNum, AA);
-                AATypeSets[AA] = strandRot.rl.getAAName(AAIndex);
+            int AA=0;
+            for(AARotamerType aaType: r.AATypesAllowed()){
+//                int AAIndex = strandRot.getIndexOfNthAllowable(strResNum, AA);
+                AATypeSets[AA] = aaType.name;//strandRot.rl.getAAName(AAIndex);
                 if( AATypeSets[AA].equalsIgnoreCase(WTAAType) )
                     WTCompatible[AA] = true;
 
-                int numRCs = getNumRCs(strandRot, AAIndex);
-                compatibleRCs[AA][0][AAIndex].set(0,numRCs);//Set all RCs with the current AA type to be compatible with it
+                int numRCs = r.getRCsForType(aaType).size();//getNumRCs(strandRot, AAIndex);
+                compatibleRCs[AA][0][aaType.index].set(0,numRCs);//Set all RCs with the current AA type to be compatible with it
+                AA++;
             }
+            
     }
     
     
-    public final void initMutDOF(int flexResNumber, int mutAAIndex, StrandRotamers strandRot ){
+    public final void initMutDOF(Residue r, int flexResNumber, AARotamerType mutAAtype, StrandRotamers strandRot ){
         
             type = MUTATION;
-            mutAANum = mutAAIndex;
+            mutAANum = mutAAtype;
             numIntervals = 2;//we can either have this mutation (param==1) or not (param==0)
             compatibleRCs = initializeBitSets(numIntervals, 1, strandRot.rl.getNumAAallowed());
             
             intervals = new double[][] { {0,0}, {1,1} };
             
-            int numAllowable = strandRot.getNumAllowable(strResNum);
-            
-            for(int AA=0; AA<numAllowable; AA++){
-                int AAIndex = strandRot.getIndexOfNthAllowable(strResNum, AA);
-                int numRCs = getNumRCs(strandRot, AAIndex);
+            for(AARotamerType aaType : r.AATypesAllowed()){
+                int numRCs = r.getRCsForType(aaType).size();//getNumRCs(strandRot, AAIndex);
                 
-                if(AAIndex==mutAAIndex)//param==1
-                    compatibleRCs[1][0][AAIndex].set(0,numRCs);//Set all RCs with the current AA type to be compatible with it
+                if(aaType.index==mutAAtype.index)//param==1
+                    compatibleRCs[1][0][aaType.index].set(0,numRCs);//Set all RCs with the current AA type to be compatible with it
                 else
-                    compatibleRCs[0][0][AAIndex].set(0,numRCs);
+                    compatibleRCs[0][0][aaType.index].set(0,numRCs);
             }
     }
 
 
     public final void initSCDihedral(int flexResNumber,
-            int dihedNumber, StrandRotamers strandRot){
+           int dihedNumber, StrandRotamers strandRot, Residue r){
         
         type = SCDIHEDRAL;
         //continuous = true;
         dihedNum = dihedNumber;
 
-        int numAllowable = strandRot.getNumAllowable(strResNum);
+        int numAllowable = r.AATypesAllowed().size();
 
         //We collect all the ideal rotameric values for this dihedral
         //for all possible AA types in this HashSet.  They will be used to make intervals
-        HashSet<Integer> idealDihed = new HashSet<Integer>();
+        HashSet<Double> idealDihed = new HashSet<Double>();
 
-        for(int AA=0; AA<numAllowable; AA++){
-            int AAIndex = strandRot.getIndexOfNthAllowable(strResNum, AA);
-            if( dihedNum < strandRot.rl.getNumDihedrals(AAIndex) ){//If this dihedral is present for this residue
-                int numRot = strandRot.rl.getNumRotForAAtype( AAIndex );
-                for(int rot=0; rot<numRot; rot++)//Actual sidechain rotamers, not RCs
-                    idealDihed.add( strandRot.rl.getRotamerValues(AAIndex, rot, dihedNum) );
-            }
+        //Right now we are going through RCs which have duplicate rotamers, but that should
+        //be ok since we are using a set.
+        ArrayList<ResidueConformation> allowedRCs = r.allowedRCs();
+        for(ResidueConformation rc: allowedRCs){
+        	if(dihedNum < rc.rot.aaType.numDihedrals()){
+        		idealDihed.add(rc.rot.values[dihedNum]);
+        	}
         }
+        
+//        for(int AA=0; AA<numAllowable; AA++){
+//            int AAIndex = strandRot.getIndexOfNthAllowable(strResNum, AA);
+//            if( dihedNum < strandRot.rl.getNumDihedrals(AAIndex) ){//If this dihedral is present for this residue
+//                int numRot = strandRot.rl.getNumRotForAAtype( AAIndex );
+//                for(int rot=0; rot<numRot; rot++)//Actual sidechain rotamers, not RCs
+//                    idealDihed.add( strandRot.rl.getRotamerValues(AAIndex, rot, dihedNum) );
+//            }
+//        }
+        
+        
 
         //Now make intervals for each of the ideal dihedral values
         //Plus an extra null interval, corresponding to amino-acid types for which
@@ -242,46 +253,39 @@ public class DegreeOfFreedom implements RyanComparable, Serializable {//DOF for 
 
         int interv=0;
 
-        for( int dval : idealDihed ){
+        for( double dval : idealDihed ){
             intervals[interv] = new double[] { dval-maxMovement, dval+maxMovement };
 
             //Fill in compatibility
-            for(int AA=0; AA<numAllowable; AA++){
-                int AAIndex = strandRot.getIndexOfNthAllowable(strResNum, AA);
-
-                if( dihedNum < strandRot.rl.getNumDihedrals(AAIndex) ){//If this dihedral is present for this residue
-                    int numRot = strandRot.rl.getNumRotForAAtype( AAIndex );
-
-                    for(int rot=0; rot<numRot; rot++){//Actual sidechain rotamers, not RCs
-                        int rotDihed = strandRot.rl.getRotamerValues(AAIndex, rot, dihedNum);
+            for(ResidueConformation rc: allowedRCs){
+            	if( dihedNum < rc.rot.aaType.numDihedrals() ){//If this dihedral is present for this residue
+            			double rotDihed = rc.rot.values[dihedNum];//strandRot.rl.getRotamerValues(AAIndex, rot, dihedNum);
 
                         if(rotDihed == dval){//Rotamer rot corresponds to the current intervals
-
-                            if( strandRot instanceof StrandRCs ){//Set all RCs containing the current rotamer to be compatible with the interval
-                                int[] curRCRots = ((StrandRCs)strandRot).RCRots[strResNum][AAIndex];
-                                for(int RC=0; RC<curRCRots.length; RC++){
-                                    if(curRCRots[RC] == rot)
-                                        compatibleRCs[interv][0][AAIndex].set(RC);
-                                }
-                            }
-                            else//Just set the current rotamer to be compatible with the interval
-                                compatibleRCs[interv][0][AAIndex].set(rot);
+                        	compatibleRCs[interv][0][rc.rot.aaType.index].set(rc.id);
+//                            if( strandRot instanceof StrandRCs ){//Set all RCs containing the current rotamer to be compatible with the interval
+//                                for(ResidueConformation rc: r.allowedRCs()){ //KER: Innefficient because I go through all rcs every time
+//                            	    if(rc.rot.rlIndex == rot.rlIndex)
+//                                        compatibleRCs[interv][0][rot.aaType.index].set(rc.id);
+//                                }
+//                            }
+//                            else//Just set the current rotamer to be compatible with the interval
+//                                compatibleRCs[interv][0][rot.aaType.index].set(rot.rlIndex);
                         }
                     }
                 }
-            }
 
             interv++;
         }
 
         //Leave interval[numIntervals-1] null but fill in compatibility
-        for(int AA=0; AA<numAllowable; AA++){
-                int AAIndex = strandRot.getIndexOfNthAllowable(strResNum, AA);
+        for(AARotamerType aaType : r.AATypesAllowed()){
+             
 
-                if( dihedNum >= strandRot.rl.getNumDihedrals(AAIndex) ){//If this dihedral is absent for this residue
-                    int numRCs = getNumRCs(strandRot, AAIndex);
-                    compatibleRCs[interv][0][AAIndex].set(0,numRCs);
-                }
+            if( dihedNum >= aaType.numDihedrals() ){//If this dihedral is absent for this residue
+                int numRCs = r.getRCsForType(aaType).size();//getNumRCs(strandRot, AAIndex);
+                compatibleRCs[interv][0][aaType.index].set(0,numRCs);
+            }
         }
 
     }
@@ -345,21 +349,23 @@ public class DegreeOfFreedom implements RyanComparable, Serializable {//DOF for 
                 compatibleRCs[a][ares] = initializeBitSets(numAATypes);
 
                 for(int AAIndex=0; AAIndex<numAATypes; AAIndex++ ){
-                    for(int RC=0; RC<sRC.getNumRCs(strandResNumber, AAIndex); RC++){
-                        int resPertState = sRC.RCPertStates[strandResNumber][AAIndex][RC];
+                	for(ResidueConformation rc: res.allowedRCs()){
+                		if(rc.rot.aaType.index == AAIndex){
+                			int resPertState = rc.pertState;
 
-                        //Figure out which of the residues affecting this perturbations is pert
-                        for( int resPertNum=0; resPertNum<res.perts.length; resPertNum++ ){
-                            if( res.perts[resPertNum] == pertNum ){
-                                //resPertNum is the number of perts among perturbations affecting res
-                                int curInterval = res.pertStates[resPertState][resPertNum];
-
-                                if( curInterval == a )
-                                    compatibleRCs[a][ares][AAIndex].set(RC);
-                                
-                                break;
-                            }
-                        }
+	                        //Figure out which of the residues affecting this perturbations is pert
+	                        for( int resPertNum=0; resPertNum<res.perts.length; resPertNum++ ){
+	                            if( res.perts[resPertNum] == pertNum ){
+	                                //resPertNum is the number of perts among perturbations affecting res
+	                                int curInterval = res.pertStates[resPertState][resPertNum];
+	
+	                                if( curInterval == a )
+	                                    compatibleRCs[a][ares][AAIndex].set(rc.id);
+	                                
+	                                break;
+	                            }
+	                        }
+                		}
                     }
                 }
             }
@@ -369,7 +375,7 @@ public class DegreeOfFreedom implements RyanComparable, Serializable {//DOF for 
 
     
     //Constructor for strand translations/rotations
-    public DegreeOfFreedom(int DOFNumber, int rigidDOFNumber, int strandNumber, int mutRes2Strand[], StrandRotamers strandRot){
+    public DegreeOfFreedom(int DOFNumber, int rigidDOFNumber, int strandNumber, MutableResParams strandMut, Molecule m, StrandRotamers strandRot){
 
         DOFNum = DOFNumber;
         strandNum = strandNumber;
@@ -379,8 +385,8 @@ public class DegreeOfFreedom implements RyanComparable, Serializable {//DOF for 
 
         //Figure out which residues are affected by this (it will be all the residues on this strand)
         int numResAffected = 0;
-        for(int str : mutRes2Strand){
-            if(str == strandNum)
+        for(int molResNum : strandMut.allMut){
+            if(m.residue[molResNum].strandNumber == strandNum)
                 numResAffected++;
         }
 
@@ -388,8 +394,8 @@ public class DegreeOfFreedom implements RyanComparable, Serializable {//DOF for 
 
         int affRes=0;
 
-        for(int flexRes=0; flexRes<mutRes2Strand.length; flexRes++){
-            if( mutRes2Strand[flexRes] == strandNum ){
+        for(int flexRes=0; flexRes<strandMut.allMut.length; flexRes++){
+            if(m.residue[strandMut.allMut[flexRes]].strandNumber == strandNum ){
                 flexResAffected[affRes] = flexRes;
                 affRes++;
             }
@@ -409,14 +415,12 @@ public class DegreeOfFreedom implements RyanComparable, Serializable {//DOF for 
         //All RCs at residues in the strand are compatible with this interval
         compatibleRCs = initializeBitSets(numIntervals, numResAffected, strandRot.rl.getNumAAallowed());
 
+        Residue r = m.strand[strandNum].residue[strResNum];
+        
         for(int ares=0; ares<numResAffected; ares++){//Loop through affected residues
-
-            int numAllowable = strandRot.getNumAllowable(strResNum);
-
-            for(int AA=0; AA<numAllowable; AA++){
-                int AAIndex = strandRot.getIndexOfNthAllowable(strResNum, AA);
-                int numRCs = getNumRCs(strandRot, AAIndex);
-                compatibleRCs[0][ares][AAIndex].set(0,numRCs);
+        	for(AARotamerType aaType : r.AATypesAllowed()){
+                int numRCs = r.getRCsForType(aaType).size();
+                compatibleRCs[0][ares][aaType.index].set(0,numRCs);
             }
         }
     }
@@ -425,10 +429,10 @@ public class DegreeOfFreedom implements RyanComparable, Serializable {//DOF for 
     
     //Make an array of all the degrees of freedom in a system
     //The intervals will be sufficient to cover all the RCs in strandRot
-    public static DegreeOfFreedom[] makeDOFArray( StrandRotamers strandRot[], int strandMut[][], int mutRes2Strand[],
-            int mutRes2StrandMutIndex[], Molecule m, String strandDefault[][] ){
+    public static DegreeOfFreedom[] makeDOFArray( StrandRotamers strandRot[], MutableResParams strandMut, 
+    		Molecule m){
 
-        int numFlexRes = mutRes2Strand.length;
+        int numFlexRes = strandMut.numMutPos();
 
         //ORDER:
         //AA types and dihedrals by residue
@@ -441,27 +445,25 @@ public class DegreeOfFreedom implements RyanComparable, Serializable {//DOF for 
 
         for(int flexResNum=0; flexResNum<numFlexRes; flexResNum++){//Loop through residues
             //to make AA type and dihedral DOFs
-
-            int str = mutRes2Strand[flexResNum];
-            int strandResNum = strandMut[str][mutRes2StrandMutIndex[flexResNum]];
+        	Residue r = m.residue[strandMut.allMut[flexResNum]];
+            int str = r.strandNumber;
+            int strandResNum = r.strandResidueNumber;
             
             String WT = m.strand[str].residue[strandResNum].name;//by default WT is current AA type
-            if(strandDefault!=null)
-                WT = strandDefault[str][mutRes2StrandMutIndex[flexResNum]];//wild-type amino acid
+            WT = r.defaultAA;//wild-type amino acid
             //Note: as per KSParser.checkWT, if there is only one AA type allowed at a position it is treated as WT
           
 
             //Figure out how many dihedral the residue has
             int numDihedrals = 0;
-            int numAllowable = strandRot[str].getNumAllowable(strandResNum);
-            for(int AA=0; AA<numAllowable; AA++){
-                int AAIndex = strandRot[str].getIndexOfNthAllowable(strandResNum, AA);
-                numDihedrals = Math.max( numDihedrals, strandRot[str].rl.getNumDihedrals(AAIndex) );
+            int numAllowable = r.AATypesAllowed().size();//  strandRot[str].getNumAllowable(strandResNum);
+            for(AARotamerType aaType: r.AATypesAllowed()){
+                numDihedrals = Math.max( numDihedrals, aaType.numDihedrals() );
                 
                 if(makeMutDOFs){
                     //make mutation DOFs
-                    if( !WT.equalsIgnoreCase(strandRot[str].rl.getAAName(AAIndex) ) ){//not wild-type
-                        DOFList.add( new DegreeOfFreedom(DOFNum,str,strandResNum,flexResNum,WT,AAIndex,strandRot[str],true) );
+                    if( !WT.equalsIgnoreCase(aaType.name ) ){//not wild-type
+                        DOFList.add( new DegreeOfFreedom(DOFNum,str,strandResNum,flexResNum,WT,aaType,-1,strandRot[str],true,m) );
                         DOFNum++;
                     }
                 }
@@ -469,7 +471,7 @@ public class DegreeOfFreedom implements RyanComparable, Serializable {//DOF for 
             }
 
             for(int d=-1; d<numDihedrals; d++){//Start at -1 for AA type DOF, then make dihedral DOFs
-                DOFList.add( new DegreeOfFreedom(DOFNum,str,strandResNum,flexResNum,WT,d,strandRot[str],false) );
+                DOFList.add( new DegreeOfFreedom(DOFNum,str,strandResNum,flexResNum,WT,null, d,strandRot[str],false,m) );
                 DOFNum++;
             }
         }
@@ -479,9 +481,10 @@ public class DegreeOfFreedom implements RyanComparable, Serializable {//DOF for 
             //we need to create a map from molecule residue numbers to residue numbers among flexible residues
             int flexToMolResNumMap[] = new int[m.residue.length];
             for(int flexResNum=0; flexResNum<numFlexRes; flexResNum++){
-                int str = mutRes2Strand[flexResNum];
-                int strandResNum = strandMut[str][mutRes2StrandMutIndex[flexResNum]];
-                int molResNum = m.strand[str].residue[strandResNum].moleculeResidueNumber;
+            	Residue r = m.residue[strandMut.allMut[flexResNum]];
+                int str = r.strandNumber;
+                int strandResNum = r.strandResidueNumber;
+                int molResNum = r.moleculeResidueNumber;
                 flexToMolResNumMap[flexResNum] = molResNum;
             }
 
@@ -498,7 +501,7 @@ public class DegreeOfFreedom implements RyanComparable, Serializable {//DOF for 
         for( int str=0; str<m.strand.length; str++ ){
             if(m.strand[str].rotTrans){
                 for(int rigidDOFNum=0; rigidDOFNum<6; rigidDOFNum++){
-                    DOFList.add( new DegreeOfFreedom(DOFNum, rigidDOFNum, str, mutRes2Strand, strandRot[str]) );
+                    DOFList.add( new DegreeOfFreedom(DOFNum, rigidDOFNum, str, strandMut,m, strandRot[str]) );
                     DOFNum ++;
                 }
             }
