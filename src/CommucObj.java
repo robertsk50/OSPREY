@@ -244,7 +244,7 @@ public class CommucObj implements Serializable
 	boolean KSGMEC = false;
 	boolean KSCONFTHRESH = false;
 	public int curMut = -1;
-	public boolean templateAlwaysOn = false;
+	public RotamerSearch.MINIMIZATIONSCHEME minScheme;
 	public boolean addOrigRots = false;
 	RotamerLibrary rl;
 	
@@ -269,8 +269,6 @@ public class CommucObj implements Serializable
         boolean idealizeSC;
 
         boolean useCCD;
-        boolean minimizePairwise = true;
-
 
         double EConvTol;
         double gradStep;

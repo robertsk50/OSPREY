@@ -199,7 +199,6 @@ public class MutationManager
 
 	String eRefMatrix;
 	boolean PEMcomp = false; //true if PEM computation is performed; false if mut search is performed
-	private boolean templateAlwaysOn;
 	private boolean addOrigRots = false;
 	private boolean useMaxKSconfs;
 	private BigInteger numKSconfs;
@@ -217,7 +216,6 @@ public class MutationManager
 	boolean idealizeSC;
 
 	boolean useCCD;
-	boolean minimizePairwise = true;
 
 	double EConvTol;
 
@@ -228,6 +226,7 @@ public class MutationManager
 	private KSParser.DEEMETHOD deeMethod;
 	boolean doDih = false;
 	private HashMap<String, double[]> eRef;
+	private RotamerSearch.MINIMIZATIONSCHEME minScheme;
 
 	// Generic constructor
 	MutationManager(String logName, OneMutation mArray[], boolean PEMcomputation) {
@@ -302,7 +301,6 @@ public class MutationManager
 		cObj.curMut = curMutIndex;
 		cObj.strandLimits = strandLimits;
 		cObj.strandsPresent = strandsPresent;
-		cObj.templateAlwaysOn = templateAlwaysOn;
 		cObj.doDih = doDih;
 		cObj.neighborList = neighborList;
 		cObj.distCutoff = distCutoff;
@@ -321,7 +319,7 @@ public class MutationManager
 		}
 
 		cObj.useCCD = useCCD;
-		cObj.minimizePairwise = minimizePairwise;
+		cObj.minScheme = minScheme;
 		cObj.es = es;
 
 		cObj.EConvTol = EConvTol;
@@ -660,8 +658,14 @@ public class MutationManager
 			if (score.compareTo(cObj.bestScore) >0)
 				bs = score;
 			logPS.print(" FinalBest "+bs);
-			for(int i=0;i<cObj.mutableSpots;i++)
-				logPS.print(" "+cObj.currentMutation[i]);
+			int ctr=0;
+			for(Residue r: m.residue){
+				if(r.isMutable){
+					String aaName = r.rl.getAAName(cObj.currentMutation[ctr]);
+					logPS.print(" "+aaName);
+					ctr++;
+				}
+			}
 
 			for(int i=0;i<cObj.numComplexes;i++){
 				logPS.print(" "+i+"ConfInfo "+cObj.searchNumConfsEvaluated[i]+" "+cObj.searchNumPrunedMinDEE[i]+" "
@@ -1079,10 +1083,6 @@ public void setErefMatrixName(String erm) {
 	eRefMatrix  = erm;
 }
 
-public void setTemplateAlwaysOn(boolean templAlwaysOn) {
-	templateAlwaysOn = templAlwaysOn;
-}
-
 public void setAddOrigRots(boolean aor) {
 	addOrigRots   = aor;
 }
@@ -1142,8 +1142,8 @@ public void setMagicBulletTriples(boolean magicBulletTriples) {
 	this.magicBulletTriples = magicBulletTriples;
 }
 
-public void setMinimizePairwise(boolean minimizePairwise) {
-	this.minimizePairwise = minimizePairwise;
+public void setMinScheme(RotamerSearch.MINIMIZATIONSCHEME minScheme) {
+	this.minScheme = minScheme;
 }
 
 public void setUseCCD(boolean useCCD) {

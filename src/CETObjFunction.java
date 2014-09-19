@@ -97,9 +97,10 @@ public class CETObjFunction implements ObjectiveFunction, Serializable {
             
             sveOFMap = new int[sveOF.numDOFs];
             sveOFMapRev = new int[numDOFs];
+           
             for(int dof=0; dof<sveOF.numDOFs; dof++){                
-                sveOFMap[dof] = ef.revDOFNums.get(sveOF.DOFNums[dof]);
-                sveOFMapRev[sveOFMap[dof]] = dof;
+               	sveOFMap[dof] = ef.revDOFNums.get(sveOF.DOFNums[dof]);
+                sveOFMapRev[sveOFMap[dof]] = dof;    
             }
         }
     }

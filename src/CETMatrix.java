@@ -699,7 +699,45 @@ public class CETMatrix implements Serializable {
 		
 	}
 
-
+	/**
+     * Copy over all terms from an older CETMatrix 
+     * @param cetm An larger CET matrix that has all CET entries computed for the current CET 
+     * @param emat Emat that was used to create the current CETMatrix
+     */
+	public void copyAllTerms(CETMatrix cetm) {
+		//We copy over a term when we find two supRot entries that match between
+		//the old cetm and the new emat
+		
+		//Loop through the old (larger) matrix since every term in the new matrix should be in
+		//the old matrix
+		for(int p1=0; p1<cetm.intraAndShellBounds.length;p1++ ){
+			for(int a1=0; a1<cetm.intraAndShellBounds[p1].length;a1++ ){
+				int newR1 = 0;
+				for(int r1=0; r1<cetm.intraAndShellBounds[p1][a1].length;r1++ ){
+					if(newR1 < supRot[p1][a1].length && cetm.supRot[p1][a1][r1][0] == supRot[p1][a1][newR1][0]){ //0 index assumes no super rotamers;
+						intraAndShellBounds[p1][a1][newR1] = cetm.intraAndShellBounds[p1][a1][r1];
+						
+						for(int p2=p1+1; p2<cetm.intraAndShellBounds.length;p2++ ){
+							for(int a2=0; a2<cetm.intraAndShellBounds[p2].length;a2++ ){
+								int newR2 = 0;
+								for(int r2=0; r2<cetm.intraAndShellBounds[p2][a2].length;r2++ ){
+									if(newR2 < supRot[p2][a2].length && cetm.supRot[p2][a2][r2][0] == supRot[p2][a2][newR2][0]){
+										pairwiseBounds[p1][a1][newR1][p2][a2][newR2] = cetm.pairwiseBounds[p1][a1][r1][p2][a2][r2];
+										pairwiseBounds[p2][a2][newR2][p1][a1][newR1] = cetm.pairwiseBounds[p2][a2][r2][p1][a1][r1];
+										newR2++;
+									}
+								}
+							}
+						}
+						newR1++;
+					}
+				}
+			}
+		}
+		
+		
+		
+	}
 
 
 	/** 

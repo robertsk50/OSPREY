@@ -1101,9 +1101,7 @@ public class KSParser
 			mp.strandMut.checkWT(mp.strandPresent, sParams);
 		int molStrand = 0;
 		for(int resID:mp.strandMut.allMut){
-			if(mp.strandPresent[mp.m.residue[resID].strandNumber]){
 				setAllowablesHelper(sParams, addWT, mp.m.residue[resID]);
-			}
 		}
 		
 
@@ -2028,6 +2026,8 @@ public class KSParser
 			BigInteger numConfsPrunedMinDEESteric = null;
 			double initEw = cObj.initEw;
 
+			
+			
 			RotamerSearch rs = new RotamerSearch(m,numMutPos,strandsPresent, hElect, hVDW, hSteric, true,
 					true, cObj.epsilon, cObj.stericThresh, cObj.softStericThresh, cObj.distDepDielect, 
 					cObj.dielectConst,cObj.doDihedE,cObj.doSolvationE,cObj.solvScale,cObj.vdwMult,
@@ -2083,6 +2083,8 @@ public class KSParser
 			//Prune all rotamers that don't belong to the allowed position
 			emat.pruneNotAllowed(m);
 			emat.removePrunedRotReducedMem(false);
+			
+			
 			//Prune Steric
 			int[] prunedStericPerPos = RotamerSearch.DoPruneStericTemplate(emat,cObj.stericE,true,outPS);
 
@@ -2126,8 +2128,12 @@ public class KSParser
 				}
 
 
-				if(cObj.es.useEPIC)
+				if(cObj.es.useEPIC){
+					//Load the CET Matrix and then make the smaller version that matches the emat
+					//This should always already be calculated
 					loadCETMatrix(cObj.params,rs,curStrForMatrix,0,true, emat);
+				
+				}
 				//strandPresent from loadCETMatrix is the strand number if positive,
 				//-1 for the complex
 				//which corresponds to curStr-1 here
@@ -2136,8 +2142,7 @@ public class KSParser
 				SaveConfsParams saveConfsParams = new SaveConfsParams(cObj.numTopConfs, cObj.saveTopConfs, cObj.printTopConfs, false);
 				AStarResults asr = rs.slaveDoRotamerSearch(runNum, cObj.computeEVEnergy,cObj.doMinimization,numMutPos,
 						strandMut,usingInitialBest,initialBest,cObj,cObj.minimizeBB,cObj.doBackrubs,cObj.backrubFile,
-						saveConfsParams, cObj.curMut,
-						cObj.useMaxKSconfs, cObj.numKSconfs,prunedStericPerPos);
+						saveConfsParams, cObj.curMut, cObj.useMaxKSconfs, cObj.numKSconfs,prunedStericPerPos, DEEIval);
 
 				if(KSCONFTHRESH && rs.numConfsEvaluated.compareTo(cObj.numKSconfs) >= 0){
 					finished = true;
@@ -2294,8 +2299,15 @@ public class KSParser
 		rs.loadCETMatrix(CETMatrixName);
 
 		if( rs.cetm != null ){//Check if the continuous energy matrix is present and complete enough
-			if(rs.cetm.ivalCutoff == ival)
+			if(rs.cetm.ivalCutoff >= ival){
+				if(rs.cetm.ivalCutoff > ival){
+					CETMatrix reducedcetm = new CETMatrix(emat, rs.m);
+					reducedcetm.copyAllTerms(rs.cetm);
+					reducedcetm.DOFList = rs.cetm.DOFList;
+					rs.cetm = reducedcetm;	
+				}
 				return;
+			}
 		}
 
 		//If we get here we have to compute the matrix
@@ -2434,7 +2446,7 @@ public class KSParser
 		String minEMatrixName = (String)sParams.getValue("MINENERGYMATRIXNAME",runName+"minM");
 		String maxEMatrixName = (String)sParams.getValue("MAXENERGYMATRIXNAME",runName+"maxM");
 		String eRefMatrix = (String)(sParams.getValue("EREFMATRIXNAME","Eref"+runName));
-		boolean templateAlwaysOn = (new Boolean((String)sParams.getValue("TEMPLATEALWAYSON","false"))).booleanValue();
+		RotamerSearch.MINIMIZATIONSCHEME minScheme = RotamerSearch.MINIMIZATIONSCHEME.valueOf(sParams.getValue("MINIMIZATIONSCHEME","PAIRWISE").toUpperCase()); 
 
 		int curStrForMatrix = (new Integer((String)sParams.getValue("ONLYSINGLESTRAND","-1"))).intValue();
 		boolean typeDep = (new Boolean((String)sParams.getValue("TYPEDEP","false"))).booleanValue();
@@ -2463,14 +2475,13 @@ public class KSParser
 			distCutoff = new Float(sParams.getValue("DISTCUTOFF"));
 		}
 
-		boolean minimizePairwise = (new Boolean((String)sParams.getValue("MINIMIZEPAIRWISE","true"))).booleanValue();
 		boolean useCCD = (new Boolean((String)sParams.getValue("USECCD","true"))).booleanValue();
 		String CETMatrixName = (String)sParams.getValue("CETMATRIXNAME",runName+"CETM");
 
 		CCDMinimizer.EConvTol = (new Double((String)sParams.getValue("ECONVTOL","0.01"))).doubleValue();
 		//ContSCObjFunction.gradStep = (new Double((String)sParams.getValue("GRADSTEP","0.0002"))).doubleValue();
 
-		if( ( minimizePairwise && (!useCCD) ) || ( compCETM && (!minimizePairwise) ) ) {
+		if( ( es.useEPIC && (!useCCD) ) ) {
 			System.err.println("ERROR: CCD needed for only-pairwise minimization, which in turn is needed for EPIC");
 			System.exit(1);
 		}
@@ -2514,9 +2525,7 @@ public class KSParser
 		if(!addWT)
 			mp.strandMut.checkWT(strandPresent, sParams);
 		for(int resID:mp.strandMut.allMut){
-//			if(mp.strandPresent[mp.m.residue[resID].strandNumber]){
 				setAllowablesHelper(sParams, addWT, mp.m.residue[resID]);
-//			}
 		}
 
 
@@ -2558,7 +2567,7 @@ public class KSParser
 			mutMan = new MutationManager(null,mutArray,true);
 			mutMan.setDoDih(doDih);
 			mutMan.setMolecule(m);
-			mutMan.setTemplateAlwaysOn(templateAlwaysOn);
+			mutMan.setMinScheme(minScheme);
 			mutMan.setStrandMut(strandMut);
 			mutMan.setStrandPresent(strandPresent);
 			mutMan.setStrandLimits(strandLimits);
@@ -2597,7 +2606,6 @@ public class KSParser
 			mutMan.setAddWTRot(addWTRot);
 
 			mutMan.setUseCCD(useCCD);
-			mutMan.setMinimizePairwise(minimizePairwise);
 
 			mutMan.setES(es);
 
@@ -2632,7 +2640,7 @@ public class KSParser
 
 		mutMan = new MutationManager(null,mutArray,true);
 		mutMan.setMolecule(m);
-		mutMan.setTemplateAlwaysOn(templateAlwaysOn);
+		mutMan.setMinScheme(minScheme);
 		mutMan.setStrandMut(strandMut);
 		mutMan.setStrandPresent(strandPresent);
 		mutMan.setStrandLimits(strandLimits);
@@ -2669,7 +2677,6 @@ public class KSParser
 		mutMan.setAddWTRot(addWTRot);
 
 		mutMan.setUseCCD(useCCD);
-		mutMan.setMinimizePairwise(minimizePairwise);
 
 		mutMan.setES(es);
 
@@ -2740,7 +2747,7 @@ public class KSParser
 		String minEMatrixName = (String)sParams.getValue("MINENERGYMATRIXNAME",runName+"minM");
 		String maxEMatrixName = (String)sParams.getValue("MAXENERGYMATRIXNAME",runName+"maxM");
 		String eRefMatrix = (String)(sParams.getValue("EREFMATRIXNAME","Eref"+runName));
-		boolean templateAlwaysOn = (new Boolean((String)sParams.getValue("TEMPLATEALWAYSON","false"))).booleanValue();
+		RotamerSearch.MINIMIZATIONSCHEME minScheme = RotamerSearch.MINIMIZATIONSCHEME.valueOf(sParams.getValue("MINIMIZATIONSCHEME","PAIRWISE").toUpperCase());
 
 		int curStrForMatrix = (new Integer((String)sParams.getValue("ONLYSINGLESTRAND","-1"))).intValue();
 		boolean typeDep = (new Boolean((String)sParams.getValue("TYPEDEP","false"))).booleanValue();
@@ -2769,15 +2776,14 @@ public class KSParser
 			distCutoff = new Float(sParams.getValue("DISTCUTOFF"));
 		}
 
-		boolean minimizePairwise = (new Boolean((String)sParams.getValue("MINIMIZEPAIRWISE","true"))).booleanValue();
 		boolean useCCD = (new Boolean((String)sParams.getValue("USECCD","true"))).booleanValue();
 		String CETMatrixName = (String)sParams.getValue("CETMATRIXNAME",runName+"CETM");
 
 		CCDMinimizer.EConvTol = (new Double((String)sParams.getValue("ECONVTOL","0.01"))).doubleValue();
 		//ContSCObjFunction.gradStep = (new Double((String)sParams.getValue("GRADSTEP","0.0002"))).doubleValue();
 
-		if( ( minimizePairwise && (!useCCD) ) || ( (!minimizePairwise) ) ) {
-			System.err.println("ERROR: CCD needed for only-pairwise minimization, which in turn is needed for EPIC");
+		if( ( es.useEPIC && (!useCCD) )) {
+			System.err.println("ERROR: CCD needed for  EPIC");
 			System.exit(1);
 		}
 
@@ -2820,9 +2826,7 @@ public class KSParser
 		if(!addWT)
 			mp.strandMut.checkWT(strandPresent, sParams);
 		for(int resID:mp.strandMut.allMut){
-			if(mp.strandPresent[mp.m.residue[resID].strandNumber]){
-				setAllowablesHelper(sParams, addWT, mp.m.residue[resID]);
-			}
+			setAllowablesHelper(sParams, addWT, mp.m.residue[resID]);
 		}
 
 
@@ -2847,7 +2851,7 @@ public class KSParser
 
 		MutationManager mutMan = new MutationManager(null,mutArray,true);
 		mutMan.setMolecule(m);
-		mutMan.setTemplateAlwaysOn(templateAlwaysOn);
+		mutMan.setMinScheme(minScheme);
 		mutMan.setStrandMut(strandMut);
 		mutMan.setStrandPresent(strandPresent);
 		mutMan.setStrandLimits(strandLimits);
@@ -2882,7 +2886,6 @@ public class KSParser
 		mutMan.setAddWTRot(addWTRot);
 
 		mutMan.setUseCCD(useCCD);
-		mutMan.setMinimizePairwise(minimizePairwise);
 
 		mutMan.setES(es);
 
@@ -3107,7 +3110,6 @@ public class KSParser
 				cObj.doPerturbations,cObj.pertFile,cObj.minimizePerts,false,false,cObj.es,hbonds,cObj.strandMut);
 
 		rs.useCCD = cObj.useCCD;
-		rs.minimizePairwise = cObj.minimizePairwise;
 
 		//for use in K* CETM calculations
 		rs.templateSt = (new Double((String)cObj.params.getValue("STERICE","30.0"))).doubleValue();
@@ -3177,7 +3179,7 @@ public class KSParser
 		//Compute the corresponding matrix entries
 		rs.simplePairwiseMutationAllRotamerSearch(cObj.strandMut,cObj.mutableSpots,cObj.doMinimization,shellRun,intraRun,
 				cObj.resMut,cObj.minimizeBB,cObj.doBackrubs,
-				templateOnly,cObj.backrubFile, cObj.templateAlwaysOn, cObj.runParams, cObj.compCETM);
+				templateOnly,cObj.backrubFile, cObj.minScheme, cObj.runParams, cObj.compCETM);
 
 
 		long stopTime = System.currentTimeMillis();
@@ -4148,9 +4150,7 @@ public class KSParser
 				mp.strandMut.checkWT(mp.strandPresent, sParams);
 			int molStrand = 0;
 			for(int resID:mp.strandMut.allMut){
-				if(mp.strandPresent[mp.m.residue[resID].strandNumber]){
-					setAllowablesHelper(sParams, addWT, mp.m.residue[resID]);
-				}
+				setAllowablesHelper(sParams, addWT, mp.m.residue[resID]);
 			}
 			
 				
@@ -7403,7 +7403,7 @@ public class KSParser
 //			PairwiseEnergyMatrix maxEmatrix = minEmatrix.copy();
 
 			rs.simplePairwiseMutationAllRotamerSearch(strandMut,numMutable,cObj.doMinimization,shellRun,intraRun,
-					resMut,cObj.minimizeBB,cObj.doBackrubs,templateOnly,cObj.backrubFile, false, cObj.runParams, false);
+					resMut,cObj.minimizeBB,cObj.doBackrubs,templateOnly,cObj.backrubFile, RotamerSearch.MINIMIZATIONSCHEME.PAIRWISE, cObj.runParams, false);
 
 			long stopTime = System.currentTimeMillis();
 			cObj.elapsedTime = Math.round((stopTime - startTime) / 1000.0f);
@@ -8111,9 +8111,7 @@ public class KSParser
 			mp.strandMut.checkWT(mp.strandPresent, sParams);
 		int molStrand = 0;
 		for (int resID: mp.strandMut.allMut){
-			if(mp.strandPresent[mp.m.residue[resID].strandNumber]){
 				setAllowablesHelper(sParams, addWT, mp.m.residue[resID]);
-			}
 		}
 
 		//Read the starting perturbation file, if any

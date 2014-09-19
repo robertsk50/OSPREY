@@ -1,44 +1,26 @@
 import java.util.StringTokenizer;
 
 
-
-
-public class Poly1D {
+public class Poly1DOld {
 
 	static final int VALUE = 0;
 	static final int DERIV = 1;
 	
-	String name;
-	HBondEnergy.HBGeoDimType geoType;
 	//Coefficients for energy function started with largest degree
 	double[] coefficients;
-	final int degree; //degree of the polynomial
+	int degree; //degree of the polynomial
 	double xmin; //Min and max are the boundaries where the polynomial is valid
 	double xmax;
 	
-	double min_val; //Values of energy function if outside polynomial range
-	double max_val;
-	double root1;
-	double root2;
+	double fmin; //Smoothing Interval Terms
+	double fmax; 
+	double b_a;
+	double d_c;
 	
-	Poly1D(String poly_name, HBondEnergy.HBGeoDimType geoType, double xmin, double xmax,
-			double min_val, double max_val, double root1, double root2, int degree,
-			double[] coefficients){
-		
-		this.name = poly_name;
-		this.geoType = geoType;
-		this.xmin = xmin;
-		this.xmax = xmax;
-		this.min_val = min_val;
-		this.max_val = max_val;
-		this.root1 = root1;
-		this.root2 = root2;
-		this.degree = degree-1;
-		this.coefficients = coefficients;
-		
-	}
+	double min_val = Double.POSITIVE_INFINITY; //Values of energy function if outside polynomial range
+	double max_val = Double.POSITIVE_INFINITY;
 	
-	Poly1D(String s){
+	Poly1DOld(String s){
 		
 		StringTokenizer st = new StringTokenizer(s);
 		
@@ -58,7 +40,13 @@ public class Poly1D {
 			coefficients[i] = new Double(st.nextToken());
 		}
 		
-				
+		b_a = (xmax-xmin)*0.10;
+		d_c = b_a;
+		
+		fmin = b_a + xmin;
+		fmax = xmax - d_c;
+		
+		
 		
 	}
 	
@@ -157,7 +145,19 @@ public class Poly1D {
 		
 	}
 	
-
+	public double getSmoothVal(double variable){
+		double smoothVal = 1.0;
+	
+		//Smooth Value Using 10% and 90% for cutoffs
+		if(variable < xmin || variable > xmax)
+			smoothVal = 0.0;
+		else if(variable < fmin)
+			smoothVal = (variable - xmin)/b_a;
+		else if(variable > fmax)
+			smoothVal = (xmax - variable)/d_c;
+		
+		return smoothVal;
+	}
 		
 	
 }

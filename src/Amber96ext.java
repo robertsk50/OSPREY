@@ -206,9 +206,17 @@ public class Amber96ext implements ForceField, Serializable {
 	private boolean[] evalAtom;
 	int[] mapAtomToSolvTerm;
 	
+	//KER: SUB ROT STUFF
+	//Used to keep track of residue-residue interactions
+	//During energy computation
+	ArrayList<Integer> mutRes;
+	double templE;
+	HashMap<Pair,Double> pairsE;
+	HashMap<Integer,Double> singleE;
 	
-	BakerHBond hbondPotential;
-
+//	BakerHBond hbondPotential; //Kept for legacy purposes
+	HBondEnergy hbondPotential; //Updated hbond energy class
+	
 	private Amber96ext(Molecule m, boolean ddDielect, double dielectConst, boolean doSolv, double solvScFactor, double vdwMult){
 
 		this.m = m;
@@ -278,7 +286,8 @@ public class Amber96ext implements ForceField, Serializable {
 		doHBondE = hbonds.doHbondE;
 		
 		if(doHBondE){
-			hbondPotential = new BakerHBond(hbonds.hbondScale,hbonds.dsspFile,m);
+//			hbondPotential = new BakerHBond(hbonds.hbondScale,hbonds.dsspFile,m);
+			hbondPotential = new HBondEnergy(m, hbonds.hbondScale);
 		}
 
 	}
@@ -964,12 +973,53 @@ public class Amber96ext implements ForceField, Serializable {
 				//			System.out.println(" FFT: " + atA[q] + " " + tR.atom[q].forceFieldType + " charge: " + tR.atom[q].charge);
 				res.atom[atA[q]].charge = tR.atom[q].charge;
 				assignNumericalType(res.atom[atA[q]], res.atom[atA[q]].forceFieldType);
+				
+				if(res.atom[atA[q]].elementType.equals("N") || res.atom[atA[q]].elementType.equals("O")){
+					assignHbondFF(m, res, res.atom[atA[q]]);
+					
+				}
 			}
 		}
 		res.cterm = tR.cterm;
 		res.nterm = tR.nterm;
 		res.ffAssigned = true;		
 		return true;
+	}
+
+	private void assignHbondFF(Molecule m, Residue res, Atom atom) {
+		atom.hybridization = getHybridization(atom.forceFieldType);
+		//KER: Assign HBond Forcefield Donor and Accept Type
+		int numAttachedH = 0;
+		for(int ba = 0; ba<atom.bond.length;ba++){
+			if(m.atom[atom.bond[ba]].elementType.equals("H"))
+				numAttachedH++;
+		}
+		if(numAttachedH>0)
+			atom.hbdon = HBondEnergy.getDonType(res,atom,true);
+		
+		atom.hbacc = HBondEnergy.getAccType(res,atom,true);
+	}
+
+	//ffType: forcefield type
+	private byte getHybridization(String ffType) {
+		//Check SP2
+		if(ffType.equals("N") || ffType.equals("O") || ffType.equals("O2") || ffType.equals("NA") ||
+				ffType.equals("NC") || ffType.equals("N*") || ffType.equals("N2") ||
+				ffType.equals("NT")){ //Added NT for small molecules.
+			return HBondEnergy.SP2_HYBRID;
+		}
+		//Check SP3
+		else if(ffType.equals("N3") || ffType.equals("OH") || ffType.equals("OW") || ffType.equals("OS") ){
+			return HBondEnergy.SP3_HYBRID;
+		}
+		else if(ffType.equals("NB")){//Check RING_HYBRID
+			return HBondEnergy.RING_HYBRID;
+		}
+		else{
+			System.out.println("Do not recognize hybridization type of atom: "+ffType);
+			System.exit(0);
+			return -1;
+		}
 	}
 
 	/******************/
@@ -1481,7 +1531,7 @@ public class Amber96ext implements ForceField, Serializable {
 						}
 						//KER: Get Hbond Terms
 						if(doHBondE){
-							hbondPotential.addIfValid(atom1,atom2,m);
+							hbondPotential.addIfValid(atom1,atom2,res1, res2,m, 1.0); //Multiplier not implemented yet so leave as 1.0
 						}
 					}
 				}}
@@ -1767,7 +1817,7 @@ public class Amber96ext implements ForceField, Serializable {
 		if (doSolvationE) //compute solvation energies
 			calculateSolvationEnergy(coordinates,curIndex,energyTerms);
 		if (doHBondE) //compute H-bond energies
-			hbondPotential.calculateBakerHBondEnergy(coordinates,curIndex,energyTerms,m);
+			hbondPotential.calculateHBondEnergy(coordinates,curIndex,energyTerms,m);
 		
 		//compute total energy (electrostatics + vdW + solvation+hbond)
 		for(int i=1; i<energyTerms.length;i++)
@@ -2121,7 +2171,7 @@ public class Amber96ext implements ForceField, Serializable {
 		//	calculateSolvationGradient(curIndex);
 		
 		if(doHBondE)
-			hbondPotential.calculateBakerHBondGradient(curIndex,m);
+			hbondPotential.calculateHBondGradient(curIndex,m);
 	}
 
 	// This code computes the gradient of the electrostatic and vdw energy terms
@@ -2571,4 +2621,93 @@ public class Amber96ext implements ForceField, Serializable {
 		
 		return true;
 	}
+	
+
+
+	/**
+	 * Keep track of the pairwise energies during the energy calculation
+	 * 
+	 * @param tmpVal Energy of the interaction
+	 * @param res1   Residue of the first atom in the interaction
+	 * @param res2   Residue of the second atom in the interaction (can be the same as residue 1)
+	 */
+	public void updatePairTerms(double tmpVal, int res1, int res2) {
+		if(mutRes.contains(res1) && mutRes.contains(res2) && res1 != res2){
+			Pair p = new Pair(res1,res2);
+			Pair p2 = new Pair(res2,res1);
+			pairsE.put(p, pairsE.get(p)+tmpVal);
+			pairsE.put(p2, pairsE.get(p2)+tmpVal);
+		}
+		else if(mutRes.contains(res1)){
+			singleE.put(res1, singleE.get(res1)+tmpVal);
+		}
+		else if(mutRes.contains(res2)){
+			singleE.put(res2, singleE.get(res2)+tmpVal);
+		}
+		else{
+			templE += tmpVal;
+		}	
+	}
+	
+	class Pair implements Comparable<Pair>{
+		public int pos1;
+		public int pos2;
+		
+		Pair(int p1, int p2){
+			pos1 = p1;
+			pos2 = p2;
+		}
+		
+		@Override
+		public int compareTo(Pair pair2) {
+			if(pos1 < pair2.pos1)
+				return -1;
+			else if(pos1 > pair2.pos1)
+				return 1;
+			else{ //pos1 == pair2.pos1
+				if(pos2 < pair2.pos2)
+					return -1;
+				else if (pos2 > pair2.pos2)
+					return 1;
+				else //everything equal
+					return 0;
+			}
+			
+		}
+
+		@Override
+		public int hashCode() {
+			final int prime = 31;
+			int result = 1;
+			result = prime * result + getOuterType().hashCode();
+			result = prime * result + pos1;
+			result = prime * result + pos2;
+			return result;
+		}
+
+		@Override
+		public boolean equals(Object obj) {
+			if (this == obj)
+				return true;
+			if (obj == null)
+				return false;
+			if (getClass() != obj.getClass())
+				return false;
+			Pair other = (Pair) obj;
+			if (!getOuterType().equals(other.getOuterType()))
+				return false;
+			if (pos1 != other.pos1)
+				return false;
+			if (pos2 != other.pos2)
+				return false;
+			return true;
+		}
+
+		private Amber96ext getOuterType() {
+			return Amber96ext.this;
+		}
+
+		
+	}
+	
 }

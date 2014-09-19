@@ -106,9 +106,13 @@ public class Atom implements Serializable {
 	double	mass;				// atomic mass
 	double	coord[] = new double[3];		// atomic coordinates
 	boolean isBBatom = false;
-        double BFactor;
+    double BFactor;
 
-
+    //Descriptors for Hbond Function 
+    HBondEnergy.HBDonChemType hbdon; //For new Hbond function. Maybe these should be stored in the
+	HBondEnergy.HBAccChemType hbacc; //atom type instead of the atom itself.
+	byte hybridization; //Also for new Hbond function
+	
 	Atom(){
 	}
 
