@@ -290,6 +290,11 @@ public class CommucObj implements Serializable
 		public PartitionMessage[] computedPartFuns;
 		public int[] duplicateMut;
 		public KSParser.ASTARMETHOD asMethod;
+		
+		//Slave Bounds Calculations
+		public boolean gurobiCalc;
+		public boolean wcspCalc;
+		public GurobiCalcInfo gurobiCalcInfo;
 
 	CommucObj() {
 	}

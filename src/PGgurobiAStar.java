@@ -62,6 +62,8 @@ import java.util.Random;
 
 import java.io.*;
 
+import cern.colt.matrix.DoubleMatrix1D;
+
 /**
  * Written by Pablo Gainza (2004-2012)
  */
@@ -101,12 +103,21 @@ public class PGgurobiAStar extends AStar{
 	int numTopL = 0;
 
 	enum HEURISTIC{
-		AS,GUROBI,TOULBAR;
+		AS,GUROBI,WCSP;
 	}
  
 	HEURISTIC heuristic = null;
 	boolean reorder = true;
 
+	Molecule m;
+	StrandRotamers[] strandRot;
+	MutableResParams strandMut;
+	EPICSettings es;
+	CETMatrix CETM;
+	boolean doPerturbations;
+
+	private int numFS = 0; 
+	
 
 	//constructor
 	/*
@@ -114,8 +125,17 @@ public class PGgurobiAStar extends AStar{
 	 * 		to consider only the residues and rotamers for the possible mutations; i.e., the matrices are of
 	 * 		reduced size
 	 */
-	PGgurobiAStar (int treeLevels, int numRotForRes[], Emat emat, KSParser.ASTARMETHOD asMethod){
+	PGgurobiAStar (int treeLevels, int numRotForRes[], Emat emat, KSParser.ASTARMETHOD asMethod,
+			EPICSettings es, boolean doPerturbations, Molecule m, StrandRotamers[] src, MutableResParams strandMut,
+			CETMatrix CETM){
 
+		this.m = m;
+		this.strandRot  = src;
+		this.strandMut = strandMut;
+		this.CETM = CETM;
+		this.es = es;
+		this.doPerturbations = doPerturbations;
+		
 		switch(asMethod){
 		case ORIG:
 			reorder=false;
@@ -135,11 +155,11 @@ public class PGgurobiAStar extends AStar{
 			break;
 		case ASWCSP:
 			reorder = false;
-			heuristic = HEURISTIC.TOULBAR;
+			heuristic = HEURISTIC.WCSP;
 			break;
 		case ASWCSPREORDER:
 			reorder = true;
-			heuristic = HEURISTIC.TOULBAR;
+			heuristic = HEURISTIC.WCSP;
 			break;
 		default:
 			System.out.println("ASMethod not recognized for PGgurobiAStar");
@@ -259,6 +279,21 @@ public class PGgurobiAStar extends AStar{
 
 			else { //the queue is not empty
 
+				if(es.useEPIC){
+                    //We will only expand terms that have the FS term included
+                    //until our lowest lower bound contains an FS term, we will
+                    //compute this term for the lowest-bounded nodes we get
+                    //and then throw them back in the queue (this is to minimize the number of
+                    //times we have to compute the FS term)
+                    while(!expNode.FSTermIncluded){
+                        expNode.fScore += FSTerm(expNode);
+                        expNode.FSTermIncluded = true;
+                        curExpansion.insert(expNode);
+                        expNode = curExpansion.getMin();
+                    }
+                    //Now expNode has an FS term so we can expand it
+                }
+				
 				printState(expNode);
 
 				for (int i=0; i< numTreeLevels; i++){//get the corresponding conformation leading to this node
@@ -300,8 +335,8 @@ public class PGgurobiAStar extends AStar{
 //								nextLevelNodes[rot].fScore = gurobiTupleFscore(nextLevelNodes[rot], expNode);
 //							else
 //								nextLevelNodes[rot].fScore = gurobiFscore(nextLevelNodes[rot]);
-						}else if(heuristic == HEURISTIC.TOULBAR){
-							nextLevelNodes[rot].fScore = toulbarFscore(nextLevelNodes[rot],expNode);
+						}else if(heuristic == HEURISTIC.WCSP){
+							nextLevelNodes[rot].fScore = wcspFscore(nextLevelNodes[rot],expNode);
 						}//Else the fScores already use the A* heuristic
 
 						if(expNode.fScore != 0 && nextLevelNodes[rot].fScore - expNode.fScore < -0.1)
@@ -316,10 +351,13 @@ public class PGgurobiAStar extends AStar{
 				}	
 			}
 		}
-		System.out.println("Number of A* nodes inserted in the queue: "+countNodes);
-
+		
 		EMatrixEntryWIndex[] actualConf = getActualConf(expNode.confSoFar, emat);
 		expNode.actualConf = actualConf;
+		
+		System.out.println("Number of A* nodes inserted in the queue: "+countNodes);
+		outPS.println("A* returning conformation; lower bound = "+expNode.fScore+" nodes expanded: "+numExpanded+" FS terms evaluated: "+numFS);
+		
 		return expNode;
 	}
 
@@ -571,8 +609,8 @@ public class PGgurobiAStar extends AStar{
 //
 //	}
 	
-	//KER: Use gurobi LP to get a bound on the score so far
-	private double toulbarFscore(PGQueueNode node,PGQueueNode parent) {
+	//KER: Use wcsp to get a bound on the score so far
+	private double wcspFscore(PGQueueNode node,PGQueueNode parent) {
 		WCSPOptimization optimizer = new WCSPOptimization(node,emat,numNodesForLevel,Double.POSITIVE_INFINITY,twoDTo3D);
 		System.out.print(".");
 		//double E =optimizer.optimize(null);
@@ -1527,7 +1565,216 @@ public class PGgurobiAStar extends AStar{
 	}
 	 **/
 
+	private double FSTerm(PGQueueNode expNode){
+        //Get contribution to g-score from fit series
+        //include h-score too if useHSer
+        //optDOFVals is initially from the parent, to use an initial values; update to be optimal here
 
+    	if(expNode.nonEmptyLevels.size() == 0)
+    		return 0;
+    	
+        //if only want FS terms for full confs
+        if( (expNode.level<numTreeLevels-1) && !(es.minPartialConfs) )
+            return 0;
+
+        CETObjFunction of = getNodeObjFunc(expNode);
+        
+        
+        CCDMinimizer ccdMin = new CCDMinimizer(of,false);
+        
+        //TEMPORARILY DE-ACTIVATING OPTFSPOINT
+        /*if(expNode.optFSPoint!=null && useHSer ){//we have initial values to use...
+            //OUTFIT FOR CHANGING NUMBERS OF DOFS IN !USEHSER THOUGH...
+            
+            //if we're not getting much improvement by updating the FSTerm
+            //even with the old initial values,
+            //then the minimized value will not offer significant improvement over the current score
+            //so don't spend time on it
+            //dof_inh_lazy
+            double initE = of.getValue( expNode.optFSPoint );
+            if(useHSer && initE < expNode.fScore+0.1)
+                return expNode.fScore;
+            
+            
+            ccdMin.singleInitVal = expNode.optFSPoint;
+        }*/
+            
+
+        DoubleMatrix1D optDOFs = ccdMin.minimize();
+        if(optDOFs==null)//for ellipse bounds, if the highest ellipses don't all intersect together,
+            //we can exclude the conformations involving them (set bound to inf)
+            return Double.POSITIVE_INFINITY;
+        
+        double LSBE = of.getValue( optDOFs );
+        System.out.println("LSBE: "+LSBE+" Fscore: "+expNode.fScore);
+        
+        if(es.useSVE){
+            //cof minimized m...revert to unminimized state
+            m.updateCoordinates();
+            m.revertPertParamsToCurState();
+        }
+        
+        
+        //store initial values for next time
+        //TEMPORARILY DE-ACTIVATING OPTFSPOINT
+        /*if(useHSer){
+            if(expNode.optFSPoint==null)
+                expNode.optFSPoint = optDOFs;
+            else
+                expNode.optFSPoint.assign(optDOFs);
+        }*/
+        
+        /*if(LSBE<-0.001){
+            System.err.println("NEGATIVE VALUE ENCOUNTERED FOR LSBE: "+LSBE);
+            System.err.println("Outputting LSBObjFunction to LSBOF.dat");
+            KSParser.outputObject(of, "LSBOF.dat");
+            System.err.println("optDOFs: "+optDOFs);
+            System.exit(0);
+        }*/
+        
+        numFS++;
+
+        return LSBE;
+    }
+
+    
+    
+    CETObjFunction getNodeObjFunc(PGQueueNode node) {
+        //not for splitBySlack
+    	 int[] conf = node.confSoFar;
+            
+    	 Index3[] indices = new Index3[node.nonEmptyLevels.size()];
+         //int rots[] = new int[node.nonEmptyLevels.size()];
+    	 for(int level: node.nonEmptyLevels){
+    		 if(conf[level]>=0){
+             	indices[level] = twoDTo3D[level][node.confSoFar[level]];
+    		 }
+    	 }
+    	 
+    	 
+//         for(int level : node.nonEmptyLevels){
+//
+//            if(conf[level]>=0){
+//            	indices[level] = twoDTo3D[level][node.confSoFar[level]];
+//            	Residue r = m.residue[strandMut.allMut[level]];
+//            	int str = r.strandNumber;
+//            	ResidueConformation rc = ((StrandRCs)strandRot[str]).rcl.getRC(emat.singles.getRot(indices)[0]);
+//                //int redRot = pairwiseMinEnergyMatrix.resOffsets[level]+conf[level];
+//                //long-form reduced index for rotamer at this level
+//
+////                AANums[level] = rc.rot.aaType.index;//pairwiseMinEnergyMatrix.indicesEMatrixAA[redRot];
+////                rots[level] = rc.rot.rlIndex; //pairwiseMinEnergyMatrix.indicesEMatrixRot[redRot];
+//            }
+//            else{//special for not-fully-assigned levels
+////                AANums[level] = -1;
+////                rots[level] = conf[level];
+//            }
+//        
+//        }
+        
+        //DEBUG!!!!  To use when checking minimization for a particular conformation
+        /*
+        AANums = new int[] {0, 1, 1, 20, 4, 1, 4};
+        rots = new int[] {0, 1, 2, 0, 3, 0, 3};
+        */
+        
+        
+        ContSCObjFunction cof = null;//to set DOFs for SVE
+            
+        
+        if(es.useSVE){//will need cof to set DOFs for sve
+            //set AA types and rotamers up to now
+            //as in RotamerSearch
+            applyRotamers(node, indices);
+            cof = new ContSCObjFunction(m,m.numberOfStrands,null,strandRot,false,getTransRotStrands(node));
+        }
+        
+        
+        
+        return CETM.getObjFunc(indices,false,false,cof);//This can include h bounds if they're set up
+        
+    }
+    
+    
+    boolean[] getTransRotStrands(PGQueueNode node){
+        //when minimizing a partial conformation,
+        //figure out which strands may be allowed to rotate and translate
+        boolean transRotStrands[] = new boolean[m.numberOfStrands];
+        
+        //if a strand can rotate and translate and has either assigned or template residues,
+        //let it rotate and translate
+        
+        for(int str=0; str<m.numberOfStrands; str++){
+            if(m.strand[str].rotTrans){
+                
+                if( m.strand[str].numberOfResidues > strandMut.numMutPerStrand[str] )//strand has template residues
+                    transRotStrands[str] = true;
+                
+                for(int i: node.nonEmptyLevels){
+                    if(str==m.residue[strandMut.allMut[i]].strandNumber)//strand has an assigned residue
+                        transRotStrands[str] = true;
+                }
+                
+            }
+        }
+        
+        return transRotStrands;
+    }
+    
+    
+
+    
+    
+    void applyRotamers(PGQueueNode node, Index3[] indices){
+        //apply AA types and rotamers up to the current level
+                	
+        for (int i : node.nonEmptyLevels){
+
+            RotamerEntry re = emat.singles.getTerm(indices[i]);
+            re.applyMutation(m, emat.resByPos, true,true );
+			re.applyRC(emat.resByPos, m);
+            re.flexible(m, emat.resByPos, true);
+           
+            
+            
+            //For Debugging, so delete for increased speed
+            Residue r = m.residue[emat.resByPos.get(re.pos).get(0)];
+            Rotamer rot = m.strand[r.strandNumber].rcl.getRC(re.r.rotamers[0]).rot;
+            int aaInd1 = rot.aaType.index;
+            int rotInd1 = rot.aaIndex; 
+			System.out.print(re.pos+"_"+aaInd1+"_"+rotInd1+",");
+			
+            
+            //fill in curAANum while we're at it
+//            curAANum[m.strand[str].residue[strResNum].moleculeResidueNumber] = AANums[i];
+          
+            //rotamers
+            
+//            if(doPerturbations){
+                //For DEEPer curRot is the the current RC
+            	
+//                boolean validRC = ((StrandRCs)strandRot[str]).applyRC(m, strResNum, rc);
+//                if(!validRC)
+//                    throw new RuntimeException("Error: invalid RC " + rots[i] + " at residue " + strResNum +
+//                            " of strand " + str );
+//            }
+//            else if (strandRot[str].rl.getNumRotForAAtype(AANums[i])!=0)//not GLY or ALA
+//                strandRot[str].applyRotamer(m, strResNum, rots[i]);
+            
+            //for gly or ala don't need to do anything
+            
+            //also make assigned residues flexible
+//            m.strand[str].residue[strResNum].flexible = true;
+        }
+      
+        //make the other residues not flexible
+        for(int i: node.emptyLevels){
+        	Residue r = m.residue[strandMut.allMut[i]];
+            int str = r.strandNumber;
+            int strResNum = r.strandResidueNumber;
+            m.strand[str].residue[strResNum].flexible = false;
+        }
+    }
 
 
 }

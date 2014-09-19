@@ -17,25 +17,25 @@ public class WCSPOptimization {
 
 	static final long MAXUPPER = 1537228672809129301L;
 	
-	static final String[] toulbar2preprocLoc = {EnvironmentVars.dataDir+"/exe/toulbar2"};
-	static final String[] toulbar2optLoc     = {EnvironmentVars.dataDir+"/exe/toulbar2"};
+	static final String[] wcsp2preprocLoc = {EnvironmentVars.dataDir+"/exe/toulbar2"};
+	static final String[] wcsp2optLoc     = {EnvironmentVars.dataDir+"/exe/toulbar2"};
 	
 	
-//	static final String[] toulbar2preprocLoc = {"/usr/project/dlab/Users/kroberts/toulbar/toulbar2.0.9.6.0-kro/build_release/bin/Linux/toulbar2"};
+//	static final String[] wcsp2preprocLoc = {"/usr/project/dlab/Users/kroberts/toulbar/toulbar2.0.9.6.0-kro/build_release/bin/Linux/toulbar2"};
 												//"/home/home1/kroberts/Downloads/toulbar2.0.9.5.0-Release-sources/build_release/bin/Linux/toulbar2"};
-//	static final String[] toulbar2optLoc = {"/usr/project/dlab/Users/kroberts/toulbar/toulbar2.0.9.6.0-kro/build_release/bin/Linux/toulbar2"};
+//	static final String[] wcsp2optLoc = {"/usr/project/dlab/Users/kroberts/toulbar/toulbar2.0.9.6.0-kro/build_release/bin/Linux/toulbar2"};
 											//"/home/home1/kroberts/Downloads/toulbar2.0.9.5.0-Release-sources/build_release/bin/Linux/toulbar2"};
 	
-	//	static final String toulbar2preprocLocBack = "/home/home1/kroberts/Downloads/toulbar2.0.9.5.0-Release-sources/build_release/bin/Linux/toulbar2";
-	//	static final String toulbar2optLocBack = "/home/home1/kroberts/Downloads/toulbar2.0.9.5.0-Release-sources/build_release/bin/Linux/toulbar2";
-	//static final String toulbar2optLoc = "/usr/project/dlab/Users/kroberts/Troubleshooting/toulbar2/SpeedUp/example.1MJC/bin/toulbar2";
-	//static final String toulbar2preprocLoc = "/usr/project/dlab/Users/kroberts/Troubleshooting/toulbar2/SpeedUp/example.1MJC/bin/toulbar2";
+	//	static final String wcsp2preprocLocBack = "/home/home1/kroberts/Downloads/toulbar2.0.9.5.0-Release-sources/build_release/bin/Linux/toulbar2";
+	//	static final String wcsp2optLocBack = "/home/home1/kroberts/Downloads/toulbar2.0.9.5.0-Release-sources/build_release/bin/Linux/toulbar2";
+	//static final String wcsp2optLoc = "/usr/project/dlab/Users/kroberts/Troubleshooting/toulbar2/SpeedUp/example.1MJC/bin/toulbar2";
+	//static final String wcsp2preprocLoc = "/usr/project/dlab/Users/kroberts/Troubleshooting/toulbar2/SpeedUp/example.1MJC/bin/toulbar2";
 	String outDir = EnvironmentVars.localDir;
 	String filename = "";
 	long upperBound = MAXUPPER;
 	//map of pos and index to arrayIndex
 	Index3 rots[][];
-	int osprey2toulbar[][][];
+	int osprey2wcsp[][][];
 	Emat emat;
 	int numTotalNodes;
 	double lowestE;
@@ -67,13 +67,13 @@ public class WCSPOptimization {
 		
 		lowestE = Double.POSITIVE_INFINITY;
 		rots = new Index3[node.confSoFar.length][];
-		osprey2toulbar = new int[emat.singles.E.length][][];
+		osprey2wcsp = new int[emat.singles.E.length][][];
 		for(int p1=0; p1<node.confSoFar.length;p1++){
 			
 			if(node.confSoFar[p1] >= 0){ //Is not empty
 				//Set rots to have the same number of rotamer entries as the assigned sequence does
 				rots[p1] = new Index3[numRotRemainingBySeq[p1][node.confSoFar[p1]]];
-				osprey2toulbar[p1] = new int[emat.singles.E[p1].length][];
+				osprey2wcsp[p1] = new int[emat.singles.E[p1].length][];
 				if(rots[p1].length > maxDom)
 					maxDom = rots[p1].length;
 				int ctr = 0;
@@ -81,9 +81,9 @@ public class WCSPOptimization {
 					Index3 rot = new Index3(p1,seqIndicesPerLevel[p1][node.confSoFar[p1]],r1);// nodeIndexOffset[p1]+seqIndexOffset[p1][node.confSoFar[p1]] + r1;
 					if(!emat.getSinglePruned(rot)){
 						rots[p1][r1] = rot;
-						if(osprey2toulbar[rot.pos][rot.aa]== null )
-							osprey2toulbar[rot.pos][rot.aa]= new int[emat.singles.E[rot.pos][rot.aa].length]; 
-						osprey2toulbar[rot.pos][rot.aa][rot.rot] = ctr;
+						if(osprey2wcsp[rot.pos][rot.aa]== null )
+							osprey2wcsp[rot.pos][rot.aa]= new int[emat.singles.E[rot.pos][rot.aa].length]; 
+						osprey2wcsp[rot.pos][rot.aa][rot.rot] = ctr;
 						double minIndVoxE = emat.getSingleMinE(rot);//pairwiseMinEnergyMatrix[index1][numTotalNodes].eme.minE();
 						if(minIndVoxE < lowestE)
 							lowestE = minIndVoxE;
@@ -94,7 +94,7 @@ public class WCSPOptimization {
 			}
 			else{
 				rots[p1] = new Index3[numNodesForLevel[p1]];
-				osprey2toulbar[p1] = new int[emat.singles.E[p1].length][];
+				osprey2wcsp[p1] = new int[emat.singles.E[p1].length][];
 				if(rots[p1].length > maxDom)
 					maxDom = rots[p1].length;
 				
@@ -105,9 +105,9 @@ public class WCSPOptimization {
 					if(!emeWI.eme.isPruned()){
 						Index3 rot = new Index3(p1,emeWI.aa1(),emeWI.rot1());
 						rots[p1][r1] = rot;
-						if(osprey2toulbar[rot.pos][rot.aa]== null )
-							osprey2toulbar[rot.pos][rot.aa]= new int[emat.singles.E[rot.pos][rot.aa].length];
-						osprey2toulbar[rot.pos][rot.aa][rot.rot] = r1;
+						if(osprey2wcsp[rot.pos][rot.aa]== null )
+							osprey2wcsp[rot.pos][rot.aa]= new int[emat.singles.E[rot.pos][rot.aa].length];
+						osprey2wcsp[rot.pos][rot.aa][rot.rot] = r1;
 						double minIndVoxE = emat.getSingleMinE(rot);
 						if(minIndVoxE < lowestE)
 							lowestE = minIndVoxE;
@@ -143,7 +143,7 @@ public class WCSPOptimization {
 		}
 		numConstraints = numVars+numPairs;
 		
-		if(upperE == Double.POSITIVE_INFINITY)
+		if(upperE == Double.POSITIVE_INFINITY || upperE >= MAXUPPER)
 			upperBound = MAXUPPER;
 		else
 			upperBound = getCostForFullConf(upperE, MAXUPPER);
@@ -239,22 +239,22 @@ public class WCSPOptimization {
 		
 		lowestE = Double.POSITIVE_INFINITY;
 		rots = new Index3[node.confSoFar.length][];
-		osprey2toulbar = new int[emat.singles.E.length][][];
+		osprey2wcsp = new int[emat.singles.E.length][][];
 		for(int p1=0; p1<node.confSoFar.length;p1++){
 			
 			if(node.confSoFar[p1] >= 0){ //Is not empty
 				//Set rots to have the same number of rotamer entries as the assigned sequence does
 				rots[p1] = new Index3[numSubRotPerParentRot[p1][node.confSoFar[p1]]];
-				osprey2toulbar[p1] = new int[emat.singles.E[p1].length][];
+				osprey2wcsp[p1] = new int[emat.singles.E[p1].length][];
 				if(rots[p1].length > maxDom)
 					maxDom = rots[p1].length;
 				ArrayList<Index3> subRotamers = subRotsPerLvlPerParent.get(p1).get(parentRotIndexPerLvl[p1][node.confSoFar[p1]]);
 				for(int r1=0; r1<subRotamers.size();r1++){
 					Index3 rot = subRotamers.get(r1);
 					rots[p1][r1] = rot;
-					if(osprey2toulbar[rot.pos][rot.aa]== null )
-						osprey2toulbar[rot.pos][rot.aa]= new int[emat.singles.E[rot.pos][rot.aa].length]; 
-					osprey2toulbar[rot.pos][rot.aa][rot.rot] = r1;
+					if(osprey2wcsp[rot.pos][rot.aa]== null )
+						osprey2wcsp[rot.pos][rot.aa]= new int[emat.singles.E[rot.pos][rot.aa].length]; 
+					osprey2wcsp[rot.pos][rot.aa][rot.rot] = r1;
 					double minIndVoxE = emat.getSingleMinE(rot);//pairwiseMinEnergyMatrix[index1][numTotalNodes].eme.minE();
 					if(minIndVoxE < lowestE)
 						lowestE = minIndVoxE;
@@ -263,7 +263,7 @@ public class WCSPOptimization {
 			}
 			else{
 				rots[p1] = new Index3[numNodesForLevel[p1]];
-				osprey2toulbar[p1] = new int[emat.singles.E[p1].length][];
+				osprey2wcsp[p1] = new int[emat.singles.E[p1].length][];
 				if(rots[p1].length > maxDom)
 					maxDom = rots[p1].length;
 				
@@ -274,9 +274,9 @@ public class WCSPOptimization {
 					if(!emeWI.eme.isPruned()){
 						Index3 rot = new Index3(p1,emeWI.aa1(),emeWI.rot1());
 						rots[p1][r1] = rot;
-						if(osprey2toulbar[rot.pos][rot.aa]== null )
-							osprey2toulbar[rot.pos][rot.aa]= new int[emat.singles.E[rot.pos][rot.aa].length];
-						osprey2toulbar[rot.pos][rot.aa][rot.rot] = r1;
+						if(osprey2wcsp[rot.pos][rot.aa]== null )
+							osprey2wcsp[rot.pos][rot.aa]= new int[emat.singles.E[rot.pos][rot.aa].length];
+						osprey2wcsp[rot.pos][rot.aa][rot.rot] = r1;
 						double minIndVoxE = emat.getSingleMinE(rot);
 						if(minIndVoxE < lowestE)
 							lowestE = minIndVoxE;
@@ -566,8 +566,8 @@ public class WCSPOptimization {
 		String sol = "";
 		boolean solFound = false;
 		int ctr=0;
-		while(!solFound && ctr<toulbar2optLoc.length){	
-			commands[0] = toulbar2optLoc[ctr++];
+		while(!solFound && ctr<wcsp2optLoc.length){	
+			commands[0] = wcsp2optLoc[ctr++];
 			try {
 			Process p = Runtime.getRuntime().exec(commands);
 			// any error message?
@@ -626,7 +626,7 @@ public class WCSPOptimization {
 		if(sol.equals(""))
 			return Double.POSITIVE_INFINITY;
 		else{
-			return toulbarSol2ospreyConf(sol);
+			return wcspSol2ospreyConf(sol);
 		}
 	}
 	
@@ -654,8 +654,8 @@ public class WCSPOptimization {
 		long lowerBound = Long.MAX_VALUE;
 		boolean solFound = false;
 		int ctr = 0;
-		while(!solFound && ctr < toulbar2preprocLoc.length){
-			commands[0] = toulbar2preprocLoc[ctr++];
+		while(!solFound && ctr < wcsp2preprocLoc.length){
+			commands[0] = wcsp2preprocLoc[ctr++];
 		try {
 			Process p = Runtime.getRuntime().exec(commands);
 				// any error message?
@@ -696,7 +696,12 @@ public class WCSPOptimization {
 	//            System.out.println("ExitValue: " + exitVal); 
 	            
 			} catch (IOException e) {
-				// TODO Auto-generated catch block
+				if(e.getCause().getMessage().equalsIgnoreCase("error=2, No such file or directory")){
+					System.out.println("Could not find the wcsp executable: "+wcsp2preprocLoc[0] );
+					System.out.println("Please make sure it exists.");
+					System.out.println("Exiting...");
+					System.exit(0);
+				}
 				e.printStackTrace();
 			} catch (InterruptedException e) {
 				// TODO Auto-generated catch block
@@ -714,13 +719,13 @@ public class WCSPOptimization {
 		long costL = getCostForFullConf(Ew+bestE, upperBound);
 		String cost = (new Long(costL)).toString();
 		
-		String[] commands = {toulbar2optLoc[0],"-s","-a","-e:","-f:","-ub="+cost,outDir+File.separator+filename};
+		String[] commands = {wcsp2optLoc[0],"-s","-a","-e:","-f:","-ub="+cost,outDir+File.separator+filename};
 		
 		String sol = "";
 		boolean solFound = false;
 		int ctr=0;
-		while(!solFound && ctr < toulbar2optLoc.length){
-			commands[0] = toulbar2optLoc[ctr++];
+		while(!solFound && ctr < wcsp2optLoc.length){
+			commands[0] = wcsp2optLoc[ctr++];
 		try {
 			Process p = Runtime.getRuntime().exec(commands);
 			// any error message?
@@ -745,7 +750,7 @@ public class WCSPOptimization {
 				if(line.contains("solution:")){
 					//Found Solution
 					sol = line.substring(line.indexOf(":")+2, line.length());
-					toulbarSol2ospreyConf(sol);
+					wcspSol2ospreyConf(sol);
 					solFound = true;
 				}
 	
@@ -970,12 +975,12 @@ public class WCSPOptimization {
 	
 	/**
 	 * 
-	 * Given the toulbar solution create the OSPREY Conf file
+	 * Given the wcsp solution create the OSPREY Conf file
 	 * 
 	 * Input: System.cfg MutSearch.cfg Toulbar.sol 
 	 * 
 	 */
-	private double toulbarSol2ospreyConf(String sol) {
+	private double wcspSol2ospreyConf(String sol) {
 
 			
 //			BufferedReader bufread = null;

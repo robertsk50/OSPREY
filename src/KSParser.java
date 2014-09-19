@@ -61,16 +61,36 @@
  * 
  */
 
-import java.io.*;
-import java.nio.channels.*;
-import java.lang.Runtime;
-import java.util.*;
-import java.lang.Integer;
-import java.math.*;
+import java.io.BufferedOutputStream;
+import java.io.BufferedReader;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.FileReader;
+import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.io.PrintStream;
+import java.math.BigDecimal;
+import java.math.BigInteger;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Hashtable;
+import java.util.Iterator;
+import java.util.LinkedList;
+import java.util.Random;
+import java.util.Set;
+import java.util.StringTokenizer;
+import java.util.TreeSet;
+import java.util.Vector;
 
 import mpi.MPI;
 import mpi.MPIException;
-import mpi.Status;
 
 /**
  * 
@@ -140,6 +160,7 @@ public class KSParser
 
 	final static int regTag = 1; //regular tag for MPI messages
 	final static int updateTag = 2; //used in DACS for updating the best energy found for the different partitions
+	final static int doneTag = 3; //Used to tell the energy computation that we're done
 	static int numProc = 1; //number of processors for MPI
 
 	final static int COMPLEX = -1;
@@ -919,7 +940,7 @@ public class KSParser
 		for(int i=0; i<AAnames.length;i++){
 			int str = strandMut.resStrand[i];
 			if(m.strand[str].isProtein){
-				double tmpE = m.strand[str].rl.getAAType(AAnames[i]).entropy;
+				double tmpE = m.aaRotLib.getAAType(AAnames[i]).entropy;
 				totEref += tmpE;
 				//System.out.println("Entropy: "+tmpE);
 			}
@@ -1003,7 +1024,7 @@ public class KSParser
 			if(!ksConfDir.exists())
 				ksConfDir.mkdir();
 		}
-		ASTARMETHOD asMethod = ASTARMETHOD.valueOf(sParams.getValue("ASTARMETHOD","ASGUROBI").toUpperCase());
+		ASTARMETHOD asMethod = ASTARMETHOD.valueOf(sParams.getValue("ASTARMETHOD","ORIG").toUpperCase());
 		/*KER: Set environment variables*/
 		boolean useMaxKSconfs = new Boolean((String)sParams.getValue("useMaxKSconfs","false")).booleanValue();
 		BigInteger maxKSconfs = BigInteger.ZERO;
@@ -1800,7 +1821,14 @@ public class KSParser
 				cObj = handleComputeAllPairwiseRotamerEnergiesSlave(cObj);
 			else //entropy E matrix computation
 				cObj = handleDoResEntropySlave(cObj);
-		}		
+		}else if(cObj.gurobiCalc || cObj.wcspCalc){
+			try {
+				gurobiSlave(cObj);
+			} catch (MPIException | InterruptedException e) {
+				System.out.println("Something went wrong with the slave bounds computation.");
+				e.printStackTrace();
+			}
+		}
 		else { //distributed mutation search
 			if (cObj.distrDACS){ //running distributed DACS
 				cObj = doDistrDACSSlave(cObj);
@@ -2142,7 +2170,7 @@ public class KSParser
 				SaveConfsParams saveConfsParams = new SaveConfsParams(cObj.numTopConfs, cObj.saveTopConfs, cObj.printTopConfs, false);
 				AStarResults asr = rs.slaveDoRotamerSearch(runNum, cObj.computeEVEnergy,cObj.doMinimization,numMutPos,
 						strandMut,usingInitialBest,initialBest,cObj,cObj.minimizeBB,cObj.doBackrubs,cObj.backrubFile,
-						saveConfsParams, cObj.curMut, cObj.useMaxKSconfs, cObj.numKSconfs,prunedStericPerPos, DEEIval);
+						saveConfsParams, cObj.curMut, cObj.useMaxKSconfs, cObj.numKSconfs,prunedStericPerPos, DEEIval, cObj.asMethod);
 
 				if(KSCONFTHRESH && rs.numConfsEvaluated.compareTo(cObj.numKSconfs) >= 0){
 					finished = true;
@@ -4048,7 +4076,7 @@ public class KSParser
 		boolean magicBulletTriples = (new Boolean((String)sParams.getValue("MAGICBULLETTRIPLES","true"))).booleanValue();//Use only "magic bullet" competitor triples
 		int magicBulletNumTriples = (new Integer((String)sParams.getValue("MAGICBULLETNUMTRIPLES","5"))).intValue();//Number of magic bullet triples to use
 		boolean useFlagsAStar = (new Boolean((String)sParams.getValue("USEFLAGSASTAR","false"))).booleanValue();
-		ASTARMETHOD asMethod = ASTARMETHOD.valueOf(sParams.getValue("ASTARMETHOD","ASTOULBARREORDER").toUpperCase());
+		ASTARMETHOD asMethod = ASTARMETHOD.valueOf(sParams.getValue("ASTARMETHOD","ASWCSPREORDER").toUpperCase());
 
 		// DEEPer parameters
 		boolean doPerturbations = (new Boolean((String)sParams.getValue("DOPERTURBATIONS","false"))).booleanValue();//Triggers DEEPer
@@ -8210,6 +8238,62 @@ public class KSParser
 			else
 				return 0;
 		}
+	}
+	
+	public static void gurobiSlave(CommucObj cObj) throws MPIException, InterruptedException {
+		
+		GurobiCalcInfo gci = cObj.gurobiCalcInfo;
+
+
+		int ctr=0;
+		Object s;
+		while(true){
+
+			s = MPItoThread.Probe(0, ThreadMessage.ANY_TAG);
+			if (s!=null) {
+				if (MPItoThread.getStatusTag(s)==regTag){ //new computation		
+					PGQueueNode[] nodes = new PGQueueNode[1];
+					MPItoThread.Recv(nodes, 0, 1, ThreadMessage.OBJECT, 0, regTag);
+					PGQueueNode node = nodes[0];
+
+					if(cObj.gurobiCalc){
+						System.out.println("Doing Nothing Right Now");
+//						gurobiSlaveHelper(node, gci);
+					}
+					else{
+						wcspSlaveHelper(node,gci);
+					}
+
+					MPItoThread.Send(nodes, 0, 1, ThreadMessage.OBJECT, 0, updateTag); //send back result
+
+				}
+				else if (MPItoThread.getStatusTag(s)==doneTag){
+					int[] nothing = new int[1];
+					MPItoThread.Recv(nothing, 0, 1, ThreadMessage.INT, 0, doneTag);
+					return;
+				}
+			}
+
+		}
+	}
+	
+	private static void wcspSlaveHelper(PGQueueNode node, GurobiCalcInfo gci) {
+		
+		WCSPOptimization optimizer;
+		
+		if(gci.bySubRot)
+			optimizer = new WCSPOptimization(node, gci.emat, gci.numParentRotPerLvl, gci.parentRotIndexPerLvl, 
+					gci.numSubRotPerParentRot, gci.subRotsPerLvlPerParent, gci.numNodesForLevel, gci.upperE);
+		else
+			optimizer = new WCSPOptimization(node,gci.emat,gci.seqIndicesPerlevel,gci.numRotRemainingBySeq,
+				gci.numNodesForLevel, gci.upperE);
+		
+		
+		System.out.print(".");
+		//double E =optimizer.optimize(null);
+		double E = optimizer.getBound(null);
+		optimizer.cleanUp();
+		node.fScore = E;
 	}
 
 

@@ -3376,22 +3376,22 @@ public class Molecule implements Serializable{
 		
 	}
 
-	public void copyMutableInfo(Molecule mol) {
-		aaRotLib = mol.aaRotLib;
-		genRotLib = mol.genRotLib;
-		
-		for(int i=0; i<strand.length;i++){
-			strand[i].rcl = mol.strand[i].rcl;
-			strand[i].rl = mol.strand[i].rl;
-		}
-		
-		for(int i=0; i<mol.residue.length;i++){
-			if(mol.residue[i].isMutable){
-				residue[i].copyMutInfo(mol.residue[i]);
-			}
-		}
-		
-		
-	}
+//	public void copyMutableInfo(Molecule mol) {
+//		aaRotLib = mol.aaRotLib;
+//		genRotLib = mol.genRotLib;
+//		
+//		for(int i=0; i<strand.length;i++){
+//			strand[i].rcl = mol.strand[i].rcl;
+//			strand[i].rl = mol.strand[i].rl;
+//		}
+//		
+//		for(int i=0; i<mol.residue.length;i++){
+//			if(mol.residue[i].isMutable){
+//				residue[i].copyMutInfo(mol.residue[i]);
+//			}
+//		}
+//		
+//		
+//	}
 
 }

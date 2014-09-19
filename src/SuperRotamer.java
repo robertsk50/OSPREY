@@ -63,7 +63,7 @@ public class SuperRotamer implements Serializable{
 		int ctr = 0;
 		double retEntropy = 0;
 		for(int resID: residues){
-			retEntropy += m.strand[m.residue[resID].strandNumber].rl.getRot(rotamers[ctr]).aaType.entropy;
+			retEntropy += m.strand[m.residue[resID].strandNumber].rcl.getRC(rotamers[ctr]).rot.aaType.entropy;
 			ctr++;
 		}
 		return retEntropy;
