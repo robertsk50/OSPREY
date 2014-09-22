@@ -126,6 +126,9 @@ public class Residue implements Serializable {
 	final static int HELIX = 0;
 	final static int SHEET = 1;
 	final static int LOOP = 2;
+	
+	// PGC 2014: We store the wildtype rotamer coordinates as part of the residue.
+	Atom wildtypeAtoms[];
 
 	/*
 	 * KER: I use these variables to keep track of what this molecule can mutate to. Since I
@@ -777,6 +780,13 @@ public class Residue implements Serializable {
 		}
 		return false;
 	}
+	
+	/** PGC 2014: After we load the individual rotamer libraries from the file for 
+	 * each unbound/bound entity, we reset the rotamer library for each residue
+	 */
+	public void setRotamerLibrary(RotamerLibrary aRL){
+		this.rl = aRL;
+	}
 
 	public boolean isSameAA(String name){
 		boolean isLamino = true;
@@ -925,7 +935,88 @@ public class Residue implements Serializable {
 		
 	}
 
+	/**
+	 * PGC 2014: Save the coordinates of all the atoms in the 
+	 * input structure to use as a wildtype rotamer;
+	 * This prevents problems in recovery because of bond angle and bond length non-ideal values.
+	 * KER: Store the coordinates relative to the CA atom, so we can just put them on the current
+	 * backbone conformations.
+	 * @param 
+	 * @return
+	 */
+	public void saveWTcoords(){
+		Atom CA = null;
+		
+		this.wildtypeAtoms = new Atom[this.atom.length];
+		for(int aIx = 0; aIx < this.atom.length; aIx++){
+			this.wildtypeAtoms[aIx] = this.atom[aIx].copy();
+			if(this.atom[aIx].name.equalsIgnoreCase("CA"))
+				CA = this.wildtypeAtoms[aIx];
+		}
+		
+		if(CA == null){
+			System.out.println("Wasn't able to find CA atom in residue when saving WT coords.");
+			System.exit(0);
+		}else{
+			for(Atom a: this.wildtypeAtoms){
+				a.coord[0] -= CA.coord[0];
+				a.coord[1] -= CA.coord[1];
+				a.coord[2] -= CA.coord[2];
+			}
+		}
+		
+		
+	}
+	
+	/**
+	 * PGC 2014: Set the atom coordinates to the wildtype coordinates. 
+	 * KER: Atom coordinates are stored relative to the CA atom, so we need
+	 * to find the CA atom and add the coordinates to it.
+	 * @param skipBB Don't change the BB atoms (if BB has moved we don't want to move it)
+	 * @return
+	 */
+	public void setResidueToWTcoords(boolean skipBB){
 
+		Atom CA = null;
+		for(Atom a: atom){
+			if(a.name.equalsIgnoreCase("CA")){
+				CA = a;
+				break;
+			}
+		}
+		if(CA == null){
+			System.out.println("Could not find CA for WT rotamer");
+			System.exit(0);
+		}
+		
+		int nonBBatoms = 0;
+		int atomsChanged = 0;
+//		System.out.println("Restoring wildtype rotamer coordinates for residue: "+this.fullName);
+		for(int aIx1 = 0; aIx1 < this.atom.length; aIx1++){
+			if(this.atom[aIx1].isBBatom || !skipBB ){
+				nonBBatoms++;
+				boolean atomMatched = false;
+				for(int aIx2 = 0; aIx2 < this.wildtypeAtoms.length; aIx2++){
+					if(this.atom[aIx1].isNameEqualTo(this.wildtypeAtoms[aIx2].name)){
+	//					System.out.println(this.atom[aIx1]+" changed to :"+this.wildtypeAtoms[aIx2]);
+						this.atom[aIx1].coord[0] = CA.coord[0] + this.wildtypeAtoms[aIx2].coord[0];
+						this.atom[aIx1].coord[1] = CA.coord[1] + this.wildtypeAtoms[aIx2].coord[1];
+						this.atom[aIx1].coord[2] = CA.coord[2] + this.wildtypeAtoms[aIx2].coord[2];
+						atomsChanged ++;
+						atomMatched = true;				
+					}				
+				}
+				if(!atomMatched){
+					System.out.println("Couldn't find a match for "+this.atom[aIx1].name);
+				}
+			}
+		}
+		if (atomsChanged != nonBBatoms || (!skipBB && (atomsChanged != this.wildtypeAtoms.length || atomsChanged != this.atom.length) ) ){
+			System.out.println("Something went wrong when trying to copy atom coordinates");
+			System.exit(1);
+			
+		}
+	}	
 
 	
 }

@@ -1902,7 +1902,7 @@ public class Emat implements Serializable {
 								dihedVals[dihedDepth] += dir*rotInterval;
 								minimizationWidth[dihedDepth] = rotInterval;
 
-								Rotamer subRot = m.residue[resID].rl.addRotamer(curRot.aaType.name, pdbNum,dihedVals,minimizationWidth);
+								Rotamer subRot = m.residue[resID].rl.addRotamer(curRot.aaType.name, pdbNum,dihedVals,minimizationWidth,false);
 								int[] subRotArray = new int[1];
 								subRotArray[0] = subRot.rlIndex;
 								singles.setSupRot(p1, a1, r1+prevLength*i, subRotArray);

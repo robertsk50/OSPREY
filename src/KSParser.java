@@ -1858,7 +1858,6 @@ public class KSParser
 
 		Molecule fullMol = cObj.m;
 
-
 		//KER: We only need to find the partition function for each unbound
 		//KER: strand and then the whole complex
 		//int[][] allCombos = generateCombos(cObj.strandMut.length);
@@ -1996,11 +1995,10 @@ public class KSParser
 			mp.strandPresent = strandPresent;
 			mp.strandsPresent = strandsPresent;
 
-			//Setup the molecule system	
+			//Setup the molecule system	for each of the strands
 			if(mols[curStrForMatrix+1] == null){
-				/*mp.m = new Molecule();
-				setupMolSystem(mp.m,cObj.params,mp.strandPresent,mp.strandLimits,cObj.doMinimization);*/
-
+				
+				// For each unbound entity, copy the full molecule and then delete the other strands.
 				if(runNum != fullMol.numberOfStrands){
 					//KER: Test to not have to load the molecule from scratch
 					Molecule m = null;
@@ -2020,8 +2018,6 @@ public class KSParser
 					}
 					mp.m = m;
 
-				}else{
-					mp.m = fullMol;
 				}
 				mols[curStrForMatrix+1] = mp.m;
 			}

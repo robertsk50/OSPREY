@@ -25,6 +25,8 @@ public class Rotamer implements Serializable{
 	//it was added for.
 	String resSpecificRot; 
 	
+	boolean isWTrot;
+	
 	AARotamerType aaType;
 	
 	int aaIndex;
@@ -32,13 +34,14 @@ public class Rotamer implements Serializable{
 	int parent;
 	
 	
-	public Rotamer(int rotAAIndex,double[] vals, AARotamerType aaType, int rlIndex, String pdbNum) {
+	public Rotamer(int rotAAIndex,double[] vals, AARotamerType aaType, int rlIndex, String pdbNum, boolean isWTrot) {
 		aaIndex = rotAAIndex;
 		this.rlIndex = rlIndex;
 		this.parent = rlIndex;
 		values = vals;
 		this.aaType = aaType;
 		this.resSpecificRot = pdbNum;
+		this.isWTrot = isWTrot;
 		
 		//KER: for now we set the minimization width to the default
 		if(vals != null){
@@ -50,13 +53,14 @@ public class Rotamer implements Serializable{
 		
 	}
 	
-	public Rotamer(int rotAAIndex, double[] vals, AARotamerType aaType, int rlIndex, String pdbNum, double[] minimizationWidth) {
+	public Rotamer(int rotAAIndex, double[] vals, AARotamerType aaType, int rlIndex, String pdbNum, double[] minimizationWidth, boolean isWTrot) {
 		aaIndex = rotAAIndex;
 		this.rlIndex = rlIndex;
 		this.parent = rlIndex;
 		values = vals;
 		this.aaType = aaType;
 		this.resSpecificRot = pdbNum;
+		this.isWTrot = isWTrot;
 		
 		if(minimizationWidth == null){
 			//KER: for now we set the minimization width to the default
@@ -74,7 +78,7 @@ public class Rotamer implements Serializable{
 	
 	public static Rotamer newSubRot(int rotAAIndex, double[] vals, AARotamerType aaType, int rlIndex, String pdbNum, 
 			double[] minimizationWidth, Rotamer parent) {
-		Rotamer r = new Rotamer(rotAAIndex, vals,  aaType, rlIndex, pdbNum, minimizationWidth);
+		Rotamer r = new Rotamer(rotAAIndex, vals,  aaType, rlIndex, pdbNum, minimizationWidth,false);
 		r.parent = parent.parent;
 		return r;
 	}
@@ -99,6 +103,11 @@ public class Rotamer implements Serializable{
 		}
 		
 		s += resSpecificRot;
+		
+		// PGC 2014: if this is the wildtype rotamer, add "WT" to the end of the aaRots file.
+		if(this.isWTrot){
+			s += " WT";
+		}
 		
 		return s;
 		

@@ -1281,4 +1281,52 @@ public class Atom implements Serializable {
 		coord[1] = ypos;
 		coord[2] = zpos;
 	}
+	
+	/**
+	  * // PGC 2014: To print atom information; this might be useful to debug.
+	  *
+	  * 
+	  */
+	  @Override public String toString() {
+		  return String.format("Atom: %s x=%f y=%f z=%f", this.name, coord[0], coord[1], coord[2]);
+	  }	  
+	  /**
+	  * // PGC 2014: This function will tell if this.name is equal to another name.  
+	  * Right now it just checks if the names are exactly the same or if a circular permutation
+	  * is equal (e.g. HB3 is equal to 3HB).
+	  * @param: otherAtomName: the name of the atom being compared to this
+	  * @return: true if they are equal, false otherwise.
+	  */
+	  public boolean isNameEqualTo(String otherAtomName){
+		  if(this.name.equalsIgnoreCase(otherAtomName)){
+			  return true;
+		  }
+		  // Cases where the hydrogen atom is "permuted" in the "otherName"	  
+		  if(this.name.contains("H")){
+			  char otherCharArray[] = otherAtomName.toCharArray();
+			  int oLen = otherCharArray.length;
+			  char permutedOtherCharArray[] = new char [otherCharArray.length];
+			  permutedOtherCharArray[0]= otherCharArray[oLen-1];			  
+			  for(int i = 1; i < oLen; i++){
+				  permutedOtherCharArray[i] = otherCharArray[i-1];
+			  }
+			  if(this.name.equalsIgnoreCase(new String(permutedOtherCharArray))){
+				  return true;
+			  }
+		  }
+		// Cases where the hydrogen atom is "permuted" in the "this.name"
+		  if(this.name.contains("H")){
+			  char charArray[] = this.name.toCharArray();
+			  int len = charArray.length;
+			  char permutedCharArray[] = new char [charArray.length];
+			  permutedCharArray[0]= charArray[len-1];			  
+			  for(int i = 1; i < len; i++){
+				  permutedCharArray[i] = charArray[i-1];
+			  }
+			  if(otherAtomName.equalsIgnoreCase(new String(permutedCharArray))){
+				  return true;
+			  }
+		  }
+		  return false;
+	  }
 }

@@ -15,11 +15,22 @@ public class MutUtils {
 	// This function converts residue (resNum) to the conformation specified by rotamer rotNum
 	public static boolean applyRotamer(Molecule m, Rotamer rot, Residue localResidue) {
 
-//		Residue localResidue = m.residue[molResNum];
 		
 		
-//		If the rotamer is already set we don't need to set it again
+		//If the rotamer is already set we don't need to set it again
 		if(localResidue.curRC != null && localResidue.curRC.rot != null && localResidue.curRC.rot.rlIndex == rot.rlIndex){
+			return true;
+		}
+		
+		if(EnvironmentVars.STORE_FULL_WT_ROT && rot.isWTrot){
+			localResidue.setResidueToWTcoords(true);
+			
+			for(int a=0;a<localResidue.numberOfAtoms;a++){
+                if( !localResidue.atom[a].isBBatom )
+                    m.updateCoordinates(localResidue.atom[a].moleculeAtomNumber);
+            }
+			
+//			m.updateCoordinates();
 			return true;
 		}
 		
@@ -148,6 +159,7 @@ public class MutUtils {
 		Residue localResidue = m.residue[resID];
 		localResidue.curRC = null;
 		
+		
 		int resNum = localResidue.strandResidueNumber;
 		int strandNumber = localResidue.strandNumber;
 		
@@ -169,7 +181,7 @@ public class MutUtils {
 		if (isResHis(localResidue.name)&&isResHis(newResType)) // checks if the new and old types are both forms of histidine, if so a mutation is not done
 			return;														// This prevents say HID from reverting into HIS
 		*/
-				
+		
 		// If the old or new residues are glycine then we must do special things as we treat the H as CB
 		if(newResType.equalsIgnoreCase("gly") ||
 				newResType.equalsIgnoreCase("dgly")){
@@ -181,8 +193,9 @@ public class MutUtils {
 				localResidue.name.equalsIgnoreCase("gly"))
 				oldResGly = true;
 
-		if (oldResGly && newResGly)// Nothing to do here, a null mutation
-			return;
+		//Going to allow gly mutations, we have a check earlier for mutations to same residue
+//		if (oldResGly && newResGly)// Nothing to do here, a null mutation
+//			return;
 		
 		glyMutation = newResGly || oldResGly;														
 
@@ -213,11 +226,15 @@ public class MutUtils {
 		at = getBBatoms(localResidue); //for the old residue
 		Atom NOld = at[0]; Atom CAOld = at[1]; Atom COld = at[2]; Atom OOld = at[3]; Atom HOld = at[4]; Atom CBOld = at[5];Atom HAOld = at[6];
 		
-		//If never been mutated we store the default CB and HA values
+		//If never been mutated we store the default atom values for WT rot
 		if(!localResidue.mutatedOnce){
+			localResidue.saveWTcoords();
+			localResidue.mutatedOnce = true;
+				
 			//Set the default CB value that we will use
 			if(localResidue.defaultCB == null){
-				if(localResidue.name.equalsIgnoreCase("GLY")){
+				if(localResidue.name.equalsIgnoreCase("GLY") || 
+						localResidue.name.equalsIgnoreCase("DGLY")){
 					moveCBOldGly(CBOld,CBNew,CAOld,CANew);
 				}
 			
@@ -226,9 +243,8 @@ public class MutUtils {
 				localResidue.defaultCB[1] = CBOld.coord[1];
 				localResidue.defaultCB[2] = CBOld.coord[2];
 			}
-			
-			localResidue.mutatedOnce = true;
 		}
+		
 		
 		//KER: DAA switching residues
 		//There are several scenarios which is complicated by the fact that we use L-aa templates
@@ -306,7 +322,7 @@ public class MutUtils {
 //		if (oldResGly) //mutation from Gly
 //			alignCBOldGly(CBOld,CBNew,CAOld,CANew,NOld,r);
 		if (newResGly) //mutation to Gly
-			alignCBNewGly(CBOld,CBNew,CAOld,CANew,NOld,r,localResidue);
+			alignCBNewGly(CBOld,CBNew,CAOld,CANew,NOld,HAOld, r,localResidue);
 	
 		if(debug){
 			m2.saveMolecule("mutPDB_"+ ctr++ + ".pdb", 0.0,true);
@@ -508,9 +524,6 @@ public class MutUtils {
 		//curAAType[resNum] = newResType;
 		//curRotNum[resNum] = -1;
 		localResidue.ffAssigned = false;
-		
-		//dirty HB neighbor list
-		//m.numNeighborsHB = null;
 		
 		// Copy atom coordinates back into actualCoordinates
 		for(int q=0;q<m.numberOfAtoms;q++)
@@ -787,28 +800,23 @@ public class MutUtils {
 	}
 	
 	//Performs the CB alignment (changes the coordinates of the new residue r) when the new residue is Gly
-	private static void alignCBNewGly(Atom CBOld, Atom CBNew, Atom CAOld, Atom CANew, Atom NOld, Residue r, Residue localResidue){
+	private static void alignCBNewGly(Atom CBOld, Atom CBNew, Atom CAOld, Atom CANew, Atom NOld, Atom HAOld, Residue r, Residue localResidue){
 		
 		//If the new residue is a Gly, we snap the HA2 and HA3 atoms
 		
 		// Snap the HA2
-		int localH = -1;
-		for(int q=0;q<localResidue.numberOfAtoms;q++){
-			if(localResidue.atom[q].name.equalsIgnoreCase("HA"))
-				localH = q;
-		}
 		for(int q=0;q<r.numberOfAtoms;q++){
 			if( r.atom[q].name.equalsIgnoreCase("HA2") || r.atom[q].name.equalsIgnoreCase("2HA") ){
-				r.atom[q].coord[0] = localResidue.atom[localH].coord[0];
-				r.atom[q].coord[1] = localResidue.atom[localH].coord[1];
-				r.atom[q].coord[2] = localResidue.atom[localH].coord[2];
+				r.atom[q].coord[0] = HAOld.coord[0];
+				r.atom[q].coord[1] = HAOld.coord[1];
+				r.atom[q].coord[2] = HAOld.coord[2];
 			}
 		}
 		
 		// Snap the HA3 (but note that we can't just copy coordinates
 		//  because the C-H bond length is different than the C-C
 		//  bond length, so we have to scale
-		localH = -1;
+		int localH = -1;
 		for(int q=0;q<r.numberOfAtoms;q++){
 			if( r.atom[q].name.equalsIgnoreCase("HA3") || r.atom[q].name.equalsIgnoreCase("3HA") )
 				localH = q;

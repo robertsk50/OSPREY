@@ -151,12 +151,6 @@ public class RotamerLibrary implements Serializable {
 		numAAallowed = (new Integer(getToken(curLine,1))).intValue(); //the first non-comment line is the number of AA types
 		curLine = bufread.readLine();
 		
-		/*aaNames = new String[numAAallowed];
-		numDihedrals = new int[numAAallowed];
-		numRotamers = new int[numAAallowed];
-		rotamerIndexOffset = new int[numAAallowed];
-		dihedralAtomNames = new String[numAAallowed][][];
-		rotamerValues = new int[numAAallowed][][];*/
 		ArrayList<Rotamer> allRots = new ArrayList<Rotamer>();
 		aaTypes = new AARotamerType[numAAallowed];
 		
@@ -194,12 +188,12 @@ public class RotamerLibrary implements Serializable {
 				for(int w=0;w<numDihedrals;w++) {
 					rotamerValues[w] = (new Double(getToken(curLine,(w+1)))).doubleValue();
 				}
-				Rotamer curRot = new Rotamer(q,rotamerValues,aaTypes[curAA],allRots.size(),Rotamer.TEMPL);
+				Rotamer curRot = new Rotamer(q,rotamerValues,aaTypes[curAA],allRots.size(),Rotamer.TEMPL,false);
 				aaTypes[curAA].addRot(curRot);
 				allRots.add(curRot);
 			}
 			if(numRotamers <=0){
-				Rotamer curRot = new Rotamer(0,null,aaTypes[curAA],allRots.size(),Rotamer.TEMPL);
+				Rotamer curRot = new Rotamer(0,null,aaTypes[curAA],allRots.size(),Rotamer.TEMPL,false);
 				aaTypes[curAA].addRot(curRot);
 				allRots.add(curRot);
 			}
@@ -561,39 +555,31 @@ public class RotamerLibrary implements Serializable {
 	
 	//KER: Adding this function so that I can dope the rotamers
 	//	with the original rotamer from the input structure
-	public Rotamer addRotamer(String AAname, String pdbNum, double[] dihedVals){
+	public Rotamer addRotamer(String AAname, String pdbNum, double[] dihedVals,boolean isWTrot){
 		
-		return addRotamer(AAname, pdbNum, dihedVals,null);
-		
-		/*AARotamerType aaType = getAAType(AAname);
-		
-		Rotamer newRot = new Rotamer(aaType.rotamers.size(), dihedVals, aaType, allRotamers.length);
-		aaType.addRot(newRot);
-		//aaType.addRot(dihedVals,allRotamers.length);
-		Rotamer[] newArray = new Rotamer[allRotamers.length+1];
-		System.arraycopy(allRotamers, 0, newArray, 0, allRotamers.length);
-		newArray[newArray.length-1] = newRot;
-		allRotamers = newArray;*/
-		
+		return addRotamer(AAname, pdbNum, dihedVals,null, isWTrot);
 		
 	}
 	
 	//KER: Adding this function so that I can dope the rotamers
 	//	with the original rotamer from the input structure
-	public Rotamer addRotamer(String AAname, String pdbNum,double[] dihedVals,double[] minimizationWidth){
+	public Rotamer addRotamer(String AAname, String pdbNum,double[] dihedVals,double[] minimizationWidth, boolean isWTrot){
 
 		AARotamerType aaType = getAAType(AAname);
-		Rotamer newRot = new Rotamer(aaType.rotamers.size(), dihedVals, aaType, allRotamers.length,pdbNum,minimizationWidth);
+		Rotamer newRot = new Rotamer(aaType.rotamers.size(), dihedVals, aaType, allRotamers.length,pdbNum,minimizationWidth,isWTrot);
 
-
-		aaType.addRot(newRot);
-		//aaType.addRot(dihedVals,allRotamers.length);
-		Rotamer[] newArray = new Rotamer[allRotamers.length+1];
-		System.arraycopy(allRotamers, 0, newArray, 0, allRotamers.length);
-		newArray[newArray.length-1] = newRot;
-		allRotamers = newArray;
-
-		return newRot;
+		// PGC 2014: Optionally, a wildtype rotamer is only added a rotamer if it is beyond the minimization range of another rotamer. 
+		if(aaType.addRot(newRot)){
+			//aaType.addRot(dihedVals,allRotamers.length);
+			Rotamer[] newArray = new Rotamer[allRotamers.length+1];
+			System.arraycopy(allRotamers, 0, newArray, 0, allRotamers.length);
+			newArray[newArray.length-1] = newRot;
+			allRotamers = newArray;
+	
+			return newRot;
+		}else{
+			return null;
+		}
 	}
 	
 	//KER: Adding this function so that I can dope the rotamers
@@ -614,37 +600,6 @@ public class RotamerLibrary implements Serializable {
 		return newRot;
 	}
 	
-		
-	
-//	public static void addOrigRots(int[][] strandMut,RotamerLibrary rl, Molecule m){
-//		//TODO: this assumes first strandRot is a protein
-//		if(! rl.isAddedRotamers()){
-//			for(int str=0; str<strandMut.length;str++){
-//				for(int res=0; res<strandMut[str].length;res++){
-//					Residue curRes = m.strand[str].residue[strandMut[str][res]];
-//					//Get Num Dihedrals
-//					int numDiheds = rl.getNumDihedrals(rl.getAARotamerIndex(curRes.name));
-//					if(numDiheds<=0)
-//						continue;
-//					double[] diheds = new double[numDiheds]; 
-//					int atoms[] = new int[4];
-//					//get all dihedrals
-//					for(int i=0; i<numDiheds; i++){
-//						atoms = rl.getDihedralInfo(m, curRes.strandNumber, curRes.strandResidueNumber, i);
-//						diheds[i] = curRes.atom[atoms[3]].torsion(curRes.atom[atoms[0]], curRes.atom[atoms[1]], curRes.atom[atoms[2]]);
-//					}
-//					//System.out.print("Str: "+str+" Res: "+res+" ");
-//					rl.addRotamer(curRes.name, diheds);
-//					//System.out.println("");
-//				}
-//			
-//			}
-//			rl.setAddedRotamers(true);
-//		}
-//		/*else{
-//			System.out.println("DEBUG: ALREADY ADDED ROTAMERS");
-//		}*/
-//	}
 	
 	public Rotamer addOrigRot(Residue res){
 		Rotamer wtRot = null;
@@ -659,9 +614,7 @@ public class RotamerLibrary implements Serializable {
 					atoms = getDihedralInfo(res, i);
 					diheds[i] = res.atom[atoms[3]].torsion(res.atom[atoms[0]], res.atom[atoms[1]], res.atom[atoms[2]]);
 				}
-				//System.out.print("Str: "+str+" Res: "+res+" ");
-				wtRot = addRotamer(res.name, res.getResNumberString(), diheds); 
-				//System.out.println("");
+				wtRot = addRotamer(res.name, res.getResNumberString(), diheds, true); 
 			}
 			res.addedOrigRot = true;
 		}
@@ -726,78 +679,75 @@ public class RotamerLibrary implements Serializable {
 	
 	public void loadGlobalRots(String rotFilename) {
 
-		int numRotLoaded = allRotamers.length;
+		// PGC 2014: always read in all rotamers.
+		//int numRotLoaded = allRotamers.length;
+		int numRotLoaded = 0;
 
 		
 
 		// HANDLE THE NORMAL AAs	
 		try{
-			FileInputStream is = new FileInputStream( rotFilename );
-			BufferedReader bufread = new BufferedReader(new InputStreamReader(is));
-			String curLine = null;
-
-			
-
-			// Skip over comments (lines starting with !)
-			curLine = bufread.readLine();
-			while( curLine.charAt(0) == '!' )
-				curLine = bufread.readLine();
-
-			/*aaNames = new String[numAAallowed];
-			numDihedrals = new int[numAAallowed];
-			numRotamers = new int[numAAallowed];
-			rotamerIndexOffset = new int[numAAallowed];
-			dihedralAtomNames = new String[numAAallowed][][];
-			rotamerValues = new int[numAAallowed][][];*/
 			ArrayList<Rotamer> allRots = new ArrayList<Rotamer>();
+			FileInputStream is = new FileInputStream( rotFilename );
+			// First, remove all rotamers for all amino acid types. 
+			for (AARotamerType aatype : aaTypes){
+				aatype.clearRotamers();
+			}
+			BufferedReader bufread = new BufferedReader(new InputStreamReader(is));
+			String curLine = bufread.readLine();
 			
-
+			
 			while( curLine != null ) {
+				// Skip over comments (lines starting with !)
 				if(curLine.charAt(0) == '!'){
 					curLine = bufread.readLine();
 					continue;
 				}
 
-
+				// Read the "global"index of the current rotamer, which is the first column.
 				int globalRotNum = (new Integer(getToken(curLine,1))).intValue();
+				// This is deprecated; in case you don't want to reload rotamers; 
 				if(globalRotNum >= numRotLoaded){
+					// AA name (e.g. 'ALA')
 					String aaName = getToken(curLine,2);
 					AARotamerType aa = getAAType(aaName);
+					// index of the rotamer for the amino acid
 					int aaRotNum = (new Integer(getToken(curLine,3))).intValue();
 
 
 					// Read in the rotamer
 					double[] dihedrals = new double[aa.numDihedrals()];
 					double[] minLimits = new double[aa.numDihedrals()];
+					// Read dihedrals and minimization boundaries for each dihedral.
 					for(int w=0;w<aa.numDihedrals();w++) {
 						dihedrals[w] = (new Double(getToken(curLine,(w+4)))).doubleValue();
 						minLimits[w] = (new Double(getToken(curLine,(w+4+aa.numDihedrals())))).doubleValue();
 					}
 					
+					// PDB Number for residue specific rotamer, otherwise -1 for global rot;
 					String pdbNum = getToken(curLine,4+2*aa.numDihedrals());
 
-					Rotamer curRot = new Rotamer(aaRotNum,dihedrals,aa,globalRotNum,pdbNum,minLimits);
+					// Is this a wildtype rotamer?					
+					boolean isWTrot = false;
+					String wtFlag = getToken(curLine,5+2*aa.numDihedrals());
+					if(wtFlag.equals("WT")){
+						isWTrot = true;
+					}
+					
+					Rotamer curRot = new Rotamer(aaRotNum,dihedrals,aa,globalRotNum,pdbNum,minLimits, isWTrot);
+					// Add it first to the amino acid type
 					aa.addRot(curRot);
+					// And to the global rotamer list.
 					allRots.add(curRot);
-
-
-					/*totalNumRotamers += numRotamers;
-				if (numRotamers<=0) //ALA or GLY
-					totalNumRotamers += 1;*/
-
-
+					
 					
 				}
 				curLine = bufread.readLine();
 			}
 			bufread.close();
 		
-		Rotamer[] newRots = allRots.toArray(new Rotamer[0]);
-		Rotamer[] oldRots = allRotamers;
-
-		allRotamers = new Rotamer[newRots.length+oldRots.length];
-		System.arraycopy(oldRots, 0, allRotamers, 0, oldRots.length);
-		System.arraycopy(newRots, 0, allRotamers, oldRots.length, newRots.length);
+			// PGC 2014: replacing the old rotamer library, no matter what it had.		
+			allRotamers = allRots.toArray(new Rotamer[0]);
 
 		}catch(Exception E){
 			System.out.println("Couldn't properly load rot library.");

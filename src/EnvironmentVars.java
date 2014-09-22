@@ -70,6 +70,29 @@ public class EnvironmentVars {
 	//static BigInteger maxKSconfs;
 	//static boolean useMaxKSconfs = false;
 	
+	// PGC 2014: If set to true, rotamers that are in the voxel of other rotamers will not be added to the rotamer library.  
+	//  This is useful if you want to prevent wildtype rotamers that are in the rotamer library 
+	//  from being added as repeats.  
+	public static boolean CLUSTER_SIMILAR_ROTAMERS;
+	
+	// PGC 2014: DOPE_ROTAMERS: activate to study the effect of rotamer "doping", which means 
+	// adding rotamers that are epsilon from other rotamers just to see how the K* score changes.
+	public static boolean DOPE_ROTAMERS; 
+	
+	// PGC 2014: Store all the atom coordinates for the wildtype rotamer and not just the dihedral. Useful for when there are bond angle and bond lengths deviations.
+	public static boolean STORE_FULL_WT_ROT = true;
+	
+	// PGC 2014: Compute Delta H and Delta S.
+	public static boolean COMPUTE_ENTHALPY_AND_ENTROPY = false;
+	
+	// PGC 2014: we multiply RT by a scale value.
+	public static double GLOBAL_CONST_RT_MULT;
+	
+	// Gas constant times the temperature; this is assigned in the KSParser, when  GLOBAL_CONST_RT_MULT is read.
+	public static double constRT;
+    // ILP interaction cutoff between residues
+    public static double ILP_INTERACTION_CUTOFF = 0.2;
+	
 	public static boolean useEntropy = false;
 	private static HashMap<String, Double> entropy = null;
 	public static double entropyScaling = 0;
@@ -81,6 +104,7 @@ public class EnvironmentVars {
 	
     public static boolean autoFix = true;//Should structures being read in be autofixed?
 
+    
     
     
     public static boolean useMPLP = false;
