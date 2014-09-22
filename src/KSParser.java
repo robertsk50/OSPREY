@@ -165,6 +165,8 @@ public class KSParser
 
 	final static int COMPLEX = -1;
 
+	static final int DUPFOUND = -100;
+	
 	static boolean mpiRun = false; //determines if this is an MPI run
 
 	//the algorithm options that define what pruning criteria will be applied
@@ -1270,6 +1272,8 @@ public class KSParser
 			}
 		}
 
+		//Check to see if any of the strands sequences are repeated so we don't have to compute them more than once
+		checkDuplicateMutations(mutArray, mp.m);
 
 		MutationManager mutMan = new MutationManager(runName,mutArray,false);
 
@@ -1905,8 +1909,7 @@ public class KSParser
 			if(doClashFilter(cObj))//sequence pruned by clash filter
 				return cObj;
 		}
-
-
+		
 		//KER: Run through all of the partition function calculations
 		for(int runNum = 0; runNum<fullMol.numberOfStrands+1; runNum++) {
 			long startTime = System.currentTimeMillis();
@@ -1919,6 +1922,20 @@ public class KSParser
 			if(lastRun)
 				curStrForMatrix = -1;
 
+			
+			//Skip this run if this is a duplicate sequence that
+			//is being calculated somewhere else
+			//Code will break if lastRun is skipped, Also there should
+			//never be a last run (fully bound run) that is a duplicate
+			if(cObj.duplicateMut != null && !lastRun){
+				if(cObj.duplicateMut[runNum]>=0){
+					if(cObj.computedPartFuns != null && cObj.computedPartFuns[runNum]!=null){
+						cObj.setPartitionProperties(runNum, cObj.computedPartFuns[runNum]);
+					}
+					continue;
+				}
+			}
+			
 			String unboundStr = Integer.toString(runNum);
 			int strandsPresent = 0;
 			boolean strandPresent[] = new boolean[cObj.strandPresent.length];
@@ -2151,8 +2168,14 @@ public class KSParser
 				//Inter-mutation pruning
 				if (usingInitialBest){
 					initialBest = cObj.bestScore.multiply(new BigDecimal(cObj.gamma * cObj.epsilon));
-					for(int i=0;i<allCombos.length-1;i++)
-						initialBest =  initialBest.multiply(cObj.q[i]);
+					for(int i=0;i<allCombos.length-1;i++){
+						if(cObj.q[i] == null) 
+							//This can happen when one of the sequences is a duplicate and the original sequences
+							//hasn't been computed yet. Since we don't know q, initialBest = 0
+							initialBest = BigDecimal.ZERO;
+						else
+							initialBest = initialBest.multiply(cObj.q[i]);
+					}
 				}
 
 
@@ -8294,6 +8317,68 @@ public class KSParser
 		double E = optimizer.getBound(null);
 		optimizer.cleanUp();
 		node.fScore = E;
+	}
+	
+	/**
+	 * Given the array of K* sequences this function checks whether
+	 * any of the sequences are duplicates and marks them as duplicates
+	 * so their scores only need to be computed once by once by K*
+	 * @param mutArray Array that holds all of the K* slave sequences
+	 * @param m Molecule m
+	 */
+	void checkDuplicateMutations(OneMutation[] mutArray, Molecule m){
+		
+		//Hash table that is used to store all of the sequences for each strand
+		Hashtable<String, Integer>[] sequences = new Hashtable[m.numberOfStrands];
+		//Set up the hashtable
+		for(int i=0; i<sequences.length;i++){
+			sequences[i] = new Hashtable<String, Integer>();
+		}
+
+		//check for duplications
+		int[] numMutPerStrand = new int[m.numberOfStrands];
+		for(int i=0; i<numMutPerStrand.length;i++)
+			numMutPerStrand[i] = m.numMutableForStrand(i);
+
+		for(int i=0; i<mutArray.length; i++){
+			OneMutation mut = mutArray[i];
+			mut.duplicateMut = new int[m.numberOfStrands];
+			for(int q=0; q<mut.duplicateMut.length; q++)
+				mut.duplicateMut[q] = -1;
+			
+			//Initialize sequences for this OneMutation entry
+			String[] seqs = new String[m.numberOfStrands];
+			for(int j=0; j<seqs.length; j++) 
+				seqs[j] = "";
+
+			//Build the sequences
+			int strOffset=0; 
+			int curStr=0;
+			for(int j=0; j<mut.resTypes.length;j++){
+				if(j-strOffset >= numMutPerStrand[curStr]){
+					strOffset += numMutPerStrand[curStr];
+					curStr++;
+				}
+				
+				seqs[curStr] += mut.resTypes[j]+" ";
+				
+			}
+
+			for(int j=0; j<seqs.length; j++){
+				if(sequences[j].containsKey(seqs[j])){ //If sequence is a duplicate
+					//Set the current OneMutation as a duplicate so it's q calculation can be skipped
+					mut.duplicateMut[j] = sequences[j].get(seqs[j]);
+					//Tell the independent mutArray that is has things depending on it 
+					mutArray[sequences[j].get(seqs[j])].setDupMut(DUPFOUND, j);
+				}
+				else{
+					//Add the sequence to our list of sequences being computed so far
+					sequences[j].put(seqs[j], i);
+				}
+			}
+
+		}
+
 	}
 
 

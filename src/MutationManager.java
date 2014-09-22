@@ -64,6 +64,7 @@
 import java.io.*;
 import java.nio.channels.FileChannel;
 import java.nio.channels.FileLock;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Hashtable;
 import java.util.Iterator;
@@ -90,9 +91,9 @@ public class MutationManager
 
 	final double constRT = 1.9891/1000.0 * 298.15;   // in kCal / kelvin-mole (the T value here should be consistent with T in EEF1)
 
-    Queue<CommucObj> waitingRuns;
-    PartitionMessage[][] completedRuns = null;
-	
+	Queue<CommucObj> waitingRuns;
+	PartitionMessage[][] completedRuns = null;
+
 	// Information needed by all mutations
 	CommucObj cObjArray[] = null;
 	//int residueMap[] = null;
@@ -159,7 +160,7 @@ public class MutationManager
 	private boolean printTopConfs;
 	private int numTopConfs;
 	private KSParser.ASTARMETHOD asMethod;
-	
+
 	//Variables specific to PEM computation	
 	Emat pairEMatrixMin = null;
 	//PairwiseEnergyMatrix pairEMatrixMax = null;
@@ -175,8 +176,8 @@ public class MutationManager
 	//PrunedRotamers<Boolean> prunedRot = null;
 	String rotFile = null;
 	boolean useSF = false;
-//	boolean splitFlags[][][][][][] = null;
-//	String sfFile = null;
+	//	boolean splitFlags[][][][][][] = null;
+	//	String sfFile = null;
 	boolean distrDACS = false;
 	boolean distrDEE = false;
 	int numSpPos = -1;
@@ -194,7 +195,7 @@ public class MutationManager
 	double distCutoff;
 	private String pdbOutDir = "";
 	private DEEsettings deeSettings;
-	
+
 	String pdbName;
 
 	String eRefMatrix;
@@ -250,7 +251,7 @@ public class MutationManager
 		//This is only used for K* runs
 		waitingRuns = new LinkedList<CommucObj>();
 		completedRuns = new PartitionMessage[mutArray.length][];
-		
+
 		distrDACS = false; //if this is a distributed DACS computation, the flag will be set with setDistrDACS()
 		distrDEE = false; //if this is a distributed DEE computation, the flag will be set with setDistrDEE()
 	}
@@ -328,10 +329,10 @@ public class MutationManager
 
 			if (!entropyComp){
 				//Only send the molecule if it is the first job to the processor
-//				if(curMutIndex < KSParser.numProc-1)
-					cObj.m = m;
-//				else
-//					cObj.m = null;
+				//				if(curMutIndex < KSParser.numProc-1)
+				cObj.m = m;
+				//				else
+				//					cObj.m = null;
 
 				cObj.flagMutType = mutArray[curMutIndex].flagMutType;
 				cObj.compCETM = compCETM;
@@ -349,9 +350,9 @@ public class MutationManager
 						cObj.emat = new Emat(pairEMatrixMin, false, mutArray[curMutIndex].runParams);
 					else
 						cObj.emat = new Emat(pairEMatrixMin,true,mutArray[curMutIndex].runParams);
-				
+
 				}
-				
+
 				cObj.curStrForMatrix = curStrForMatrix;
 				cObj.flagMutType = mutArray[curMutIndex].flagMutType;
 				cObj.curMut = mutArray[curMutIndex].mutNum;
@@ -359,7 +360,7 @@ public class MutationManager
 				cObj.runParams = mutArray[curMutIndex].runParams;
 				for(int i=0;i<cObj.resMut.length;i++) {
 					cObj.resMut[i] = mutArray[curMutIndex].resMut[i];
-				
+
 				}
 
 			}
@@ -378,7 +379,7 @@ public class MutationManager
 					cObj.runParams = mutArray[curMutIndex].runParams;
 					for(int i=0;i<cObj.resMut.length;i++) {
 						cObj.resMut[i] = mutArray[curMutIndex].resMut[i];
-					
+
 					}
 				}
 			}
@@ -410,7 +411,7 @@ public class MutationManager
 				for(int i=0;i<mutableSpots;i++) {
 					cObj.currentMutation[i] = mutArray[curMutIndex].resTypes[i];
 				}
-				
+
 				if(mutArray[curMutIndex].duplicateMut!=null){
 					cObj.duplicateMut = new int[mutArray[curMutIndex].duplicateMut.length];
 					//cObj.computedPartFuns = new PartitionMessage[mutArray[curMutIndex].duplicateMut.length];
@@ -418,7 +419,7 @@ public class MutationManager
 						cObj.duplicateMut[i] = mutArray[curMutIndex].duplicateMut[i];
 					}
 					completedRuns[curMutIndex] = new PartitionMessage[mutArray[curMutIndex].duplicateMut.length];
-					
+
 					//Check if the duplicate run has been completed
 					for(int i=0;i<cObj.duplicateMut.length;i++){
 						if(cObj.duplicateMut[i]>=0){
@@ -430,7 +431,7 @@ public class MutationManager
 						}
 					}
 				}
-				
+
 				cObj.bestScore = bestScore;
 			}
 			else {//distributed DACS or distributed DEE
@@ -467,7 +468,7 @@ public class MutationManager
 						for(int j=0;j<strandDefault[i].length;j++){
 							//KER: DACS Not Working right now
 							//TODO: FIX DACS!!!
-//							cObj.currentMutation[ctr] = strandDefault[i][j];
+							//							cObj.currentMutation[ctr] = strandDefault[i][j];
 							ctr++;
 						}
 					cObj.bestScore = bestScore;
@@ -476,7 +477,7 @@ public class MutationManager
 					//DistrDEE Specific
 					int firstPos = -1;
 					int secondPos = -1;
-					
+
 					cObj.resMut = new int[mutArray[curMutIndex].resMut.length];
 					for (int i=0; i<cObj.resMut.length; i++){
 						cObj.resMut[i] = mutArray[curMutIndex].resMut[i];
@@ -485,31 +486,31 @@ public class MutationManager
 						else if(cObj.resMut[i] == 1 && secondPos == -1)
 							secondPos = i;
 					}
-					
+
 					if(deeMethod.equals(KSParser.DEEMETHOD.GOLDSTEIN))
 						cObj.emat = new Emat(pairEMatrixMin, firstPos);
 					else{
-//						File ematDir = new File("PEM");
-//						if(ematDir != null && !ematDir.exists()){
-//							ematDir.mkdirs();
-//						}
+						//						File ematDir = new File("PEM");
+						//						if(ematDir != null && !ematDir.exists()){
+						//							ematDir.mkdirs();
+						//						}
 						cObj.emat = Emat.dualPosMat(pairEMatrixMin, false, firstPos,secondPos);
-//						emat.save("PEM/PEM_distr_COM+.dat",aaRotLib);
+						//						emat.save("PEM/PEM_distr_COM+.dat",aaRotLib);
 					}
-					
+
 					cObj.initEw = initEw;
 					cObj.scaleInt = scaleInt;
 					cObj.maxIntScale = maxIntScale;
 					cObj.useSF = useSF;
 					cObj.Ival = Ival;
 					cObj.deeMethod = deeMethod;
-					
+
 					if(curMutIndex < KSParser.numProc-1)
 						cObj.loadEmat = true;
 					else
 						cObj.loadEmat = false;
-					
-					
+
+
 					cObj.pairStartEnd = mutArray[curMutIndex].pairStartEnd;
 
 					cObj.numSpPos = numSpPos;
@@ -530,97 +531,97 @@ public class MutationManager
 
 		if (PEMcomp){ //energy matrix computation
 			if(!entropyComp){
-			if(cObj.flagMutType.equals("TEMPL")){
-				if(compCETM)
-					cetm.mergeIn(cObj.cetm,cObj.resMut);
-				else
-					pairEMatrixMin.setTemplMinE(cObj.compEE.get(0).minE);
-			}
-			else if(cObj.flagMutType.equals("INTRA")){
-				if(!compCETM){
-					//KER: initialize eref to big E
-					Set<String> keys = eRef.keySet();
-					for(String pdbNum: keys){
-						double[] eRefs = eRef.get(pdbNum);
-						for(int j=0; j<eRefs.length;j++)
-							eRefs[j]=Double.POSITIVE_INFINITY;
-					}
-					//KER: I now output a separate Eref matrix
-					for(EMatrixEntrySlim re: cObj.compEE){
-						RotamerEntry eme = (RotamerEntry)pairEMatrixMin.singles.getTerm(re.index);
-						Residue mutRes = m.residue[pairEMatrixMin.resByPos.get(re.index[0]).get(0)];
-						int aaInd = m.strand[mutRes.strandNumber].rcl.getRC(eme.r.rotamers[0]).rot.aaType.index;
-						eRef.get(mutRes.getResNumberString())[aaInd] = Math.min(eRef.get(mutRes.getResNumberString())[aaInd],re.minE);	
-					}
-					//KER: Remove all of the bigE
-					for(String pdbNum: keys){
-						double[] eRefs = eRef.get(pdbNum);
-						for(int j=0; j<eRefs.length;j++)
-							if(eRef.get(pdbNum)[j]==Double.POSITIVE_INFINITY)
-								eRef.get(pdbNum)[j] = 0.0f;
-					}
-					pairEMatrixMin.eRef = eRef;//outputObject(eRef,eRefMatrix+".dat");
+				if(cObj.flagMutType.equals("TEMPL")){
+					if(compCETM)
+						cetm.mergeIn(cObj.cetm,cObj.resMut);
+					else
+						pairEMatrixMin.setTemplMinE(cObj.compEE.get(0).minE);
 				}
-			}
-			else{
-				if(compCETM)
-					cetm.mergeIn(cObj.cetm,cObj.resMut);
+				else if(cObj.flagMutType.equals("INTRA")){
+					if(!compCETM){
+						//KER: initialize eref to big E
+						Set<String> keys = eRef.keySet();
+						for(String pdbNum: keys){
+							double[] eRefs = eRef.get(pdbNum);
+							for(int j=0; j<eRefs.length;j++)
+								eRefs[j]=Double.POSITIVE_INFINITY;
+						}
+						//KER: I now output a separate Eref matrix
+						for(EMatrixEntrySlim re: cObj.compEE){
+							RotamerEntry eme = (RotamerEntry)pairEMatrixMin.singles.getTerm(re.index);
+							Residue mutRes = m.residue[pairEMatrixMin.resByPos.get(re.index[0]).get(0)];
+							int aaInd = m.strand[mutRes.strandNumber].rcl.getRC(eme.r.rotamers[0]).rot.aaType.index;
+							eRef.get(mutRes.getResNumberString())[aaInd] = Math.min(eRef.get(mutRes.getResNumberString())[aaInd],re.minE);	
+						}
+						//KER: Remove all of the bigE
+						for(String pdbNum: keys){
+							double[] eRefs = eRef.get(pdbNum);
+							for(int j=0; j<eRefs.length;j++)
+								if(eRef.get(pdbNum)[j]==Double.POSITIVE_INFINITY)
+									eRef.get(pdbNum)[j] = 0.0f;
+						}
+						pairEMatrixMin.eRef = eRef;//outputObject(eRef,eRefMatrix+".dat");
+					}
+				}
 				else{
-					for(EMatrixEntrySlim re : cObj.compEE){
-						if(cObj.flagMutType.equals("SHL-AS")){
-							pairEMatrixMin.singles.setE(re);
-							if(re.rotDih1 != null){
-								pairEMatrixMin.singles.setMaxE(re);
-								pairEMatrixMin.singles.setDihed(re);
+					if(compCETM)
+						cetm.mergeIn(cObj.cetm,cObj.resMut);
+					else{
+						for(EMatrixEntrySlim re : cObj.compEE){
+							if(cObj.flagMutType.equals("SHL-AS")){
+								pairEMatrixMin.singles.setE(re);
+								if(re.rotDih1 != null){
+									pairEMatrixMin.singles.setMaxE(re);
+									pairEMatrixMin.singles.setDihed(re);
+								}
 							}
-						}
-						else{
-							pairEMatrixMin.pairs.setE(re);
-							if(re.rotDih1 != null){
-								pairEMatrixMin.pairs.setDihed(re);
-								pairEMatrixMin.pairs.setMaxE(re);
+							else{
+								pairEMatrixMin.pairs.setE(re);
+								if(re.rotDih1 != null){
+									pairEMatrixMin.pairs.setDihed(re);
+									pairEMatrixMin.pairs.setMaxE(re);
+								}
+
 							}
-	
 						}
 					}
 				}
 			}
-		}
-		else { //entropy E matrix computation
-			if (compASdist){ //AS-AS distance computation
-				asDist[cObj.mutationNumber] = cObj.asDist;
-			}
-			else {
-				//TODO: Fix entropy Ematrix
-				System.out.println("Need to fix Entropy");
-//				if (cObj.flagMutType.equalsIgnoreCase("INTRA")){
-//					for (int i=0; i<countNewEntries; i++){
-//						int index1 = 1 + rotLib.getRotamerIndexOffset()[cObj.compEE[i].i2] + cObj.compEE[i].i3;
-//						pairEMatrixMinEntropy[cObj.mutationNumber*rotLib.getTotalNumRotamers()+index1][0] = cObj.compEE[i].minE;
-//					}
-//				}
-//				else { //AS-AS run
-//					for (int i=0; i<countNewEntries; i++){
-//						int ind1 = -1;
-//						int ind2 = -1;
-//						int index1 = cObj.compEE[i].i1*rotLib.getTotalNumRotamers() + rotLib.getRotamerIndexOffset()[cObj.compEE[i].i2] + cObj.compEE[i].i3;
-//						int index2 = cObj.compEE[i].i4*rotLib.getTotalNumRotamers() + rotLib.getRotamerIndexOffset()[cObj.compEE[i].i5] + cObj.compEE[i].i6;
-//						if (index1<rotLib.getTotalNumRotamers()){
-//							ind1 = index1;
-//							ind2 = index2-rotLib.getTotalNumRotamers();
-//						}
-//						else {
-//							ind1 = index2;
-//							ind2 = index1-rotLib.getTotalNumRotamers();
-//						}
-//						asasE[cObj.strandMut[0][0]][cObj.strandMut[0][1]][ind1][ind2] = cObj.compEE[i].minE;
-//					}
-//				}
-			}
+			else { //entropy E matrix computation
+				if (compASdist){ //AS-AS distance computation
+					asDist[cObj.mutationNumber] = cObj.asDist;
+				}
+				else {
+					//TODO: Fix entropy Ematrix
+					System.out.println("Need to fix Entropy");
+					//				if (cObj.flagMutType.equalsIgnoreCase("INTRA")){
+					//					for (int i=0; i<countNewEntries; i++){
+					//						int index1 = 1 + rotLib.getRotamerIndexOffset()[cObj.compEE[i].i2] + cObj.compEE[i].i3;
+					//						pairEMatrixMinEntropy[cObj.mutationNumber*rotLib.getTotalNumRotamers()+index1][0] = cObj.compEE[i].minE;
+					//					}
+					//				}
+					//				else { //AS-AS run
+					//					for (int i=0; i<countNewEntries; i++){
+					//						int ind1 = -1;
+					//						int ind2 = -1;
+					//						int index1 = cObj.compEE[i].i1*rotLib.getTotalNumRotamers() + rotLib.getRotamerIndexOffset()[cObj.compEE[i].i2] + cObj.compEE[i].i3;
+					//						int index2 = cObj.compEE[i].i4*rotLib.getTotalNumRotamers() + rotLib.getRotamerIndexOffset()[cObj.compEE[i].i5] + cObj.compEE[i].i6;
+					//						if (index1<rotLib.getTotalNumRotamers()){
+					//							ind1 = index1;
+					//							ind2 = index2-rotLib.getTotalNumRotamers();
+					//						}
+					//						else {
+					//							ind1 = index2;
+					//							ind2 = index1-rotLib.getTotalNumRotamers();
+					//						}
+					//						asasE[cObj.strandMut[0][0]][cObj.strandMut[0][1]][ind1][ind2] = cObj.compEE[i].minE;
+					//					}
+					//				}
+				}
 
-		}	
-		//Output mutation information to results file (for resume)
-		/*System.out.println("MutNUM: "+cObj.curMut+" produced "+countNewEntries+" new entries.");
+			}	
+			//Output mutation information to results file (for resume)
+			/*System.out.println("MutNUM: "+cObj.curMut+" produced "+countNewEntries+" new entries.");
 			logPS.print("Completed mutation "+cObj.curMut);
 				logPS.print(" SlaveNum "+cObj.slaveNum);
 				logPS.print(" Time "+(cObj.elapsedTime/60.0));
@@ -631,577 +632,637 @@ public class MutationManager
 				}
 				logPS.println();
 				logPS.flush();*/
-	}			
-	else { //mutation search
-		if ((!distrDEE)&&(!distrDACS)){ //Hybrid MinDEE-K*, not (distributed DACS or distributed DEE)
-			System.out.println("MutNUM: "+cObj.mutationNumber);
-			logPS.print("Completed mutation "+cObj.mutationNumber);
-			BigDecimal score = new BigDecimal("0.0");
-			BigDecimal denom = new BigDecimal("1.0");
+		}			
+		else { //mutation search
+			if ((!distrDEE)&&(!distrDACS)){ //Hybrid MinDEE-K*, not (distributed DACS or distributed DEE)
 
-			ExpFunction e = new ExpFunction();
+				System.out.println("Processing curMut: "+cObj.curMut);
 
-			for(int i=0; i<cObj.numComplexes-1;i++){
-				denom = denom.multiply(cObj.q[i],ExpFunction.mc);
-			}
-			if (denom.compareTo(new BigDecimal("0.0")) != 0)
-				score = cObj.q[cObj.numComplexes-1].divide(denom,ExpFunction.mc);
-			logPS.print(" Score "+score);
+				//Check for requirements on duplicates to whether
+				//we need to wait for another run to finish or whether
+				//this run has other ones depending on it
 
-			logPS.print(" Volume "+mutArray[cObj.mutationNumber].vol);
-			logPS.print(" SlaveNum "+cObj.slaveNum);
-			logPS.print(" Time ");
-			for(int i=0;i<cObj.numComplexes;i++)
-				logPS.print((cObj.q_Time[i]/60.0)+" ");
-			logPS.print(" InitBest "+cObj.bestScore);
-			BigDecimal bs = cObj.bestScore;
-			if (score.compareTo(cObj.bestScore) >0)
-				bs = score;
-			logPS.print(" FinalBest "+bs);
-			int ctr=0;
-			for(Residue r: m.residue){
-				if(r.isMutable){
-					String aaName = r.rl.getAAName(cObj.currentMutation[ctr]);
-					logPS.print(" "+aaName);
-					ctr++;
-				}
-			}
+				ArrayList<CommucObj> cObjs = new ArrayList<CommucObj>();
+				cObjs.add(cObj);
 
-			for(int i=0;i<cObj.numComplexes;i++){
-				logPS.print(" "+i+"ConfInfo "+cObj.searchNumConfsEvaluated[i]+" "+cObj.searchNumPrunedMinDEE[i]+" "
-						+cObj.searchNumConfsPrunedByS[i]+" "+cObj.searchNumConfsLeft[i]);
-			}
-			logPS.print(" MinEMinimized ");
-			for(int i=0;i<cObj.numComplexes;i++)
-				logPS.print(cObj.bestEMin[i]+" ");
-			logPS.print(" MinEUnMinimized ");
-			for(int i=0;i<cObj.numComplexes;i++)
-				logPS.print(cObj.bestE[i]+" ");
-			logPS.print(" EffectiveEpsilon: ");
-			/*for(int i=0;i<cObj.numComplexes;i++)
-					logPS.print(cObj.effEpsilon[i]+" ");*/
-			logPS.print(" Partial_q_E ");
-			for(int i=0;i<cObj.numComplexes;i++)
-				logPS.print(cObj.q[i]+" ");
-			logPS.print(" E_total ");
-			for(int i=0;i<cObj.numComplexes;i++)
-				logPS.print(cObj.searchNumConfsTotal[i]+" ");	
-			logPS.print(" SecondEw ");
-			for(int i=0;i<cObj.numComplexes;i++)
-				logPS.print(cObj.repeatEW[i]+" ");
-			logPS.print(" E_allPruned ");
-			for(int i=0;i<cObj.numComplexes;i++)
-				logPS.print(cObj.allPruned[i]+" ");
-			logPS.println();
-			if (score.compareTo(bestScore) >0){
-				logPS.println("BestScoreChange "+bestScore+" to "+score);
-				bestScore = score;
-			}
-			logPS.flush();	
-		}
-		else if (distrDACS){ //distributed DACS
-			bestScore = bestScore.min(cObj.bestScore);
-			pruningE = bestScore.doubleValue();
-			logPS.print("Completed mutation "+cObj.mutationNumber);
-			logPS.print(" Score "+cObj.bestScore);
-			logPS.print(" BestScore "+bestScore);
-			logPS.print(" PartitionIndices");
-			for (int i=0; i<initDepth; i++)
-				logPS.print(" "+cObj.partIndex[i]);
-			logPS.print(" Time "+(cObj.elapsedTime/60.0));
-			logPS.println();
-			logPS.flush();
-			System.out.println("Partition "+cObj.mutationNumber+" done; best energy: "+cObj.bestScore);
-		}
-		else {//distributed DEE
+				handleDuplicateInfo(cObj, cObjs);
 
-			Emat emat = cObj.emat;
-			
-			int mutPos[] = {-1,-1};
-			
-			for(int i=0; i<cObj.resMut.length;i++){
-				if(cObj.resMut[i] == 1){
-					if(mutPos[0] == -1)
-						mutPos[0] = i;
-					else
-						mutPos[1] = i;
-				}
-			}
-			
-			if(mutPos[1] == -1){//Singles
-				Iterator<EMatrixEntryWIndex> iter = emat.singlesIterator(mutPos[0]);
-				while(iter.hasNext()){
-					EMatrixEntryWIndex single = iter.next();
-					if(single.eme.isPruned()){
-						pairEMatrixMin.setPruned(single.index, true);
+				//Loop through all of the finished cObjs (this will be more than 1
+				//if the finished run had duplicates waiting on it to finish)
+				for(CommucObj cObj1: cObjs){
+					System.out.println("MutNUM: "+cObj1.mutationNumber);
+					logPS.print("Completed mutation "+cObj1.mutationNumber);
+					BigDecimal score = new BigDecimal("0.0");
+					BigDecimal denom = new BigDecimal("1.0");
+
+					ExpFunction e = new ExpFunction();
+
+					for(int i=0; i<cObj1.numComplexes-1;i++){
+						denom = denom.multiply(cObj1.q[i],ExpFunction.mc);
 					}
-				}	
-			}else{ //Pairs
-				Iterator<EMatrixEntryWIndex> iter = emat.pairsIterator(mutPos[0], mutPos[1]);
-				while(iter.hasNext()){
-					EMatrixEntryWIndex pair = iter.next();
-					if(pair.eme.isPruned()){
-						pairEMatrixMin.setPruned(pair.index, true);
-						pairEMatrixMin.setSymmetricPairPruned(pair.index, true);
+					if (denom.compareTo(new BigDecimal("0.0")) != 0)
+						score = cObj1.q[cObj1.numComplexes-1].divide(denom,ExpFunction.mc);
+					logPS.print(" Score "+score);
+
+					logPS.print(" Volume "+mutArray[cObj1.mutationNumber].vol);
+					logPS.print(" SlaveNum "+cObj1.slaveNum);
+					logPS.print(" Time ");
+					for(int i=0;i<cObj1.numComplexes;i++)
+						logPS.print((cObj1.q_Time[i]/60.0)+" ");
+					logPS.print(" InitBest "+cObj1.bestScore);
+					BigDecimal bs = cObj1.bestScore;
+					if (score.compareTo(cObj1.bestScore) >0)
+						bs = score;
+					logPS.print(" FinalBest "+bs);
+					int ctr=0;
+					for(Residue r: m.residue){
+						if(r.isMutable){
+							String aaName = r.rl.getAAName(cObj1.currentMutation[ctr]);
+							logPS.print(" "+aaName);
+							ctr++;
+						}
+					}
+
+					for(int i=0;i<cObj1.numComplexes;i++){
+						logPS.print(" "+i+"ConfInfo "+cObj1.searchNumConfsEvaluated[i]+" "+cObj1.searchNumPrunedMinDEE[i]+" "
+								+cObj1.searchNumConfsPrunedByS[i]+" "+cObj1.searchNumConfsLeft[i]);
+					}
+					logPS.print(" MinEMinimized ");
+					for(int i=0;i<cObj1.numComplexes;i++)
+						logPS.print(cObj1.bestEMin[i]+" ");
+					logPS.print(" MinEUnMinimized ");
+					for(int i=0;i<cObj1.numComplexes;i++)
+						logPS.print(cObj1.bestE[i]+" ");
+					logPS.print(" EffectiveEpsilon: ");
+					/*for(int i=0;i<cObj1.numComplexes;i++)
+					logPS.print(cObj1.effEpsilon[i]+" ");*/
+					logPS.print(" Partial_q_E ");
+					for(int i=0;i<cObj1.numComplexes;i++)
+						logPS.print(cObj1.q[i]+" ");
+					logPS.print(" E_total ");
+					for(int i=0;i<cObj1.numComplexes;i++)
+						logPS.print(cObj1.searchNumConfsTotal[i]+" ");	
+					logPS.print(" SecondEw ");
+					for(int i=0;i<cObj1.numComplexes;i++)
+						logPS.print(cObj1.repeatEW[i]+" ");
+					logPS.print(" E_allPruned ");
+					for(int i=0;i<cObj1.numComplexes;i++)
+						logPS.print(cObj1.allPruned[i]+" ");
+					logPS.println();
+					if (score.compareTo(bestScore) >0){
+						logPS.println("BestScoreChange "+bestScore+" to "+score);
+						bestScore = score;
+					}
+					logPS.flush();	
+				}
+			}
+			else if (distrDACS){ //distributed DACS
+				bestScore = bestScore.min(cObj.bestScore);
+				pruningE = bestScore.doubleValue();
+				logPS.print("Completed mutation "+cObj.mutationNumber);
+				logPS.print(" Score "+cObj.bestScore);
+				logPS.print(" BestScore "+bestScore);
+				logPS.print(" PartitionIndices");
+				for (int i=0; i<initDepth; i++)
+					logPS.print(" "+cObj.partIndex[i]);
+				logPS.print(" Time "+(cObj.elapsedTime/60.0));
+				logPS.println();
+				logPS.flush();
+				System.out.println("Partition "+cObj.mutationNumber+" done; best energy: "+cObj.bestScore);
+			}
+			else {//distributed DEE
+
+				Emat emat = cObj.emat;
+
+				int mutPos[] = {-1,-1};
+
+				for(int i=0; i<cObj.resMut.length;i++){
+					if(cObj.resMut[i] == 1){
+						if(mutPos[0] == -1)
+							mutPos[0] = i;
+						else
+							mutPos[1] = i;
 					}
 				}
+
+				if(mutPos[1] == -1){//Singles
+					Iterator<EMatrixEntryWIndex> iter = emat.singlesIterator(mutPos[0]);
+					while(iter.hasNext()){
+						EMatrixEntryWIndex single = iter.next();
+						if(single.eme.isPruned()){
+							pairEMatrixMin.setPruned(single.index, true);
+						}
+					}	
+				}else{ //Pairs
+					Iterator<EMatrixEntryWIndex> iter = emat.pairsIterator(mutPos[0], mutPos[1]);
+					while(iter.hasNext()){
+						EMatrixEntryWIndex pair = iter.next();
+						if(pair.eme.isPruned()){
+							pairEMatrixMin.setPruned(pair.index, true);
+							pairEMatrixMin.setSymmetricPairPruned(pair.index, true);
+						}
+					}
+				}
 			}
-			}
-//			else { //singles DEE
-				//TODO:Fix singles DEE
-				
-//				Iterator<RotInfo<Boolean>> iter = prunedRot.iterator();
-//				while(iter.hasNext()){
-//					//for (int i=0; i<prunedRot.length; i++){
-//					RotInfo<Boolean> ri = iter.next();
-//					if (cObj.prunedRot.get(ri)) //get the pruned rotamers from this computation
-//						prunedRot.set(ri, true);
-//				}
-//				outputObject(prunedRot,rotFile); //must be output after each result read
+			//			else { //singles DEE
+			//TODO:Fix singles DEE
+
+			//				Iterator<RotInfo<Boolean>> iter = prunedRot.iterator();
+			//				while(iter.hasNext()){
+			//					//for (int i=0; i<prunedRot.length; i++){
+			//					RotInfo<Boolean> ri = iter.next();
+			//					if (cObj.prunedRot.get(ri)) //get the pruned rotamers from this computation
+			//						prunedRot.set(ri, true);
+			//				}
+			//				outputObject(prunedRot,rotFile); //must be output after each result read
+		}
+	}
+
+	private void handleDuplicateInfo(CommucObj cObj, ArrayList<CommucObj> cObjs) {
+		for(int i=0; i<cObj.duplicateMut.length;i++){
+			if(cObj.duplicateMut[i] >= 0){//Check to see if that's computed
+				if(completedRuns[cObj.duplicateMut[i]][i] != null){
+					cObj.setPartitionProperties(i, completedRuns[cObj.duplicateMut[i]][i]);
+				}
+				else{
+					waitingRuns.add(cObj);
+					System.out.println("cObj "+cObj.curMut+" is now waiting for "+cObj.duplicateMut[i]);
+					cObjs.remove(cObj);
+				}
+			}else if(cObj.duplicateMut[i] == KSParser.DUPFOUND){
+				completedRuns[cObj.curMut][i] = new PartitionMessage(i, cObj.curMut, cObj.seqNum,cObj.q[i], 
+						cObj.bestEMin[i], cObj.bestE[i], cObj.q_Time[i], cObj.repeatEW[i], cObj.allPruned[i], cObj.searchNumConfsTotal[i], 
+						cObj.searchNumConfsPrunedByE[i], cObj.searchNumConfsPrunedByS[i], cObj.searchNumConfsEvaluated[i], 
+						cObj.searchNumConfsLeft[i], cObj.searchNumPrunedMinDEE[i], cObj.searchBestEnergyFound[i]);
+
+				//check if there are cObjs waiting on this
+				Iterator<CommucObj> iter = waitingRuns.iterator();
+				while(iter.hasNext()){
+					CommucObj curObj = iter.next();
+
+					if(curObj.duplicateMut[i] == cObj.curMut){
+						curObj.setPartitionProperties(i, cObj);
+						curObj.duplicateMut[i] = -1;
+						boolean done = true;
+						for(int q=0; q<curObj.duplicateMut.length;q++){
+							if(curObj.duplicateMut[q] >=0)
+								done = false;
+						}
+						if(done){
+							cObjs.add(curObj);
+							System.out.println("Adding curObj "+curObj.curMut+" to be processed");
+							iter.remove();
+						}
+
+					}
+
+
+				}
 			}
 		}
+	}
 
-private synchronized Object readFromFile(Object inObj, String inFile){
-	try{
-		ObjectInputStream in = new ObjectInputStream(new FileInputStream(inFile));
-		inObj = in.readObject();
-		in.close();
-	}
-	catch (Exception e){
-		System.out.println(e.toString());
-		System.out.println("ERROR: An exception occurred while reading from object file");
-		System.exit(0);
-	}
-	return inObj;
-}
-
-private void outputObject(Object outObj, String outFile){
-	FileOutputStream fout = null;
-	FileChannel ch = null;
-	FileLock lock = null;
-	try{
-		fout = new FileOutputStream(outFile);
-		ch = fout.getChannel();
-		lock = ch.lock();
-		ObjectOutputStream out = new ObjectOutputStream(fout);
-		out.writeObject(outObj);
-		//out.close();
-	}
-	catch (Exception e){
-		System.out.println(e.toString());
-		System.out.println("ERROR: An exception occurred while writing object file");
-		System.exit(0);
-	}
-	finally {
-		try {
-			lock.release();
+	private synchronized Object readFromFile(Object inObj, String inFile){
+		try{
+			ObjectInputStream in = new ObjectInputStream(new FileInputStream(inFile));
+			inObj = in.readObject();
+			in.close();
 		}
 		catch (Exception e){
 			System.out.println(e.toString());
-			System.out.println("ERROR: unable to release lock on file "+outFile);
-			System.exit(1);
+			System.out.println("ERROR: An exception occurred while reading from object file");
+			System.exit(0);
+		}
+		return inObj;
+	}
+
+	private void outputObject(Object outObj, String outFile){
+		FileOutputStream fout = null;
+		FileChannel ch = null;
+		FileLock lock = null;
+		try{
+			fout = new FileOutputStream(outFile);
+			ch = fout.getChannel();
+			lock = ch.lock();
+			ObjectOutputStream out = new ObjectOutputStream(fout);
+			out.writeObject(outObj);
+			//out.close();
+		}
+		catch (Exception e){
+			System.out.println(e.toString());
+			System.out.println("ERROR: An exception occurred while writing object file");
+			System.exit(0);
+		}
+		finally {
+			try {
+				lock.release();
+			}
+			catch (Exception e){
+				System.out.println(e.toString());
+				System.out.println("ERROR: unable to release lock on file "+outFile);
+				System.exit(1);
+			}
 		}
 	}
-}
 
-private void deleteFile(String file) {
+	private void deleteFile(String file) {
 
-	Runtime rt = Runtime.getRuntime();
-	try {
-		File tmpSFMat = new File(file);
-		if(tmpSFMat.exists())
-			tmpSFMat.delete();
+		Runtime rt = Runtime.getRuntime();
+		try {
+			File tmpSFMat = new File(file);
+			if(tmpSFMat.exists())
+				tmpSFMat.delete();
+		}
+		catch(Exception ex) {
+			System.out.println("Exception: runtime");
+			System.out.println(ex.getMessage());
+		}	
 	}
-	catch(Exception ex) {
-		System.out.println("Exception: runtime");
-		System.out.println(ex.getMessage());
-	}	
-}
 
-public void closeLog() {
-	if (logPS!=null){
-		logPS.flush();
-		logPS.close();
+	public void closeLog() {
+		if (logPS!=null){
+			logPS.flush();
+			logPS.close();
+		}
 	}
-}
 
-public void setNumOfStrands(int s) {
-	numberOfStrands = s;
-}
-public void setStrandMut(MutableResParams sm) {
-	strandMut = sm;
-}
-public void setStrandDefault(String sd[][]) {
-	strandDefault = sd;
-}
-public void setStrandPresent(boolean sp[]) {
-	strandPresent = sp;
-}
-public void setStrandLimits(String sl[][]) {
-	strandLimits = sl;
-}
-public void setStrandsPresent(int sp) {
-	strandsPresent = sp;
-}
+	public void setNumOfStrands(int s) {
+		numberOfStrands = s;
+	}
+	public void setStrandMut(MutableResParams sm) {
+		strandMut = sm;
+	}
+	public void setStrandDefault(String sd[][]) {
+		strandDefault = sd;
+	}
+	public void setStrandPresent(boolean sp[]) {
+		strandPresent = sp;
+	}
+	public void setStrandLimits(String sl[][]) {
+		strandLimits = sl;
+	}
+	public void setStrandsPresent(int sp) {
+		strandsPresent = sp;
+	}
 
-/*public void setLigType(String lt) {
+	/*public void setLigType(String lt) {
 		ligType = lt;
 	}*/
-public void setLigPresent(boolean lp) {
-	ligPresent = lp;
-}
-public void setNumMutations(int nm){
-	numMutations = nm;
-}
-public void setResMutatable (int resMut[][]){
-	resMutatable = new boolean[resMut.length][resMut[0].length];
-	for (int i=0; i<resMutatable.length; i++){
-		for (int j=0; j<resMutatable[0].length; j++){
-			if (resMut[i][j]==1)
-				resMutatable[i][j] = true;
-			else
-				resMutatable[i][j] = false;
+	public void setLigPresent(boolean lp) {
+		ligPresent = lp;
+	}
+	public void setNumMutations(int nm){
+		numMutations = nm;
+	}
+	public void setResMutatable (int resMut[][]){
+		resMutatable = new boolean[resMut.length][resMut[0].length];
+		for (int i=0; i<resMutatable.length; i++){
+			for (int j=0; j<resMutatable[0].length; j++){
+				if (resMut[i][j]==1)
+					resMutatable[i][j] = true;
+				else
+					resMutatable[i][j] = false;
+			}
 		}
 	}
-}
-public void setAAallowed(String aal[][]){
-	AAallowed = aal;
-}
-public void setarpFilenameMin(String afnm) {
-	arpFilenameMin = afnm;
-}
-public void setarpFilenameMax(String afnm) {
-	arpFilenameMax = afnm;
-}
-public void setAlgOption(int ao){
-	algOption = ao;
-}
-public void setNumSplits(int ns){
-	numSplits = ns;
-}
-public void setMinDEEFileName(String mdf) {
-	minDEEfile = mdf;
-}
-public void setInitEw(double iew){
-	initEw = iew;
-}
-public void setPruningE(double pe){
-	pruningE = pe;
-}
-public double getPruningE(){
-	return pruningE;
-}
-public void setGamma(double g) {
-	gamma = g;
-}
-public void setEpsilon(double g) {
-	epsilon = g;
-}
-/*public void setEpsilon(double g) {
+	public void setAAallowed(String aal[][]){
+		AAallowed = aal;
+	}
+	public void setarpFilenameMin(String afnm) {
+		arpFilenameMin = afnm;
+	}
+	public void setarpFilenameMax(String afnm) {
+		arpFilenameMax = afnm;
+	}
+	public void setAlgOption(int ao){
+		algOption = ao;
+	}
+	public void setNumSplits(int ns){
+		numSplits = ns;
+	}
+	public void setMinDEEFileName(String mdf) {
+		minDEEfile = mdf;
+	}
+	public void setInitEw(double iew){
+		initEw = iew;
+	}
+	public void setPruningE(double pe){
+		pruningE = pe;
+	}
+	public double getPruningE(){
+		return pruningE;
+	}
+	public void setGamma(double g) {
+		gamma = g;
+	}
+	public void setEpsilon(double g) {
+		epsilon = g;
+	}
+	/*public void setEpsilon(double g) {
 		epsilon = (new Double(g)).doubleValue();
 	}*/
-public void setParams(ParamSet theParams) {
-	sParams = theParams;
-}
-public void setStericThresh(double st) {
-	stericThresh = st;
-}
-public void setSoftStericThresh(double st){
-	softStericThresh = st;
-}
-/*public void setNumInAS(int nas) {
+	public void setParams(ParamSet theParams) {
+		sParams = theParams;
+	}
+	public void setStericThresh(double st) {
+		stericThresh = st;
+	}
+	public void setSoftStericThresh(double st){
+		softStericThresh = st;
+	}
+	/*public void setNumInAS(int nas) {
 		numInAS = nas;
 	}*/
 
-public void setComputeEVEnergy(boolean ceve) {
-	computeEVEnergy = ceve;
-}
-public void setDoMinimization(boolean dm) {
-	doMinimization = dm;
-}
-public void setMinimizeBB(boolean mbb){
-	minimizeBB = mbb;
-}
-public void setDoBackrubs(boolean br){
-	doBackrubs = br;
-}
-public void setBackrubFile(String brf){
-	backrubFile = brf;
-}
-public void setRepeatSearch(boolean rs){
-	repeatSearch = rs;
-}
-public void setCalculateVolumes(boolean cv) {
-	calculateVolumes = cv;
-}
-/*public void setnumLigRotamers(int nlr) {
+	public void setComputeEVEnergy(boolean ceve) {
+		computeEVEnergy = ceve;
+	}
+	public void setDoMinimization(boolean dm) {
+		doMinimization = dm;
+	}
+	public void setMinimizeBB(boolean mbb){
+		minimizeBB = mbb;
+	}
+	public void setDoBackrubs(boolean br){
+		doBackrubs = br;
+	}
+	public void setBackrubFile(String brf){
+		backrubFile = brf;
+	}
+	public void setRepeatSearch(boolean rs){
+		repeatSearch = rs;
+	}
+	public void setCalculateVolumes(boolean cv) {
+		calculateVolumes = cv;
+	}
+	/*public void setnumLigRotamers(int nlr) {
 		numLigRotamers = nlr;
 	}*/
-public HashMap<String,double[]> getErefMatrix(){
-	return eRef;
-}
+	public HashMap<String,double[]> getErefMatrix(){
+		return eRef;
+	}
 
-public void setPairEMatrixMin(Emat emat){
-	pairEMatrixMin = emat;
-}
+	public void setPairEMatrixMin(Emat emat){
+		pairEMatrixMin = emat;
+	}
 
-public void setRotFile(String rf){
-	rotFile = rf;
-}
-public void setUseSF(boolean usf){
-	useSF = usf;
-}
-//public void setSpFlags(boolean spFlags[][][][][][]){
-//	splitFlags = spFlags;
-//}
-//public void setSfFile(String sff){
-//	sfFile = sff;
-//}
-public void setDistrDACS(boolean dDACS){
-	distrDACS = dDACS;
-}
-public boolean getDistrDACS(){
-	return distrDACS;
-}
-public void setDistrDEE(boolean dDEE){
-	distrDEE = dDEE;
-}
-public void setBestScore(BigDecimal bs){
-	bestScore = bs;
-}
-public void setNumSpPos(int spp){
-	numSpPos = spp;
-}
-public void setMSP(int m[]){
-	msp = m;
-}
-public void setTypeDEE(int t){
-	typeDEE = t;
-}
-public void setInitDepth(int id){
-	initDepth = id;
-}
-public void setSubDepth(int sd){
-	subDepth = sd;
-}
-public void setDiffFact(int df){
-	diffFact = df;
-}
-public void setMinRatioDiff(double mrd){
-	minRatioDiff = mrd;
-}
-public void setNumInitUnprunedConf(BigInteger niuc){
-	numInitUnprunedConf = niuc;
-}
-public void setOutputPruneInfo(String opi){
-	outputPruneInfo = opi;
-}
-public void setOutputConfInfo(String oci){
-	outputConfInfo = oci;
-}
-public void setApproxMinGMEC(boolean amg){
-	approxMinGMEC = amg;
-}
-public void setLambda(double l){
-	lambda = l;
-}
-public void setStericE(double se){
-	stericE = se;
-}
-public void setDistDepDielect(boolean ddd){
-	distDepDielect = ddd;
-}
-public void setDielectConst(double dc){
-	dielectConst = dc;
-}
-public void setDoDihedE(boolean dde){
-	doDihedE = dde;
-}
-public void setDoSolvationE(boolean dse){
-	doSolvationE = dse;
-}
-public void setSolvScale(double ss){
-	solvScale = ss;
-}
-public void setVdwMult(double vm){
-	vdwMult = vm;
-}
-public void setScaleInt(boolean si){
-	scaleInt = si;
-}
-public void setMaxIntScale(double is){
-	maxIntScale = is;
-}
-public void setUseEref(boolean uer){
-	useEref = uer;
-}
-public void setLigPartFn(BigDecimal ql){
-	q_L = ql;
-}
-public void setEntropyComp(boolean ec){
-	entropyComp = ec;
-}
-public Emat getMinEmatrix(){
-	return pairEMatrixMin;
-}
-public void setPairEntropyMatrix(double aae[][][][]){
-	asasE = aae;
-}
-public double [][][][] getPairEntropyEmatrix(){
-	return asasE;
-}
-public void setIntraEntropyMatrixMin(double pemMin[][]){
-	pairEMatrixMinEntropy = pemMin;
-}
-public void setASdistMatrix(boolean ad[][]){
-	asDist = ad;
-}
-public void setASdist(double d){
-	dist = d;
-}
-public void setCompASdist(boolean ad){
-	compASdist = ad;
-}
-public boolean [][] getASdistMatrix(){
-	return asDist;
-}
-public double [][] getMinEmatrixEntropy(){
-	return pairEMatrixMinEntropy;
-}
-public void setMutableSpots(int ms) {
-	mutableSpots = ms;
-}
+	public void setRotFile(String rf){
+		rotFile = rf;
+	}
+	public void setUseSF(boolean usf){
+		useSF = usf;
+	}
+	//public void setSpFlags(boolean spFlags[][][][][][]){
+	//	splitFlags = spFlags;
+	//}
+	//public void setSfFile(String sff){
+	//	sfFile = sff;
+	//}
+	public void setDistrDACS(boolean dDACS){
+		distrDACS = dDACS;
+	}
+	public boolean getDistrDACS(){
+		return distrDACS;
+	}
+	public void setDistrDEE(boolean dDEE){
+		distrDEE = dDEE;
+	}
+	public void setBestScore(BigDecimal bs){
+		bestScore = bs;
+	}
+	public void setNumSpPos(int spp){
+		numSpPos = spp;
+	}
+	public void setMSP(int m[]){
+		msp = m;
+	}
+	public void setTypeDEE(int t){
+		typeDEE = t;
+	}
+	public void setInitDepth(int id){
+		initDepth = id;
+	}
+	public void setSubDepth(int sd){
+		subDepth = sd;
+	}
+	public void setDiffFact(int df){
+		diffFact = df;
+	}
+	public void setMinRatioDiff(double mrd){
+		minRatioDiff = mrd;
+	}
+	public void setNumInitUnprunedConf(BigInteger niuc){
+		numInitUnprunedConf = niuc;
+	}
+	public void setOutputPruneInfo(String opi){
+		outputPruneInfo = opi;
+	}
+	public void setOutputConfInfo(String oci){
+		outputConfInfo = oci;
+	}
+	public void setApproxMinGMEC(boolean amg){
+		approxMinGMEC = amg;
+	}
+	public void setLambda(double l){
+		lambda = l;
+	}
+	public void setStericE(double se){
+		stericE = se;
+	}
+	public void setDistDepDielect(boolean ddd){
+		distDepDielect = ddd;
+	}
+	public void setDielectConst(double dc){
+		dielectConst = dc;
+	}
+	public void setDoDihedE(boolean dde){
+		doDihedE = dde;
+	}
+	public void setDoSolvationE(boolean dse){
+		doSolvationE = dse;
+	}
+	public void setSolvScale(double ss){
+		solvScale = ss;
+	}
+	public void setVdwMult(double vm){
+		vdwMult = vm;
+	}
+	public void setScaleInt(boolean si){
+		scaleInt = si;
+	}
+	public void setMaxIntScale(double is){
+		maxIntScale = is;
+	}
+	public void setUseEref(boolean uer){
+		useEref = uer;
+	}
+	public void setLigPartFn(BigDecimal ql){
+		q_L = ql;
+	}
+	public void setEntropyComp(boolean ec){
+		entropyComp = ec;
+	}
+	public Emat getMinEmatrix(){
+		return pairEMatrixMin;
+	}
+	public void setPairEntropyMatrix(double aae[][][][]){
+		asasE = aae;
+	}
+	public double [][][][] getPairEntropyEmatrix(){
+		return asasE;
+	}
+	public void setIntraEntropyMatrixMin(double pemMin[][]){
+		pairEMatrixMinEntropy = pemMin;
+	}
+	public void setASdistMatrix(boolean ad[][]){
+		asDist = ad;
+	}
+	public void setASdist(double d){
+		dist = d;
+	}
+	public void setCompASdist(boolean ad){
+		compASdist = ad;
+	}
+	public boolean [][] getASdistMatrix(){
+		return asDist;
+	}
+	public double [][] getMinEmatrixEntropy(){
+		return pairEMatrixMinEntropy;
+	}
+	public void setMutableSpots(int ms) {
+		mutableSpots = ms;
+	}
 
-public void setTypeDep(boolean tD) {
-	// TODO Auto-generated method stub
-	typeDep = tD;
-}
-public void setRotamerLibrary(RotamerLibrary rl){
-	rotLib = rl;
-}
-public void setErefMatrixName(String erm) {
-	eRefMatrix  = erm;
-}
+	public void setTypeDep(boolean tD) {
+		// TODO Auto-generated method stub
+		typeDep = tD;
+	}
+	public void setRotamerLibrary(RotamerLibrary rl){
+		rotLib = rl;
+	}
+	public void setErefMatrixName(String erm) {
+		eRefMatrix  = erm;
+	}
 
-public void setAddOrigRots(boolean aor) {
-	addOrigRots   = aor;
-}
+	public void setAddOrigRots(boolean aor) {
+		addOrigRots   = aor;
+	}
 
-public void setSaveTopConfs(boolean stc) {
-	// TODO Auto-generated method stub
-	saveTopConfs = stc;
-}
+	public void setSaveTopConfs(boolean stc) {
+		// TODO Auto-generated method stub
+		saveTopConfs = stc;
+	}
 
-public void setPrintTopConfs(boolean ptc) {
-	// TODO Auto-generated method stub
-	printTopConfs = ptc;
-}
+	public void setPrintTopConfs(boolean ptc) {
+		// TODO Auto-generated method stub
+		printTopConfs = ptc;
+	}
 
-public void setNumTopConfs(int ntc) {
-	// TODO Auto-generated method stub
-	numTopConfs = ntc;
-}
+	public void setNumTopConfs(int ntc) {
+		// TODO Auto-generated method stub
+		numTopConfs = ntc;
+	}
 
-public void setUseMaxKSconfs(boolean useKSconfs) {
-	useMaxKSconfs = useKSconfs;
-}
+	public void setUseMaxKSconfs(boolean useKSconfs) {
+		useMaxKSconfs = useKSconfs;
+	}
 
-public void setNumKSconfs(BigInteger nkc) {
-	numKSconfs = nkc;
-}
+	public void setNumKSconfs(BigInteger nkc) {
+		numKSconfs = nkc;
+	}
 
-public void setcurStrForMatrix(int cSFM) {
-	curStrForMatrix = cSFM;
-}
+	public void setcurStrForMatrix(int cSFM) {
+		curStrForMatrix = cSFM;
+	}
 
-public void setUseFlagsAStar(boolean useFlagsAStar) {
-	this.useFlagsAStar = useFlagsAStar;
-}
-public void setUseTriples(boolean useTriples) {
-	this.useTriples = useTriples;
-}
-public void setDoPerturbations(boolean dp){
-	doPerturbations=dp;
-}
-public void setMinimizePerts(boolean mp){
-	minimizePerts=mp;
-}
-public void setPertFile(String pf){
-	pertFile = pf;
-}
-public void setAddWTRot(boolean awr){
-	addWTRot = awr;
-}
-public void setIdealizeSC(boolean idealizeSC) {
-	this.idealizeSC = idealizeSC;
-}
-public void setMagicBulletNumTriples(int magicBulletNumTriples) {
-	this.magicBulletNumTriples = magicBulletNumTriples;
-}
-public void setMagicBulletTriples(boolean magicBulletTriples) {
-	this.magicBulletTriples = magicBulletTriples;
-}
+	public void setUseFlagsAStar(boolean useFlagsAStar) {
+		this.useFlagsAStar = useFlagsAStar;
+	}
+	public void setUseTriples(boolean useTriples) {
+		this.useTriples = useTriples;
+	}
+	public void setDoPerturbations(boolean dp){
+		doPerturbations=dp;
+	}
+	public void setMinimizePerts(boolean mp){
+		minimizePerts=mp;
+	}
+	public void setPertFile(String pf){
+		pertFile = pf;
+	}
+	public void setAddWTRot(boolean awr){
+		addWTRot = awr;
+	}
+	public void setIdealizeSC(boolean idealizeSC) {
+		this.idealizeSC = idealizeSC;
+	}
+	public void setMagicBulletNumTriples(int magicBulletNumTriples) {
+		this.magicBulletNumTriples = magicBulletNumTriples;
+	}
+	public void setMagicBulletTriples(boolean magicBulletTriples) {
+		this.magicBulletTriples = magicBulletTriples;
+	}
 
-public void setMinScheme(RotamerSearch.MINIMIZATIONSCHEME minScheme) {
-	this.minScheme = minScheme;
-}
+	public void setMinScheme(RotamerSearch.MINIMIZATIONSCHEME minScheme) {
+		this.minScheme = minScheme;
+	}
 
-public void setUseCCD(boolean useCCD) {
-	this.useCCD = useCCD;
-}
+	public void setUseCCD(boolean useCCD) {
+		this.useCCD = useCCD;
+	}
 
-public void setEConvTol(double EConvTol) {
-	this.EConvTol = EConvTol;
-}
+	public void setEConvTol(double EConvTol) {
+		this.EConvTol = EConvTol;
+	}
 
-public void setCompCETM(boolean compCETM) {
-	this.compCETM = compCETM;
-}
+	public void setCompCETM(boolean compCETM) {
+		this.compCETM = compCETM;
+	}
 
-public void setCETM(CETMatrix cetm) {
-	this.cetm = cetm;
-}
+	public void setCETM(CETMatrix cetm) {
+		this.cetm = cetm;
+	}
 
-public void setES(EPICSettings es) {
-	this.es = es;
-}
+	public void setES(EPICSettings es) {
+		this.es = es;
+	}
 
-public void setMolecule(Molecule mol){
-	this.m = mol;
-}
+	public void setMolecule(Molecule mol){
+		this.m = mol;
+	}
 
-public void setIval(double ival) {
-	this.Ival = ival;
-}
+	public void setIval(double ival) {
+		this.Ival = ival;
+	}
 
-public void setDEEMethod(KSParser.DEEMETHOD deeMethod) {
-	this.deeMethod = deeMethod;
-}
+	public void setDEEMethod(KSParser.DEEMETHOD deeMethod) {
+		this.deeMethod = deeMethod;
+	}
 
-public void setDoDih(boolean doDih2) {
-	doDih = doDih2;
-}
+	public void setDoDih(boolean doDih2) {
+		doDih = doDih2;
+	}
 
-public void setNeighborList(boolean nl) {
-	this.neighborList= nl;
-	
-}
+	public void setNeighborList(boolean nl) {
+		this.neighborList= nl;
 
-public void setDistCutoff(double d) {
-	this.distCutoff = d;
-	
-}
+	}
 
-public void setErefMatrix(HashMap<String,double[]> eRef){
+	public void setDistCutoff(double d) {
+		this.distCutoff = d;
+
+	}
+
+	public void setErefMatrix(HashMap<String,double[]> eRef){
 		this.eRef = eRef;
-}
+	}
 
-public void setASMethod(KSParser.ASTARMETHOD asMethod) {
-	this.asMethod = asMethod;
-}
+	public void setASMethod(KSParser.ASTARMETHOD asMethod) {
+		this.asMethod = asMethod;
+	}
 
-public void setDEEsettings(DEEsettings deeSettings) {
-	this.deeSettings = deeSettings;	
-}
+	public void setDEEsettings(DEEsettings deeSettings) {
+		this.deeSettings = deeSettings;	
+	}
 
 }

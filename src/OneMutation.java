@@ -82,7 +82,7 @@ public class OneMutation implements Comparable
 	EmatCalcParams runParams = null;
 	int[] pairStartEnd;
 	
-	int duplicateMut[] = null;
+	int duplicateMut[] = null; //Holds the duplicate sequence information used for K* runs
 	
 	private boolean sortScores = false; //if true, then sort by score (default is false; should only be set using the method below)
 	
@@ -144,6 +144,20 @@ public class OneMutation implements Comparable
 				return(false);
 		}
 		return(true);
+	}
+	
+	/**
+	 * This is used in order to check if the same mutation is already
+	 * going to be computed in another OneMutation 
+	 * This array should probably be stored somewhere else
+	 * but it is convenient to store it here.
+	 * @param index Index of the OneMutation id that holds the "original" 
+	 *              sequence that this is a duplicate of. Or, if this sequence
+	 *              is the original, index should be set to KSParser.DUPFOUND
+	 * @param strand Molecule strand index
+	 */
+	public void setDupMut(int index, int strand){
+		duplicateMut[strand] = index;
 	}
 
 }

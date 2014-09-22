@@ -305,8 +305,9 @@ public class CommucObj implements Serializable
 			confSeq[j] = new ConfInfo(treeLevels);
 		}
 	}
-	
-	/*public void setPartitionProperties(int runNum, PartitionMessage p){
+
+	//Store/reset all of the partition function information into the cObj
+	public void setPartitionProperties(int runNum, PartitionMessage p){
 		this.q[runNum] = p.q;
 		this.bestEMin[runNum] = p.bestEMin;
 		this.bestE[runNum]=p.bestE;
@@ -320,6 +321,23 @@ public class CommucObj implements Serializable
 		this.searchNumConfsLeft[runNum]=p.searchNumConfsLeft;
 		this.searchNumPrunedMinDEE[runNum]=p.searchNumPrunedMinDEE;
 		this.searchBestEnergyFound[runNum]=p.searchBestEnergyFound;
-	}*/
+	}
+	
+	//Store/reset all of the partition function information into the cObj
+	public void setPartitionProperties(int runNum, CommucObj p){
+		this.q[runNum] = p.q[runNum];
+		this.bestEMin[runNum] = p.bestEMin[runNum];
+		this.bestE[runNum]=p.bestE[runNum];
+		this.q_Time[runNum]=p.q_Time[runNum];
+		this.repeatEW[runNum]=p.repeatEW[runNum];
+		this.allPruned[runNum]=p.allPruned[runNum];
+		this.searchNumConfsTotal[runNum]=p.searchNumConfsTotal[runNum];
+		this.searchNumConfsPrunedByE[runNum]=p.searchNumConfsPrunedByE[runNum];
+		this.searchNumConfsPrunedByS[runNum]=p.searchNumConfsPrunedByS[runNum];
+		this.searchNumConfsEvaluated[runNum]=p.searchNumConfsEvaluated[runNum];
+		this.searchNumConfsLeft[runNum]=p.searchNumConfsLeft[runNum];
+		this.searchNumPrunedMinDEE[runNum]=p.searchNumPrunedMinDEE[runNum];
+		this.searchBestEnergyFound[runNum]=p.searchBestEnergyFound[runNum];
+	}
 
 }
