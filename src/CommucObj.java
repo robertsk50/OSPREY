@@ -276,7 +276,7 @@ public class CommucObj implements Serializable
         CETMatrix cetm;
         boolean compCETM;
         EPICSettings es;
-		public KSParser.DEEMETHOD deeMethod;
+		public Settings.DEEMETHOD deeMethod;
 		public double Ival;
 		public int[] pairStartEnd;
 		public EmatCalcParams runParams;
@@ -289,7 +289,7 @@ public class CommucObj implements Serializable
 		public double distCutoff;
 		public PartitionMessage[] computedPartFuns;
 		public int[] duplicateMut;
-		public KSParser.ASTARMETHOD asMethod;
+		public Settings.ASTARMETHOD asMethod;
 		
 		//Slave Bounds Calculations
 		public boolean gurobiCalc;

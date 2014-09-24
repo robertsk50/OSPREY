@@ -200,7 +200,7 @@ public class StrandRCs extends StrandRotamers {
 	//            }
 	//        }
 
-	public void addUnperturbedRCs(boolean addWTRot, Molecule m){
+	public void addUnperturbedRCs(Molecule m){
 		//Adds in RCs that are unperturbed rotamers
 		//If addWTRot is true then creates an unperturbed rotamer for the WT rotameric state
 

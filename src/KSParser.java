@@ -979,107 +979,63 @@ public class KSParser
 		sParams.addParamsFromFile(getToken(s,2)); //read system parameters
 		sParams.addParamsFromFile(getToken(s,3)); //read mutation search parameters
 
-
-		//int numInAS = (new Integer((String)sParams.getValue("NUMINAS"))).intValue();
-		int numMutations = (new Integer((String)sParams.getValue("NUMMUTATIONS"))).intValue();
-		String runName = (String)sParams.getValue("RUNNAME");
-		String mutFileName = (String)sParams.getValue("MUTFILENAME",runName+".mut");
-		String eMatrixNameMin = (String)sParams.getValue("MINENERGYMATRIXNAME",runName+"minM");
-		String eMatrixNameMax = (String)sParams.getValue("MAXENERGYMATRIXNAME",runName+"maxM");
-		boolean doMinimize = (new Boolean((String)sParams.getValue("DOMINIMIZE","false"))).booleanValue();
-		boolean minimizeBB = (new Boolean((String)sParams.getValue("MINIMIZEBB","false"))).booleanValue();
-		boolean doBackrubs = (new Boolean((String)sParams.getValue("DOBACKRUBS","false"))).booleanValue();
-		String backrubFile = "";
-		if(doBackrubs){
-			backrubFile = (String)sParams.getValue("BACKRUBFILE");
-		}
-		boolean repeatSearch = (new Boolean((String)sParams.getValue("REPEATSEARCH","true"))).booleanValue();
-		boolean scaleInt = (new Boolean((String)sParams.getValue("SCALEINT","false"))).booleanValue();
-		double maxIntScale =0.0f;
-		if(scaleInt){
-			maxIntScale = (new Double((String)sParams.getValue("MAXINTSCALE"))).doubleValue();
-		}
-		double initEw = (new Double((String)sParams.getValue("INITEW","6.0"))).doubleValue();
-		double pruningE = (new Double((String)sParams.getValue("PRUNINGE","100.0"))).doubleValue();
-		double stericE = (new Double((String)sParams.getValue("STERICE","100.0"))).doubleValue();
-		double targetVol = (new Double((String)sParams.getValue("TARGETVOLUME","0.0"))).doubleValue();
-		double volWindow = (new Double((String)sParams.getValue("VOLUMEWINDOW","50000000"))).doubleValue();
-		boolean resumeSearch = (new Boolean((String)sParams.getValue("RESUMESEARCH","false"))).booleanValue();
-		String resumeFilename = "";
-		if(resumeSearch){
-			resumeFilename = (String)sParams.getValue("RESUMEFILENAME");
-		}
-		double gamma = (new Double((String)sParams.getValue("GAMMA", "0"))).doubleValue();
-		double epsilon = (new Double((String)sParams.getValue("EPSILON","0.3"))).doubleValue();
-		double distCutoff = 0;
-		boolean neighborList = new Boolean(sParams.getValue("NEIGHBORLIST","false"));
-		if(neighborList){
-			distCutoff = new Float(sParams.getValue("DISTCUTOFF"));
-		}
-		boolean saveTopConfs = (new Boolean((String)sParams.getValue("SAVETOPCONFSASPDB","false"))).booleanValue();
-		boolean printTopConfs = (new Boolean((String)sParams.getValue("SAVETOPCONFSROTS","false"))).booleanValue();
-		int numTopConfs = (new Integer((String)sParams.getValue("NUMTOPCONFSTOSAVE","0"))).intValue();
-
-		if(printTopConfs || saveTopConfs){
-			//KER: make directory for the confs to be printed to.
-			File ksConfDir = new File(EnvironmentVars.ksConfDir);
-			if(!ksConfDir.exists())
-				ksConfDir.mkdir();
-		}
-		ASTARMETHOD asMethod = ASTARMETHOD.valueOf(sParams.getValue("ASTARMETHOD","ORIG").toUpperCase());
-		/*KER: Set environment variables*/
-		boolean useMaxKSconfs = new Boolean((String)sParams.getValue("useMaxKSconfs","false")).booleanValue();
-		BigInteger maxKSconfs = BigInteger.ZERO;
-		if(useMaxKSconfs)
-			maxKSconfs = new BigInteger(sParams.getValue("maxKSconfs"));
-
-		boolean doGold = (new Boolean((String)sParams.getValue("DOGOLD", "true"))).booleanValue();
-		boolean doSplit1 = (new Boolean((String)sParams.getValue("DOSPLIT2", "true"))).booleanValue();
-		boolean doSplit2 = (new Boolean((String)sParams.getValue("DOSPLIT1", "true"))).booleanValue();
-		boolean doMB = (new Boolean((String)sParams.getValue("DOMB", "true"))).booleanValue();
-		DEEsettings deeSettings = new DEEsettings(doGold,doSplit1,doSplit2,doMB);
+		Settings settings = new Settings();
 		
-		// DEEPer parameters
-		boolean doPerturbations = (new Boolean((String)sParams.getValue("DOPERTURBATIONS","false"))).booleanValue();//Triggers DEEPer
-		String pertFile = (String)sParams.getValue("PERTURBATIONFILE","defaultPerturbationFileName.pert");//Input file giving perturbation information
-		boolean minimizePerts = (new Boolean((String)sParams.getValue("MINIMIZEPERTURBATIONS","false"))).booleanValue();//Allow continuous minimization with respect to perturbation parameters
-		boolean selectPerturbations = (new Boolean((String)sParams.getValue("SELECTPERTURBATIONS","false"))).booleanValue();//Should perturbations be automatically selected?
-
-		Perturbation.idealizeSC = (new Boolean((String)sParams.getValue("IDEALIZESIDECHAINS","true"))).booleanValue();
-
-
-		boolean addWTRotsSomehow = (new Boolean((String)sParams.getValue("ADDWTROTS","false"))).booleanValue();
-		boolean addOrigRots = false, addWTRot = false;
-		if( addWTRotsSomehow ){
-			if(doPerturbations)//DEEPer allows adding WT rotamers only to the positions they came from, so do that if possible
-				addWTRot = true;
-			else//Otherwise just add them to the rotamer library
-				addOrigRots = true;
-		}
-
-
+		/******** Load all of the settings for DEE *******/
+		// Pull search parameters
+		String runName = Settings.getRunName(sParams);
+		
+		//DEE Settings
+		Settings.DEE deeSettings = settings.new DEE(sParams);
+		double difference = deeSettings.Ival;
+		
+		//Minimization Settings
+		Settings.Minimization minSettings = settings.new Minimization(sParams);
+		
+		
+		//EPICSettings
 		EPICSettings es = new EPICSettings(sParams);
-
-
-		/*if (!mpiRun){
-			System.out.println("ERROR: Distributed computation requires MPI");
-			System.exit(1);
-		}*/
+		if(deeSettings.Ival+deeSettings.initEw>es.EPICThresh2){
+			System.out.println("EPICThresh2 must be at least Ival+Ew: raising to Ival="+(deeSettings.Ival+deeSettings.initEw));
+			es.EPICThresh2 = deeSettings.Ival+deeSettings.initEw;
+		}
+		
+		//Enumeration Settings
+		Settings.Enum enumSettings = settings.new Enum(sParams);
+		
+		//Emat Settings
+		Settings.Emat ematSettings = settings.new Emat(sParams, runName, minSettings.doPerturbations);
+		
+		//InteractionGraph Settings
+		Settings.InteractionGraph graphSettings = settings.new InteractionGraph(sParams);
+		
+		//Output Settings
+		Settings.Output outputSettings = settings.new Output(sParams, runName);
+		
+		//KStar Settings
+		Settings.KStar kstarSettings = settings.new KStar(sParams, runName);
+		
+		//Unclassified Settings
+		int curStrForMatrix = (new Integer((String)sParams.getValue("ONLYSINGLESTRAND","-1"))).intValue();
+				
+		boolean resumeSearch = (new Boolean((String)sParams.getValue("RESUMESEARCH","false"))).booleanValue();
+		String resumeFilename ="";
+		if(resumeSearch){
+			resumeFilename = ((String)sParams.getValue("RESUMEFILENAME"));
+		}
 
 		System.out.println("Run Name: "+runName);
-		System.out.println("Precomputed Min Energy Matrix: "+eMatrixNameMin);
-		System.out.println("Precomputed Max Energy Matrix: "+eMatrixNameMax);
-		//System.out.println("Ligand Type: "+ligType);
-		System.out.println("Volume Center: "+targetVol);
-		System.out.println("Volume Window Size: "+volWindow);
-		System.out.println("Num Residues Allowed to Mutate: "+numMutations);
+		System.out.println("Precomputed Min Energy Matrix: "+ematSettings.runNameEMatrixMin);
+		System.out.println("Volume Center: "+kstarSettings.targetVol);
+		System.out.println("Volume Window Size: "+kstarSettings.volWindow);
+		System.out.println("Num Residues Allowed to Mutate: "+kstarSettings.numMutations);
 
 		if(resumeSearch) {
 			System.out.println("** Resuming Search **");
 			System.out.println("     resuming from file: "+resumeFilename);
 		}
 
-		MolParameters mp = loadMolecule(sParams, COMPLEX, neighborList, distCutoff,true);
+		MolParameters mp = loadMolecule(sParams, COMPLEX, graphSettings.neighborList, graphSettings.distCutoff,true);
 		//KER: This is a placeholder so I don't have to change all the variables in the code
 		Molecule m = mp.m;
 		int numberMutable = mp.strandMut.numMutPos();
@@ -1095,11 +1051,11 @@ public class KSParser
 
 		// Generate all combinations (include (n choose m), (n choose m-1), ... , (n choose 1), and (n choose 0) )
 		int numCombAll = 0;
-		for (int i=numMutations; i>=0; i--)
+		for (int i=kstarSettings.numMutations; i>=0; i--)
 			numCombAll += factorial(numberMutable).divide(factorial(numberMutable-i).multiply(factorial(i))).intValue();
 		int residueMutatableAll[][] = new int[numCombAll][numberMutable];
 		int curInd = 0;
-		for (int i=numMutations; i>=0; i--){
+		for (int i=kstarSettings.numMutations; i>=0; i--){
 			int numCombCur = factorial(numberMutable).divide(factorial(numberMutable-i).multiply(factorial(i))).intValue();
 			int residueMutatableCur[][] = new int[numCombCur][numberMutable];
 			generateCombinations(residueMutatableCur,numberMutable,i);
@@ -1112,9 +1068,9 @@ public class KSParser
 		// At this point each row of residueMutatble is a 0/1 array, 1 indicates
 		//  that that residues can mutate
 
-		if(selectPerturbations)//Need to run the automatic perturbation selection
+		if(minSettings.selectPerturbations)//Need to run the automatic perturbation selection
 			//This only needs to be done once though: after that the perturbations can be read from pertFile
-			selectPerturbations(mp, doPerturbations, pertFile, minimizePerts, addWTRot, sParams);
+			selectPerturbations(mp, minSettings.doPerturbations, minSettings.pertFile, minSettings.minimizePerts, ematSettings.addWTRot, sParams);
 		//We'll need to do this once for each strand!  They have different perturbations...easiest to keep separate files
 		//this is the complex here
 
@@ -1130,16 +1086,16 @@ public class KSParser
 
 		System.out.print("Checking if precomputed energy matrix is already computed...");
 		RotamerSearch rs = new RotamerSearch(m,numberMutable, strandsPresent,hElect,hVDW,hSteric,true,true,
-				epsilon,stericThresh,softStericThresh,distDepDielect,dielectConst,doDihedE,doSolvationE,solvScale,
-				softvdwMultiplier, doPerturbations, pertFile, minimizePerts, false, false, es,hbonds,mp.strandMut);
+				kstarSettings.epsilon,stericThresh,softStericThresh,distDepDielect,dielectConst,doDihedE,doSolvationE,solvScale,
+				softvdwMultiplier, minSettings.doPerturbations, minSettings.pertFile, minSettings.minimizePerts, false, false, es,hbonds,mp.strandMut);
 
 
-		rs.setupRCs(addWTRot, doPerturbations);
+		rs.setupRCs( minSettings.doPerturbations);
 		
 
 		for(int i=0; i<m.numberOfStrands;i++){
 
-			String strandPertFile = "STR"+i+"."+pertFile;
+			String strandPertFile = "STR"+i+"."+minSettings.pertFile;
 
 			if ((new Boolean((String)sParams.getValue("USEUNBOUNDSTRUCT"+i, "false"))).booleanValue()){ //a different input structure is used for the unbound partition function computation
 				ParamSet ubParams = new ParamSet(); //create a new parameter set, just for the unbound-case matrix computation; sParams must not be changed here
@@ -1158,12 +1114,12 @@ public class KSParser
 
 				System.out.print("Checking if precomputed energy matrix (unbound) is already computed...");
 				rs = new RotamerSearch(m,numberMutable, strandsPresent,hElect,hVDW,hSteric,true,true,
-						epsilon,stericThresh,softStericThresh,distDepDielect,dielectConst,doDihedE,doSolvationE,solvScale,
-						softvdwMultiplier, doPerturbations, pertFile, minimizePerts, false, false, es,hbonds,mp.strandMut);
+						kstarSettings.epsilon,stericThresh,softStericThresh,distDepDielect,dielectConst,doDihedE,doSolvationE,solvScale,
+						softvdwMultiplier, minSettings.doPerturbations, minSettings.pertFile, minSettings.minimizePerts, false, false, es,hbonds,mp.strandMut);
 
-				rs.setupRCs(addWTRot,doPerturbations);
+				rs.setupRCs(minSettings.doPerturbations);
 
-				loadUnboundPairwiseEnergyMatrices(ubParams,rs,eMatrixNameMin,true,eMatrixNameMax,i);
+				loadUnboundPairwiseEnergyMatrices(ubParams,rs,ematSettings.runNameEMatrixMin,true,i);
 
 				if(es.useEPIC)
 					loadUnboundCETMatrix(ubParams,rs,Double.POSITIVE_INFINITY,false,i);
@@ -1176,18 +1132,18 @@ public class KSParser
 				m = setupMolSystem(m,sParams,strandPresent,strandLimits);
 			}
 			else{
-				if(rs==null || selectPerturbations){//MH: this can happen if we just handled a special unbound-strand structure
+				if(rs==null || minSettings.selectPerturbations){//MH: this can happen if we just handled a special unbound-strand structure
 					rs = new RotamerSearch(m,numberMutable, strandsPresent,hElect,hVDW,hSteric,true,true,
-							epsilon,stericThresh,softStericThresh,distDepDielect,dielectConst,doDihedE,doSolvationE,solvScale,
-							softvdwMultiplier, doPerturbations, pertFile, minimizePerts, false, false, es,hbonds, mp.strandMut);
+							kstarSettings.epsilon,stericThresh,softStericThresh,distDepDielect,dielectConst,doDihedE,doSolvationE,solvScale,
+							softvdwMultiplier, minSettings.doPerturbations, minSettings.pertFile, minSettings.minimizePerts, false, false, es,hbonds, mp.strandMut);
 
-					rs.setupRCs(addWTRot,doPerturbations);
+					rs.setupRCs(minSettings.doPerturbations);
 				}
 
 				sParams.setValue("PERTURBATIONFILE", strandPertFile);
 
 				rs.resetMatrices();
-				Emat emat = loadPairwiseEnergyMatrices(sParams,eMatrixNameMin,doMinimize,i, es,m.aaRotLib, false);
+				Emat emat = loadPairwiseEnergyMatrices(sParams,ematSettings.runNameEMatrixMin,minSettings.doMinimize,i, es,m.aaRotLib, false);
 
 
 				if(es.useEPIC)
@@ -1201,24 +1157,24 @@ public class KSParser
 //		m = new Molecule();
 
 		//revert this for the complex
-		sParams.setValue("PERTURBATIONFILE", pertFile);
-		mp = loadMolecule(sParams, COMPLEX, neighborList, distCutoff,true);
+		sParams.setValue("PERTURBATIONFILE", minSettings.pertFile);
+		mp = loadMolecule(sParams, COMPLEX, graphSettings.neighborList, graphSettings.distCutoff,true);
 //		m = setupMolSystem(m,sParams,strandPresent,strandLimits);
 		rs = new RotamerSearch(m,numberMutable, strandsPresent,hElect,hVDW,hSteric,true,true,
-				epsilon,stericThresh,softStericThresh,distDepDielect,dielectConst,doDihedE,doSolvationE,solvScale,
-				softvdwMultiplier, doPerturbations, pertFile, minimizePerts, false, false, es,hbonds,mp.strandMut);
+				kstarSettings.epsilon,stericThresh,softStericThresh,distDepDielect,dielectConst,doDihedE,doSolvationE,solvScale,
+				softvdwMultiplier, minSettings.doPerturbations, minSettings.pertFile, minSettings.minimizePerts, false, false, es,hbonds,mp.strandMut);
 		//Compute the matrices for all strands (-1 is for the complex)
 		//KER: Put this last so the correct Eref matrix is kept
 		rs.resetMatrices();
-		Emat emat = loadPairwiseEnergyMatrices(sParams,eMatrixNameMin,doMinimize,COMPLEX, es,m.aaRotLib, false);
+		Emat emat = loadPairwiseEnergyMatrices(sParams,ematSettings.runNameEMatrixMin,minSettings.doMinimize,COMPLEX, es,m.aaRotLib, false);
 
 
 		if(es.useEPIC)
 			loadCETMatrix(sParams,rs,COMPLEX,Double.POSITIVE_INFINITY,false, emat);
 
 		//Load mutation list for distribution
-		mutSet = hybridKSLoadMutList(mutFileName, mp, numCombAll, residueMutatableAll,
-				sParams, targetVol, volWindow);
+		mutSet = hybridKSLoadMutList(kstarSettings.mutFileName, mp, numCombAll, residueMutatableAll,
+				sParams, kstarSettings.targetVol, kstarSettings.volWindow);
 
 		OneMutation[] mutArray = mutSet.toArray(new OneMutation[1]);
 		BigDecimal bestScore = new BigDecimal("0.0"); //for the resume results		
@@ -1279,11 +1235,11 @@ public class KSParser
 
 //		mutMan.setMutationSearch(true);
 		mutMan.setMolecule(mp.m);
-		mutMan.setDEEsettings(deeSettings);
+		mutMan.setDEEsettings(deeSettings.deeSettings);
 //		mutMan.setIMinDEE(doIMinDEE);
-		mutMan.setSaveTopConfs(saveTopConfs);
-		mutMan.setPrintTopConfs(printTopConfs);
-		mutMan.setNumTopConfs(numTopConfs);
+		mutMan.setSaveTopConfs(kstarSettings.saveTopConfs);
+		mutMan.setPrintTopConfs(kstarSettings.printTopConfs);
+		mutMan.setNumTopConfs(kstarSettings.numTopConfs);
 		mutMan.setStrandMut(strandMut);
 		mutMan.setStrandDefault(strandDefault);
 		mutMan.setStrandPresent(strandPresent);
@@ -1291,20 +1247,19 @@ public class KSParser
 		mutMan.setStrandLimits(strandLimits);
 		mutMan.setMutableSpots(numberMutable);
 		//mutMan.setLigPresent(ligPresent);
-		mutMan.setAddOrigRots(addOrigRots);
-		mutMan.setNumMutations(numMutations);
-		mutMan.setarpFilenameMin(eMatrixNameMin+".dat");
-		mutMan.setarpFilenameMax(eMatrixNameMax+".dat");
-		mutMan.setDoMinimization(doMinimize);
-		mutMan.setMinimizeBB(minimizeBB);
-		mutMan.setDoBackrubs(doBackrubs);
-		mutMan.setBackrubFile(backrubFile);
-		mutMan.setRepeatSearch(repeatSearch);
-		mutMan.setInitEw(initEw);
-		mutMan.setGamma(gamma);
-		mutMan.setEpsilon(epsilon);
-		mutMan.setStericE(stericE);
-		mutMan.setPruningE(pruningE);
+		mutMan.setAddOrigRots(ematSettings.addOrigRots);
+		mutMan.setNumMutations(kstarSettings.numMutations);
+		mutMan.setarpFilenameMin(ematSettings.runNameEMatrixMin+".dat");
+		mutMan.setDoMinimization(minSettings.doMinimize);
+		mutMan.setMinimizeBB(minSettings.minimizeBB);
+		mutMan.setDoBackrubs(minSettings.doBackrubs);
+		mutMan.setBackrubFile(minSettings.backrubFile);
+		mutMan.setRepeatSearch(kstarSettings.repeatSearch);
+		mutMan.setInitEw(deeSettings.initEw);
+		mutMan.setGamma(kstarSettings.gamma);
+		mutMan.setEpsilon(kstarSettings.epsilon);
+		mutMan.setStericE(deeSettings.stericE);
+		mutMan.setPruningE(deeSettings.pruningE);
 		mutMan.setParams(sParams);
 		mutMan.setStericThresh(stericThresh);
 		mutMan.setSoftStericThresh(softStericThresh);
@@ -1316,19 +1271,19 @@ public class KSParser
 		mutMan.setDoSolvationE(doSolvationE);
 		mutMan.setSolvScale(solvScale);
 		mutMan.setVdwMult(softvdwMultiplier);
-		mutMan.setScaleInt(scaleInt);
-		mutMan.setMaxIntScale(maxIntScale);
+		mutMan.setScaleInt(deeSettings.scaleInt);
+		mutMan.setMaxIntScale(deeSettings.maxIntScale);
 		mutMan.setRotamerLibrary(m.aaRotLib);
-		mutMan.setUseMaxKSconfs(useMaxKSconfs);
-		mutMan.setNumKSconfs(maxKSconfs);
+		mutMan.setUseMaxKSconfs(kstarSettings.useMaxKSconfs);
+		mutMan.setNumKSconfs(kstarSettings.maxKSconfs);
 		//DEEPer
-		mutMan.setDoPerturbations(doPerturbations);
-		mutMan.setPertFile(pertFile);
-		mutMan.setMinimizePerts(minimizePerts);
-		mutMan.setAddWTRot(addWTRot);
+		mutMan.setDoPerturbations(minSettings.doPerturbations);
+		mutMan.setPertFile(minSettings.pertFile);
+		mutMan.setMinimizePerts(minSettings.minimizePerts);
+		mutMan.setAddWTRot(ematSettings.addWTRot);
 		mutMan.setIdealizeSC(Perturbation.idealizeSC);
 		mutMan.setUseFlagsAStar(false);
-		mutMan.setASMethod(asMethod);
+		mutMan.setASMethod(enumSettings.asMethod);
 
 		mutMan.setES(es);
 
@@ -1953,7 +1908,7 @@ public class KSParser
 
 			ParamSet params = null;
 			String minEmatrixFile = null;
-			String maxEmatrixFile = null;
+//			String maxEmatrixFile = null;
 			String strandPertFile = null;
 			//TODO:fix this hack....
 			if ( notFullComplex && ((new Boolean((String)cObj.params.getValue("USEUNBOUNDSTRUCT"+unboundStr,"false"))).booleanValue()) ) { //use a different input PDB structure for the unbound case
@@ -1962,9 +1917,9 @@ public class KSParser
 				params.setValue("PDBNAME",params.getValue("UNBOUNDPDBNAME"+unboundStr));
 				//params.setValue("PDBLIGNUM","-1");
 				minEmatrixFile = cObj.arpFilenameMin;
-				maxEmatrixFile = cObj.arpFilenameMax;
+//				maxEmatrixFile = cObj.arpFilenameMax;
 				minEmatrixFile = minEmatrixFile.replace(".dat", "_"+unboundStr+".dat");
-				maxEmatrixFile = maxEmatrixFile.replace(".dat", "_"+unboundStr+".dat");
+//				maxEmatrixFile = maxEmatrixFile.replace(".dat", "_"+unboundStr+".dat");
 				strandPertFile = "STR"+unboundStr+"."+cObj.pertFile;
 				//minEmatrixFile = params.getValue("MINENERGYMATRIXNAMEUNBOUND"+unboundStr)+".dat";
 				//maxEmatrixFile = params.getValue("MAXENERGYMATRIXNAMEUNBOUND"+unboundStr)+".dat";
@@ -1972,15 +1927,15 @@ public class KSParser
 			else { //a single input PDB structure is used for the bound and unbound computations
 				params = cObj.params;
 				minEmatrixFile = cObj.arpFilenameMin;
-				maxEmatrixFile = cObj.arpFilenameMax;
+//				maxEmatrixFile = cObj.arpFilenameMax;
 				if(notFullComplex){
 					minEmatrixFile = minEmatrixFile.replace(".dat", "_"+unboundStr+".dat");
-					maxEmatrixFile = maxEmatrixFile.replace(".dat", "_"+unboundStr+".dat");
+//					maxEmatrixFile = maxEmatrixFile.replace(".dat", "_"+unboundStr+".dat");
 					strandPertFile = "STR"+unboundStr+"."+cObj.pertFile;
 				}
 				else{
 					minEmatrixFile = minEmatrixFile.replace(".dat", "_COM.dat");
-					maxEmatrixFile = maxEmatrixFile.replace(".dat", "_COM.dat");
+//					maxEmatrixFile = maxEmatrixFile.replace(".dat", "_COM.dat");
 					strandPertFile = cObj.pertFile;
 				}
 			}
@@ -2018,6 +1973,8 @@ public class KSParser
 					}
 					mp.m = m;
 
+				}else{
+					mp.m = fullMol;
 				}
 				mols[curStrForMatrix+1] = mp.m;
 			}
@@ -2034,9 +1991,13 @@ public class KSParser
 			Molecule m = mp.m;
 			
 			int numMutPos = 0;
+			try{
 			for(Residue r: mp.m.residue)
 				if(r.isMutable)
 					numMutPos++;
+			}catch(Exception E){
+				E.printStackTrace();
+			}
 			
 			MutableResParams strandMut = new MutableResParams(numMutPos, mp.m.numberOfStrands);
 
@@ -2410,7 +2371,7 @@ public class KSParser
 
 	//Load the pairwise energy matrices; if not computed, compute, and the load
 	//KER: strandPresent represents the strand that is present for this matrix (complex is -1)
-	private void loadUnboundPairwiseEnergyMatrices(ParamSet sParams, RotamerSearch rs, String minMatrixFile, boolean doMinimize, String maxMatrixFile,
+	private void loadUnboundPairwiseEnergyMatrices(ParamSet sParams, RotamerSearch rs, String minMatrixFile, boolean doMinimize,
 			int unboundStrand){
 		//StrandNumbers are appended to PEM matrix, Complex is denoted with "_COM"
 		// PGC
@@ -2585,7 +2546,7 @@ public class KSParser
 		}
 
 		if(!mp.loadedFromCache)
-			rs.setupRCs(addWTRot, doPerturbations);
+			rs.setupRCs(doPerturbations);
 
 		//initialize the pairwise energy matrices (full initialization - for all residues in residueMap[], the ligand, and the template)
 		//KER: See if the singles mat has already been computed
@@ -2886,7 +2847,7 @@ public class KSParser
 		}
 
 		if(!mp.loadedFromCache)
-			rs.setupRCs(addWTRot, doPerturbations);
+			rs.setupRCs(doPerturbations);
 
 		//KER: now do all the remaining calculations
 		OneMutation[] mutArray1 = getMutArraySingleEcomp(numberMutable,minimizeBB);
@@ -3998,163 +3959,83 @@ public class KSParser
 		sParams.addParamsFromFile(getToken(s,2)); //read system parameters
 		sParams.addParamsFromFile(getToken(s,3)); //read mutation search parameters
 
+		Settings settings = new Settings();
+		
+		/******** Load all of the settings for DEE *******/
 		// Pull search parameters
-
-		String runName = ((String)sParams.getValue("RUNNAME"));
-		int numMaxMut = (new Integer((String)sParams.getValue("NUMMAXMUT", "1000"))).intValue();
-		int algOption = (new Integer((String)sParams.getValue("ALGOPTION", "3"))).intValue();
-		boolean doDACS = (new Boolean((String)sParams.getValue("DODACS", "false"))).booleanValue();
-		boolean useFlags = (new Boolean((String)sParams.getValue("SPLITFLAGS", "false"))).booleanValue();
-		boolean distrDACS = (new Boolean((String)sParams.getValue("DISTRDACS", "false"))).booleanValue();
-		//boolean distrDEE = (new Boolean((String)sParams.getValue("DISTRDEE"))).booleanValue();
-		boolean distrDEE = false; //the distributed DEE section is outdated and must be carefully checked before called
-		boolean doMinimize = (new Boolean((String)sParams.getValue("DOMINIMIZE", "false"))).booleanValue();
-		boolean minimizeBB = (new Boolean((String)sParams.getValue("MINIMIZEBB", "false"))).booleanValue();
-		boolean doBackrubs = (new Boolean((String)sParams.getValue("DOBACKRUBS", "false"))).booleanValue();
-		//from Pablo
-		EnvironmentVars.useMPLP = (new Boolean((String)sParams.getValue("USEMPLP", "false"))).booleanValue();
-
-		String backrubFile = "";
-		if(doBackrubs){
-			backrubFile = ((String)sParams.getValue("BACKRUBFILE"));
+		String runName = Settings.getRunName(sParams);
+		
+		//DEE Settings
+		Settings.DEE deeSettings = settings.new DEE(sParams);
+		double difference = deeSettings.Ival;
+		
+		//Minimization Settings
+		Settings.Minimization minSettings = settings.new Minimization(sParams);
+		
+		
+		//EPICSettings
+		EPICSettings es = new EPICSettings(sParams);
+		if(deeSettings.Ival+deeSettings.initEw>es.EPICThresh2){
+			System.out.println("EPICThresh2 must be at least Ival+Ew: raising to Ival="+(deeSettings.Ival+deeSettings.initEw));
+			es.EPICThresh2 = deeSettings.Ival+deeSettings.initEw;
 		}
-		boolean approxMinGMEC = (new Boolean((String)sParams.getValue("APPROXMINGMEC", "false"))).booleanValue();
-		boolean preprocPairs = (new Boolean((String)sParams.getValue("PREPROCPAIRS", "true"))).booleanValue();
-		boolean scaleInt = (new Boolean((String)sParams.getValue("SCALEINT", "false"))).booleanValue();
-		String runNameEMatrixMin = (String)(sParams.getValue("MINENERGYMATRIXNAME",runName+"minM" ));
-		//runNameEMatrixMin = outDir+"/PEM/"+runNameEMatrixMin;
-		File tmpFile = new File(runNameEMatrixMin);
-		File ematDir = tmpFile.getParentFile();
-		if(ematDir != null && !ematDir.exists()){
-			ematDir.mkdirs();
-		}
-		String runNameEMatrixMax = (String)(sParams.getValue("MAXENERGYMATRIXNAME",runName+"maxM" ));
-		double initEw = (new Double((String)sParams.getValue("INITEW","0"))).doubleValue();
-		double lambda = (new Double((String)sParams.getValue("LAMBDA", "0"))).doubleValue();
-		double pruningE = (new Double((String)sParams.getValue("PRUNINGE", "100.0"))).doubleValue();
-		double stericE = (new Double((String)sParams.getValue("STERICE","30.0"))).doubleValue();
-		double pairSt = (new Double((String)sParams.getValue("PAIRST", "100.0"))).doubleValue();
-		double maxIntScale =0;
-		if(scaleInt){
-			maxIntScale = (new Double((String)sParams.getValue("MAXINTSCALE","0"))).doubleValue();
-		}
-		double minRatioDiff=0;
-		int initDepth = 0;
-		int subDepth = 0;
-		int diffFact =0;
-		if(doDACS){
-			minRatioDiff = (new Double((String)sParams.getValue("MINRATIODIFF"))).doubleValue();
-			initDepth = (new Integer((String)sParams.getValue("INITDEPTH"))).intValue();
-			subDepth = (new Integer((String)sParams.getValue("SUBDEPTH"))).intValue();
-			diffFact = (new Integer((String)sParams.getValue("DIFFFACT"))).intValue();	
-		}                
-		boolean genInteractionGraph = (new Boolean((String)sParams.getValue("GENINTERACTIONGRAPH","false"))).booleanValue();
-		double distCutoff=0;
-		double eInteractionCutoff=0;
-		if(genInteractionGraph){
-			distCutoff = (new Double((String)sParams.getValue("DISTCUTOFF"))).doubleValue();
-			eInteractionCutoff = (new Double((String)sParams.getValue("EINTERACTIONCUTOFF"))).doubleValue();
-		}
-		boolean neighborList = new Boolean(sParams.getValue("NEIGHBORLIST","false"));
-		if(neighborList){
-			distCutoff = new Float(sParams.getValue("DISTCUTOFF"));
-		}
-		String outputConfInfo = (String)(sParams.getValue("OUTPUTCONFINFO","c_"+runName));
-		String outputPruneInfo = (String)(sParams.getValue("OUTPUTPRUNEINFO","p_"+runName));
-
+		
+		//Enumeration Settings
+		Settings.Enum enumSettings = settings.new Enum(sParams);
+		
+		//Emat Settings
+		Settings.Emat ematSettings = settings.new Emat(sParams, runName, minSettings.doPerturbations);
+		
+		//InteractionGraph Settings
+		Settings.InteractionGraph graphSettings = settings.new InteractionGraph(sParams);
+		
+		//Output Settings
+		Settings.Output outputSettings = settings.new Output(sParams, runName);
+				
+		//Unclassified Settings
 		int curStrForMatrix = (new Integer((String)sParams.getValue("ONLYSINGLESTRAND","-1"))).intValue();
-		boolean typeDep = (new Boolean((String)sParams.getValue("TYPEDEP","false"))).booleanValue();
-
-		boolean useEref = (new Boolean((String)sParams.getValue("USEEREF","true"))).booleanValue();
+				
 		boolean resumeSearch = (new Boolean((String)sParams.getValue("RESUMESEARCH","false"))).booleanValue();
 		String resumeFilename ="";
 		if(resumeSearch){
 			resumeFilename = ((String)sParams.getValue("RESUMEFILENAME"));
 		}
-		//DEE Settings
-		int maxFullPairs = (new Integer((String)sParams.getValue("MAXFULLPAIRS", "-1"))).intValue();
-		int maxDEELoopNum = (new Integer((String)sParams.getValue("maxDEELoopNum", "1000000"))).intValue();
-		boolean doGold = (new Boolean((String)sParams.getValue("DOGOLD", "true"))).booleanValue();
-		boolean doSplit1 = (new Boolean((String)sParams.getValue("DOSPLIT1", "false"))).booleanValue();
-		boolean doSplit2 = (new Boolean((String)sParams.getValue("DOSPLIT2", "false"))).booleanValue();
-		boolean doMB = (new Boolean((String)sParams.getValue("DOMB", "false"))).booleanValue();
-		DEEsettings deeSettings = new DEEsettings(doGold,doSplit1,doSplit2,doMB);
-
-		// 2010: Use energy window MinDEE method.  If this is set to true,
-		//   MinDEE will use traditional DEE with an energy window (initEw) 
-		//   for pruning.  Max terms will be ignored and only the min terms for pruning and 
-		boolean useMinDEEPruningEw = (new Boolean((String)sParams.getValue("imindee", "true"))).booleanValue();
-		double Ival = 0.0f;
-		double interval = 0;
-		if(useMinDEEPruningEw)
-			Ival = (new Double((String)sParams.getValue("IVAL"))).doubleValue();
-		double difference = Ival;
-
-
-		boolean useTriples = (new Boolean((String)sParams.getValue("USETRIPLES","false"))).booleanValue();
-		boolean magicBulletTriples = (new Boolean((String)sParams.getValue("MAGICBULLETTRIPLES","true"))).booleanValue();//Use only "magic bullet" competitor triples
-		int magicBulletNumTriples = (new Integer((String)sParams.getValue("MAGICBULLETNUMTRIPLES","5"))).intValue();//Number of magic bullet triples to use
-		boolean useFlagsAStar = (new Boolean((String)sParams.getValue("USEFLAGSASTAR","false"))).booleanValue();
-		ASTARMETHOD asMethod = ASTARMETHOD.valueOf(sParams.getValue("ASTARMETHOD","ASWCSPREORDER").toUpperCase());
-
-		// DEEPer parameters
-		boolean doPerturbations = (new Boolean((String)sParams.getValue("DOPERTURBATIONS","false"))).booleanValue();//Triggers DEEPer
-		boolean pertScreen = (new Boolean((String)sParams.getValue("PERTURBATIONSCREEN","false"))).booleanValue();//Triggers perturbation screen: pruning-only run with rigid perturbations
-		String pertFile = (String)sParams.getValue("PERTURBATIONFILE","defaultPerturbationFileName.pert");//Input file giving perturbation information
-		boolean minimizePerts = (new Boolean((String)sParams.getValue("MINIMIZEPERTURBATIONS","false"))).booleanValue();//Allow continuous minimization with respect to perturbation parameters
-		String screenOutFile = ((String)sParams.getValue("SCREENOUTFILE","screenOutFileDefaultName.pert"));//Name of file for outputting results of screen (same format as PERTURBATIONFILE)
-		boolean selectPerturbations = (new Boolean((String)sParams.getValue("SELECTPERTURBATIONS","false"))).booleanValue();//Should perturbations be automatically selected?
-		Perturbation.idealizeSC = (new Boolean((String)sParams.getValue("IDEALIZESIDECHAINS","true"))).booleanValue();
-
-		boolean useCCD = (new Boolean((String)sParams.getValue("USECCD","true"))).booleanValue();//CCD minimization
-		EPICSettings es = new EPICSettings(sParams);
-		if(Ival+initEw>es.EPICThresh2){
-			System.out.println("EPICThresh2 must be at least Ival+Ew: raising to Ival="+(Ival+initEw));
-			es.EPICThresh2 = Ival+initEw;
-		}
-
-		CCDMinimizer.EConvTol = (new Double((String)sParams.getValue("ECONVTOL","0.01"))).doubleValue();
-
-		boolean addWTRotsSomehow = (new Boolean((String)sParams.getValue("ADDWTROTS","false"))).booleanValue();
-		boolean addOrigRots = false, addWTRot = false;
-		if( addWTRotsSomehow ){
-			if(doPerturbations)//DEEPer allows adding WT rotamers only to the positions they came from, so do that if possible
-				addWTRot = true;
-			else//Otherwise just add them to the rotamer library
-				addOrigRots = true;
-		}
-
-		if( !useFlags && (useFlagsAStar || useTriples || algOption >=4) ){//These all rely heavily on the split flags
+		
+		/***************** Done Loading Settings ************/
+				
+		//Check that settings are valid
+		if( !deeSettings.useFlags && (enumSettings.useFlagsAStar || deeSettings.useTriples || deeSettings.algOption >=4) ){//These all rely heavily on the split flags
 			System.err.println("ERROR: Options requiring split flags (flags in A*, triples pruning, or algOption>=4) are set but split flags are turned off");
 			System.exit(1);
 		}
-		if( doMinimize && (!useMinDEEPruningEw) && ( useTriples || algOption >=4 ) ){
+		
+		if( minSettings.doMinimize && (!deeSettings.useMinDEEPruningEw) && ( deeSettings.useTriples || deeSettings.algOption >=4 ) ){
 			System.err.println("ERROR: Options requiring iMinDEE (triples pruning and/or algOption >=4) are set but iMinDEE is turned off");
 			System.exit(1);
 		}
 
-		if ((!mpiRun)&&((distrDACS)||distrDEE)){
+		if ((!mpiRun)&&((deeSettings.distrDACS)||deeSettings.distrDEE)){
 			System.out.println("ERROR: Distributed computation requires MPI");
 			System.exit(1);
 		}
 
-		if (!doMinimize) //no minimization
-			minimizeBB = false;
-		if (!minimizeBB) //not backbone minimization
-			doBackrubs = false;
+		if (!minSettings.doMinimize) //no minimization
+			minSettings.minimizeBB = false;
+		if (!minSettings.minimizeBB) //not backbone minimization
+			minSettings.doBackrubs = false;
 
-		if (genInteractionGraph) //DACS is not performed when generating the interaction graph
-			doDACS = false;
+		if (graphSettings.genInteractionGraph) //DACS is not performed when generating the interaction graph
+			deeSettings.doDACS = false;
 
 		//Setup the molecule system
-		MolParameters mp = loadMolecule(sParams,curStrForMatrix, neighborList, distCutoff,true);
+		MolParameters mp = loadMolecule(sParams,curStrForMatrix, graphSettings.neighborList, graphSettings.distCutoff,true);
 
 		
 		boolean reload=false;
 
-		if(selectPerturbations){//Need to run the automatic perturbation selection
+		if(minSettings.selectPerturbations){//Need to run the automatic perturbation selection
 			//This only needs to be done once though: after that the perturbations can be read from pertFile
-			selectPerturbations(mp, doPerturbations, pertFile, minimizePerts, addWTRot, sParams);
+			selectPerturbations(mp, minSettings.doPerturbations, minSettings.pertFile, minSettings.minimizePerts, ematSettings.addWTRot, sParams);
 			reload = true;
 		}
 		
@@ -4167,23 +4048,24 @@ public class KSParser
 		//  and lowestBound+InitEw can minimize to a lower energy than lowestBound+InitEw, 
 		//   then let minimumEnergy be the minimum nergy found among the enumerated conformations,
 		//   we set a new Ew equal to minimumEnergy - lowestBount and repeat this cycle.  We
-		//   only have to do it at most twice.       
+		//   only have to do it at most twice.   
+		double interval = 0;
 		do{
 
 			if( reload ){
 //				reloadMolecule(mp, sParams, curStrForMatrix, neighborList, distCutoff, pertFile);
-				mp = loadMolecule(sParams,curStrForMatrix,neighborList,distCutoff,false);
+				mp = loadMolecule(sParams,curStrForMatrix,graphSettings.neighborList,graphSettings.distCutoff,false);
 //				mp.m.origMol();
 			}
-			else if(doPerturbations)
+			else if(minSettings.doPerturbations)
 				reload = true;
 
 
 			RotamerSearch rs = new RotamerSearch(mp.m,mp.strandMut.numMutPos(), mp.strandsPresent, hElect, hVDW, hSteric, true,
 					true, 0.0f, stericThresh, softStericThresh, distDepDielect, dielectConst, doDihedE, doSolvationE, solvScale, softvdwMultiplier, 
-					doPerturbations, pertFile, minimizePerts, useTriples, useFlagsAStar, es,hbonds, mp.strandMut);
+					minSettings.doPerturbations, minSettings.pertFile, minSettings.minimizePerts, deeSettings.useTriples, enumSettings.useFlagsAStar, es,hbonds, mp.strandMut);
 
-			rs.useCCD = useCCD;
+			rs.useCCD = minSettings.useCCD;
 
 			/////////////////////////////////////////////////////////////
 			// DEE section
@@ -4201,11 +4083,11 @@ public class KSParser
 			}
 			
 				
-			if(!selectPerturbations || reload)
-					rs.setupRCs(addWTRot, doPerturbations);
+			if(!minSettings.selectPerturbations || reload)
+					rs.setupRCs(minSettings.doPerturbations);
 
 			System.out.print("Loading precomputed energy matrix...");
-			Emat emat = loadPairwiseEnergyMatrices(sParams,runNameEMatrixMin,doMinimize,curStrForMatrix,es,mp.m.aaRotLib, false);
+			Emat emat = loadPairwiseEnergyMatrices(sParams,ematSettings.runNameEMatrixMin,minSettings.doMinimize,curStrForMatrix,es,mp.m.aaRotLib, false);
 			rs.setMinMatrix(emat);
 
 
@@ -4213,7 +4095,7 @@ public class KSParser
 			emat.pruneNotAllowed(mp.m);
 			emat.removePrunedRotReducedMem(false);
 
-			addErefAndEntropy(useEref, rs, emat);
+			addErefAndEntropy(ematSettings.useEref, rs, emat);
 
 			int[] numRotForRes = compNumRotForRes(emat);
 			int totalNumRot = 0;
@@ -4221,7 +4103,7 @@ public class KSParser
 
 			//first prune all rotamers that are incompatible with the template (intra E + re-to-template E >= stericE)
 			System.out.println("Pruning all rotamers incompatible with the template..");			
-			RotamerSearch.DoPruneStericTemplate(emat, stericE,true,outPS);
+			RotamerSearch.DoPruneStericTemplate(emat, deeSettings.stericE,true,outPS);
 			System.out.println();
 
 			emat.removePrunedRotReducedMem(false);
@@ -4230,33 +4112,33 @@ public class KSParser
 
 			//preprocess pairs of rotamers (mark pairwise energies greater than the cutoff as steric clashes)
 			//This is only useful if these pairs will not be pruned by rs.prunedRidiculousPairs (i.e. if !useFlags)
-			if (preprocPairs && (!useFlags) ){
-				System.out.println("Preprocessing pairs of rotamers, cutoff of "+pairSt);
-				emat.preprocessPairs(pairSt, stericE);
+			if (deeSettings.preprocPairs && (!deeSettings.useFlags) ){
+				System.out.println("Preprocessing pairs of rotamers, cutoff of "+deeSettings.pairSt);
+				emat.preprocessPairs(deeSettings.pairSt, deeSettings.stericE);
 				System.out.println();
 			}
 
-			if(useFlags){
-				double cutoff = stericE;
-				if ( preprocPairs && (pairSt < stericE) )
-					cutoff = pairSt;
+			if(deeSettings.useFlags){
+				double cutoff = deeSettings.stericE;
+				if ( deeSettings.preprocPairs && (deeSettings.pairSt < deeSettings.stericE) )
+					cutoff = deeSettings.pairSt;
 				emat.pruneRidiculousPairs(cutoff);
 			}
 
 
-			boolean localUseMinDEEPruningEw = useMinDEEPruningEw;
-			if(doDACS){ //If we are doing dacs we don't want to prune stuff too early so turn off
-				localUseMinDEEPruningEw = false;   //iMinDEE until the last depth is reached
+			boolean localUseMinDEEpruningEw = deeSettings.useMinDEEPruningEw;
+			if(deeSettings.doDACS){ //If we are doing dacs we don't want to prune stuff too early so turn off
+				localUseMinDEEpruningEw = false;   //iMinDEE until the last depth is reached
 
 				//Without iMinDEE we can't do triples or indirect pruning though
-				if(useTriples){
+				if(deeSettings.useTriples){
 					System.out.println("Warning: Can't prune triples with DACS.  Turning off triples pruning.");
-					useTriples = false;
+					deeSettings.useTriples = false;
 					rs.useTriples = false;
 				}
-				if(algOption >= 4){
-					System.out.println("Warning: Can't do indirect pruning (algOption 4) with DACS.  Reverting to algOption 3");
-					algOption = 3;
+				if(deeSettings.algOption >= 4){
+					System.out.println("Warning: Can't do indirect pruning (deeSettings.algOption 4) with DACS.  Reverting to deeSettings.algOption 3");
+					deeSettings.algOption = 3;
 				}
 			}
 
@@ -4269,24 +4151,24 @@ public class KSParser
 				rs.loadCETMatrix(CETMatrixName);
 
 				if( rs.cetm != null ){//Check if the continuous energy matrix is present and complete enough
-					if(rs.cetm.ivalCutoff >= Ival)
-						Ival = rs.cetm.ivalCutoff;
+					if(rs.cetm.ivalCutoff >= deeSettings.Ival)
+						deeSettings.Ival = rs.cetm.ivalCutoff;
 				}
 				rs.cetm = null;
 			}
 
-			runDEE(useFlags, doMinimize, minimizeBB, scaleInt,
-					initEw, maxIntScale, typeDep, Ival,
-					emat, localUseMinDEEPruningEw, true,stericE, sParams,maxFullPairs,
-					maxDEELoopNum,deeSettings,rs.strandRot,mp.strandMut,rs.m,rs.doPerturbations);
+			runDEE(deeSettings.useFlags, minSettings.doMinimize, minSettings.minimizeBB, deeSettings.scaleInt,
+					deeSettings.initEw, deeSettings.maxIntScale, deeSettings.typeDep, deeSettings.Ival,
+					emat, localUseMinDEEpruningEw, true,deeSettings.stericE, sParams,deeSettings.maxFullPairs,
+					deeSettings.maxDEELoopNum,deeSettings.deeSettings,rs.strandRot,mp.strandMut,rs.m,rs.doPerturbations);
 
 
 
 
 			long pruneTime = System.currentTimeMillis();
 
-			if(pertScreen){//No A*, so we're done
-				PertFileHandler.writePertFile(screenOutFile, rs.m, emat, rs.strandRot, mp.strandMut, true);
+			if(minSettings.pertScreen){//No A*, so we're done
+				PertFileHandler.writePertFile(minSettings.screenOutFile, rs.m, emat, rs.strandRot, mp.strandMut, true);
 				System.out.println("Screening time: "+((pruneTime-startTime)/(60.0*1000.0)));
 				System.out.println("Screening done");
 				return;
@@ -4294,25 +4176,26 @@ public class KSParser
 
 
 			if(es.useEPIC){
-				loadCETMatrix(sParams,rs,curStrForMatrix,Ival,false, emat);
+				loadCETMatrix(sParams,rs,curStrForMatrix,deeSettings.Ival,false, emat);
 			}
 
 			long startAStarTime = System.currentTimeMillis();
 
-			if (!doDACS){ //DACS will not be performed
+			if (!deeSettings.doDACS){ //DACS will not be performed
 
-				if (genInteractionGraph) //generate interaction graph
-					genInteractionGraph(mp.strandMut.numMutPos(), rs, emat, runName, mp.strandMut, eInteractionCutoff, distCutoff, mp.m, preprocPairs, pairSt);
+				if (graphSettings.genInteractionGraph) //generate interaction graph
+					genInteractionGraph(mp.strandMut.numMutPos(), rs, emat, runName, mp.strandMut, graphSettings.eInteractionCutoff, graphSettings.distCutoff, mp.m, 
+							deeSettings.preprocPairs, deeSettings.pairSt);
 
 				else { //perform A* search to enumerate conformations
 					double bestScore = Math.pow(10,38); //for DEE/A*, the initial best score is the highest possible
 
-					// 2010: A* now returns a new value for Ew.  Note that right now useMinDEEPruningEw
+					// 2010: A* now returns a new value for Ew.  Note that right now useMinDEEdeeSettings.pruningEw
 					//   is incompatible with the traditional usage of initEw.  This can be easily 
 					//   fixed by adding a different Ew for this method.  If A* returns an initEw of 
 					//    -1 that means that an error occured somewhere.  If it returns 0 it means 
 					//    that the GMEC or minGMEC was found.  If it returns 'Ew'>0 then it means that
-					//    useMinDEEPruningEw = true and that the energy window must be "enlarged" 
+					//    useMinDEEdeeSettings.pruningEw = true and that the energy window must be "enlarged" 
 					//    to 'Ew'
 					//  useTopKHeuristic: Only the top Kvalue conformations are enumerated.  If 
 					//     not enough, a new initEw is returned. Note that we may have to do this 
@@ -4322,32 +4205,34 @@ public class KSParser
 						System.out.println("Starting lowestBound calculation for EPIC");
 						rs.es.gettingLowestBound = true;
 						//run A* without polynomial fits to get the lowestBound
-						//this is to ensure that our Ival is going to be sufficient
-						rs.doAStarGMEC(outputConfInfo,true,doMinimize,
-								mp.strandMut.numMutPos(),mp.strandMut,numMaxMut,initEw,
-								bestScore,null,approxMinGMEC,lambda,minimizeBB,useEref,doBackrubs,backrubFile,
-								localUseMinDEEPruningEw, Ival,asMethod);
+						//this is to ensure that our deeSettings.Ival is going to be sufficient
+						rs.doAStarGMEC(outputSettings.outputConfInfo,true,minSettings.doMinimize,
+								mp.strandMut.numMutPos(),mp.strandMut,enumSettings.numMaxMut,deeSettings.initEw,
+								bestScore,null,enumSettings.approxMinGMEC,enumSettings.lambda,minSettings.minimizeBB,
+								ematSettings.useEref,minSettings.doBackrubs,minSettings.backrubFile,
+								localUseMinDEEpruningEw, deeSettings.Ival,enumSettings.asMethod);
 
 						rs.es.gettingLowestBound = false;
 					}
 
-					interval = rs.doAStarGMEC(outputConfInfo,true,doMinimize,
-							mp.strandMut.allMut.length,mp.strandMut,numMaxMut,initEw,
-							bestScore,null,approxMinGMEC,lambda,minimizeBB,useEref,doBackrubs,backrubFile,
-							localUseMinDEEPruningEw, Ival,asMethod);
+					interval = rs.doAStarGMEC(outputSettings.outputConfInfo,true,minSettings.doMinimize,
+							mp.strandMut.allMut.length,mp.strandMut,enumSettings.numMaxMut,deeSettings.initEw,
+							bestScore,null,enumSettings.approxMinGMEC,enumSettings.lambda,minSettings.minimizeBB,
+							ematSettings.useEref,minSettings.doBackrubs,minSettings.backrubFile,
+							localUseMinDEEpruningEw, deeSettings.Ival,enumSettings.asMethod);
 
-					difference = interval - Ival;
-					Ival = interval;
+					difference = interval - deeSettings.Ival;
+					deeSettings.Ival = interval;
 
-					if(difference > 0.001 && useMinDEEPruningEw && doMinimize){//we're going to need a repeat run
-						System.out.println("Raising Ival to "+Ival);
+					if(difference > 0.001 && deeSettings.useMinDEEPruningEw && minSettings.doMinimize){//we're going to need a repeat run
+						System.out.println("Raising deeSettings.Ival to "+deeSettings.Ival);
 
 						if(es.useEPIC){
-							if(Ival+initEw>es.EPICThresh2){//need to raise EPICThresh2 for repeat run
-								//this way it will always stay at least Ival+initEw, so we can trust enumerations
+							if(deeSettings.Ival+deeSettings.initEw>es.EPICThresh2){//need to raise EPICThresh2 for repeat run
+								//this way it will always stay at least deeSettings.Ival+initEw, so we can trust enumerations
 								//by doAStarGMECHelper
-								System.out.println("Raising EPICThresh2 to "+(Ival+initEw));
-								es.EPICThresh2 = Ival+initEw;
+								System.out.println("Raising EPICThresh2 to "+(deeSettings.Ival+deeSettings.initEw));
+								es.EPICThresh2 = deeSettings.Ival+deeSettings.initEw;
 							}
 						}
 					}
@@ -4365,23 +4250,23 @@ public class KSParser
 				for (int i=0; i<msp.length; i++)
 					msp[i] = -1;
 
-				if (distrDACS) { //distributed DACS (only for level 0)
+				if (deeSettings.distrDACS) { //distributed DACS (only for level 0)
 
-					if (initDepth<=0){
-						System.out.println("ERROR: distributed DACS called with 'initDepth="+initDepth+"' partitioning positions; use a positive value");
+					if (deeSettings.initDepth<=0){
+						System.out.println("ERROR: distributed DACS called with 'deeSettings.initDepth="+deeSettings.initDepth+"' partitioning positions; use a positive value");
 						System.exit(1);
 					}
-					if (subDepth<0)
-						subDepth = 0;
+					if (deeSettings.subDepth<0)
+						deeSettings.subDepth = 0;
 
-					distrDEE = false; //do not perform both distributed DACS and distributed DEE
+					deeSettings.distrDEE = false; //do not perform both distributed DACS and distributed DEE
 
 					//choose the major splitting positions
-					for (int i=0; i<initDepth; i++)
-						msp[i] = chooseSplitPos(mp.strandMut.numMutPos(),emat,numRotForRes, msp, i, minRatioDiff);
+					for (int i=0; i<deeSettings.initDepth; i++)
+						msp[i] = chooseSplitPos(mp.strandMut.numMutPos(),emat,numRotForRes, msp, i, deeSettings.minRatioDiff);
 
 					int maxNumPartitions = 1;
-					for (int i=0; i<initDepth; i++)
+					for (int i=0; i<deeSettings.initDepth; i++)
 						maxNumPartitions *= numRotForRes[msp[i]];
 
 					OneMutation resumeResults[] = null;		
@@ -4391,36 +4276,39 @@ public class KSParser
 //						resumeResults = new OneMutation[maxNumPartitions];
 //						for(int q=0;q<resumeResults.length;q++)
 //							resumeResults[q] = new OneMutation();
-//						resumeResults = readResumeFile(resumeResults,resumeFilename,mp.numberMutable,true,false,initDepth);
+//						resumeResults = readResumeFile(resumeResults,resumeFilename,mp.numberMutable,true,false,deeSettings.initDepth);
 //						System.out.println("Read "+resumeResults.length+" completed partitions.");
 //						System.out.println();
 //					}
 
 					doDistrDACSMaster(runName, mp.strandMut.numMutPos(), rs, mp.strandMut, emat,
-							algOption, useFlags, initEw, pruningE, initDepth, msp,
-							numInitUnprunedConfs, diffFact, outputPruneInfo, outputConfInfo, minRatioDiff, doMinimize,
-							runNameEMatrixMin, sParams, approxMinGMEC, 
-							lambda, numRotForRes, resumeResults, resumeFilename, minimizeBB, numMaxMut, scaleInt, maxIntScale, 
-							useEref, doBackrubs, backrubFile, subDepth,mp.strandPresent,
-							mp.strandLimits,mp.strandsPresent,addWTRot, asMethod);
+							deeSettings.algOption, deeSettings.useFlags, deeSettings.initEw, deeSettings.pruningE, deeSettings.initDepth, msp,
+							numInitUnprunedConfs, deeSettings.diffFact, outputSettings.outputPruneInfo, outputSettings.outputConfInfo, 
+							deeSettings.minRatioDiff, minSettings.doMinimize,
+							ematSettings.runNameEMatrixMin, sParams, enumSettings.approxMinGMEC, 
+							enumSettings.lambda, numRotForRes, resumeResults, resumeFilename, minSettings.minimizeBB, 
+							enumSettings.numMaxMut, deeSettings.scaleInt, deeSettings.maxIntScale, 
+							ematSettings.useEref, minSettings.doBackrubs, minSettings.backrubFile, deeSettings.subDepth,mp.strandPresent,
+							mp.strandLimits,mp.strandsPresent,ematSettings.addWTRot, enumSettings.asMethod);
 				}
 				else { //single-processor DACS
 
-					initDepth = 0; //only used for distributed DACS
-					if (subDepth<=0){
-						System.out.println("ERROR: single-processor DACS called with 'subDepth="+subDepth+"' partitioning positions; use a positive value");
+					deeSettings.initDepth = 0; //only used for distributed DACS
+					if (deeSettings.subDepth<=0){
+						System.out.println("ERROR: single-processor DACS called with 'deeSettings.subDepth="+deeSettings.subDepth+"' partitioning positions; use a positive value");
 						System.exit(1);
 					}
 
-					PrintStream logPS = setupOutputFile(outputPruneInfo);
+					PrintStream logPS = setupOutputFile(outputSettings.outputPruneInfo);
 
 					PrunedRotamers<Boolean> prunedRotamers = new PrunedRotamers<Boolean>(emat.singles.pruned,false);
 					doDACS(mp.strandMut.numMutPos(), rs, mp.strandMut,
-							emat, prunedRotamers, algOption, useFlags, initEw, pruningE, initDepth, 0, logPS, msp,
-							numInitUnprunedConfs, diffFact, outputConfInfo, minRatioDiff, doMinimize, runNameEMatrixMin,
-							distrDEE, sParams, approxMinGMEC, lambda, null, 
-							null, minimizeBB, numMaxMut, scaleInt, maxIntScale, useEref, doBackrubs, backrubFile, subDepth,
-							typeDep, addWTRot, Ival, deeSettings,asMethod);
+							emat, prunedRotamers, deeSettings.algOption, deeSettings.useFlags, deeSettings.initEw, deeSettings.pruningE, deeSettings.initDepth, 0, logPS, msp,
+							numInitUnprunedConfs, deeSettings.diffFact, outputSettings.outputConfInfo, deeSettings.minRatioDiff, minSettings.doMinimize, 
+							ematSettings.runNameEMatrixMin,	deeSettings.distrDEE, sParams, enumSettings.approxMinGMEC, enumSettings.lambda, null, 
+							null, minSettings.minimizeBB, enumSettings.numMaxMut, deeSettings.scaleInt, deeSettings.maxIntScale, ematSettings.useEref, 
+							minSettings.doBackrubs, minSettings.backrubFile, deeSettings.subDepth,
+							deeSettings.typeDep, ematSettings.addWTRot, deeSettings.Ival, deeSettings.deeSettings,enumSettings.asMethod);
 				}
 			}
 
@@ -4428,7 +4316,7 @@ public class KSParser
 
 			System.out.println("Pruning time: "+((pruneTime-startTime)/(60.0*1000.0)));
 			//the difference between pruneTime and startAStarTime is CET matrix loading is in between (if applicable)
-			if (genInteractionGraph)
+			if (graphSettings.genInteractionGraph)
 				System.out.println("Graph generation time: "+((stopTime-startAStarTime)/(60.0*1000.0)));
 			else
 				System.out.println("Enumeration/DACS time: "+((stopTime-startAStarTime)/(60.0*1000.0)));
@@ -4438,8 +4326,8 @@ public class KSParser
 			//end of DEE section
 			/////////////////////////////////////////////////////////////
 		}
-		while(difference > 0.001 && useMinDEEPruningEw && doMinimize); // 2010: if I1-I0 >0 we must repeat the cycle with the new energy 
-		// window.  This can only happen if useMinDEEPruningEw is true
+		while(difference > 0.001 && deeSettings.useMinDEEPruningEw && minSettings.doMinimize); // 2010: if I1-I0 >0 we must repeat the cycle with the new energy 
+		// window.  This can only happen if useMinDEEdeeSettings.pruningEw is true
 		//   and not topK
 
 
@@ -4523,9 +4411,9 @@ public class KSParser
 					//Depending on the chosen algorithm option, apply the corresponding pruning criteria;
 					if(rank == 0 && numProc > 2 && emat.numMutPos() > 2 )
 						doDistrDEEMaster(emat, sParams, initEw, doMinimize, 
-								minimizeBB, scaleInt, maxIntScale,Ival,typeDep,false,DEEMETHOD.GOLDSTEIN);
+								minimizeBB, scaleInt, maxIntScale,Ival,typeDep,false,Settings.DEEMETHOD.GOLDSTEIN);
 					else
-						RotamerSearch.DoDEEGoldstein(emat,initEw, doMinimize, useFlags, minimizeBB,typeDep,
+						RotamerSearch.DoDEEGoldstein(emat,initEw, useFlags, typeDep,
 								localUseMinDEEPruningEw,Ival,false,null,null,removeRot);
 
 					if(removeRot)
@@ -4554,7 +4442,7 @@ public class KSParser
 
 				if(rank == 0 && numProc > 2 && emat.numMutPos() > 2)
 					doDistrDEEMaster(emat, sParams, initEw, doMinimize, 
-							minimizeBB, scaleInt, maxIntScale,Ival,typeDep,false,DEEMETHOD.SPLITFLAGS1);
+							minimizeBB, scaleInt, maxIntScale,Ival,typeDep,false,Settings.DEEMETHOD.SPLITFLAGS1);
 				else
 					RotamerSearch.DoDEEConfSplitting(emat,initEw, null, doMinimize, useFlags, 1, 
 							false, minimizeBB, typeDep,localUseMinDEEPruningEw,Ival,null);
@@ -4580,7 +4468,7 @@ public class KSParser
 				long startSplit2 = System.currentTimeMillis();
 				if(rank == 0 && numProc > 2 && emat.numMutPos() > 2)
 					doDistrDEEMaster(emat, sParams, initEw, doMinimize, 
-							minimizeBB, scaleInt, maxIntScale,Ival,typeDep,false,DEEMETHOD.SPLITFLAGS2);
+							minimizeBB, scaleInt, maxIntScale,Ival,typeDep,false,Settings.DEEMETHOD.SPLITFLAGS2);
 				else
 					RotamerSearch.DoDEEConfSplitting(emat,initEw, null, doMinimize, useFlags, 2, 
 							false, minimizeBB, typeDep,localUseMinDEEPruningEw,Ival,null);
@@ -4603,7 +4491,7 @@ public class KSParser
 				long startMB = System.currentTimeMillis();
 				if(rank == 0 && numProc > 2 && emat.numMutPos() > 2)
 					doDistrDEEMaster(emat, sParams, initEw, doMinimize, 
-							minimizeBB, scaleInt, maxIntScale,Ival,typeDep,true,DEEMETHOD.MBPAIRS);
+							minimizeBB, scaleInt, maxIntScale,Ival,typeDep,true,Settings.DEEMETHOD.MBPAIRS);
 				else
 					RotamerSearch.DoDEEPairs(emat,initEw, null, doMinimize, useFlags, true, 
 							false, minimizeBB, scaleInt, maxIntScale,typeDep,localUseMinDEEPruningEw,Ival,null);
@@ -4657,7 +4545,7 @@ public class KSParser
 				
 				if(rank == 0 && numProc > 2 && emat.numMutPos() > 2)
 					doDistrDEEMaster(emat, sParams, initEw, doMinimize, 
-							minimizeBB, scaleInt, maxIntScale,Ival,typeDep,true,DEEMETHOD.FULLPAIRS);
+							minimizeBB, scaleInt, maxIntScale,Ival,typeDep,true,Settings.DEEMETHOD.FULLPAIRS);
 				else
 					RotamerSearch.DoDEEPairs(emat,initEw, null, doMinimize, useFlags, false, 
 						false, minimizeBB, scaleInt, maxIntScale,typeDep,localUseMinDEEPruningEw,Ival,null);
@@ -4965,7 +4853,7 @@ public class KSParser
 			boolean approxMinGMEC, double lambda, Index3 partIndex[], CommucObj cObj, 
 			boolean minimizeBB, int numMaxMut, boolean scaleInt, double maxIntScale, boolean useEref,
 			boolean doBackrubs, String backrubFile, int subDepth,boolean typeDep, boolean addWTRot, double Ival,
-			DEEsettings deeSettings, ASTARMETHOD asMethod){
+			DEEsettings deeSettings, Settings.ASTARMETHOD asMethod){
 
 		if (curDepth>=(initDepth+subDepth))
 			return;
@@ -5388,7 +5276,7 @@ public class KSParser
 			ParamSet sParams, 
 			boolean approxMinGMEC, double lambda, int numRotForRes[], OneMutation resumeResults[], String resumeFileName, boolean minimizeBB, int numMaxMut,
 			boolean scaleInt, double maxIntScale, boolean useEref, boolean doBackrubs, String backrubFile, int subDepth,
-			boolean [] strandPresent, String[][] strandLimits, int strandsPresent, boolean addWTRot, ASTARMETHOD asMethod){
+			boolean [] strandPresent, String[][] strandLimits, int strandsPresent, boolean addWTRot, Settings.ASTARMETHOD asMethod){
 
 		System.out.println("Starting DACS (distributed)");		
 		System.out.println("Forming DACS partitions..");
@@ -5712,7 +5600,7 @@ public class KSParser
 	//Handles the distribution of the DEE computation to the slave nodes
 	private void doDistrDEEMaster(Emat emat, ParamSet sParams, double initEw, boolean doMinimize,  
 			boolean minimizeBB, boolean scaleInt, double maxIntScale, double Ival, boolean typeDep, 
-			boolean pruningPairs, DEEMETHOD deeMethod){
+			boolean pruningPairs, Settings.DEEMETHOD deeMethod){
 
 		//the total number of residues (active site + ligand, if present)
 		int totalNumRes = emat.numMutPos();
@@ -5898,7 +5786,7 @@ public class KSParser
 		boolean localUseMinDEEPruningEw = true;
 		switch(cObj.deeMethod){
 		case GOLDSTEIN:
-			RotamerSearch.DoDEEGoldstein(emat,cObj.initEw, cObj.doMinimization, useFlags, cObj.minimizeBB,cObj.typeDep,localUseMinDEEPruningEw,
+			RotamerSearch.DoDEEGoldstein(emat,cObj.initEw, useFlags, cObj.typeDep,localUseMinDEEPruningEw,
 					cObj.Ival,true,resInMut,cObj.pairStartEnd,false);
 			smallEmat = new Emat(emat, true,new int[0]);
 			break;
@@ -8173,7 +8061,7 @@ public class KSParser
 		}
 
 		PerturbationSelector ps = new PerturbationSelector(mp.strandMut.numMutPos(), mp.strandMut, 
-				addWTRot, mp.m,	rs.strandRot, min_rmsd, startingPertFile,onlyStarting);
+				mp.m,	rs.strandRot, min_rmsd, startingPertFile,onlyStarting);
 
 		ps.selectPerturbations();
 		rs.removeImpossibleRCs(mp.strandMut.numMutPos(), mp.strandMut);

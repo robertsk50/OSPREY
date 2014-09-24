@@ -125,7 +125,7 @@ public class PGgurobiAStar extends AStar{
 	 * 		to consider only the residues and rotamers for the possible mutations; i.e., the matrices are of
 	 * 		reduced size
 	 */
-	PGgurobiAStar (int treeLevels, int numRotForRes[], Emat emat, KSParser.ASTARMETHOD asMethod,
+	PGgurobiAStar (int treeLevels, int numRotForRes[], Emat emat, Settings.ASTARMETHOD asMethod,
 			EPICSettings es, boolean doPerturbations, Molecule m, StrandRotamers[] src, MutableResParams strandMut,
 			CETMatrix CETM){
 

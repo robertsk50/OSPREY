@@ -159,7 +159,7 @@ public class MutationManager
 	private boolean saveTopConfs;
 	private boolean printTopConfs;
 	private int numTopConfs;
-	private KSParser.ASTARMETHOD asMethod;
+	private Settings.ASTARMETHOD asMethod;
 
 	//Variables specific to PEM computation	
 	Emat pairEMatrixMin = null;
@@ -224,7 +224,7 @@ public class MutationManager
 	CETMatrix cetm;
 	EPICSettings es;
 	private double Ival;
-	private KSParser.DEEMETHOD deeMethod;
+	private Settings.DEEMETHOD deeMethod;
 	boolean doDih = false;
 	private HashMap<String, double[]> eRef;
 	private RotamerSearch.MINIMIZATIONSCHEME minScheme;
@@ -487,7 +487,7 @@ public class MutationManager
 							secondPos = i;
 					}
 
-					if(deeMethod.equals(KSParser.DEEMETHOD.GOLDSTEIN))
+					if(deeMethod.equals(Settings.DEEMETHOD.GOLDSTEIN))
 						cObj.emat = new Emat(pairEMatrixMin, firstPos);
 					else{
 						//						File ematDir = new File("PEM");
@@ -1235,7 +1235,7 @@ public class MutationManager
 		this.Ival = ival;
 	}
 
-	public void setDEEMethod(KSParser.DEEMETHOD deeMethod) {
+	public void setDEEMethod(Settings.DEEMETHOD deeMethod) {
 		this.deeMethod = deeMethod;
 	}
 
@@ -1257,7 +1257,7 @@ public class MutationManager
 		this.eRef = eRef;
 	}
 
-	public void setASMethod(KSParser.ASTARMETHOD asMethod) {
+	public void setASMethod(Settings.ASTARMETHOD asMethod) {
 		this.asMethod = asMethod;
 	}
 

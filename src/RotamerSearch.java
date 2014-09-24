@@ -378,7 +378,7 @@ public class RotamerSearch implements Serializable
 
 	//Set up perturbations and residue conformations (RCs) for DEEPer
 	//This should be called after the allowable AAs are set
-	public void setupRCs(boolean addWTRot, boolean doPerturbations){
+	public void setupRCs(boolean doPerturbations){
 
 		if(doPerturbations)
 			PertFileHandler.readPertFile(pertFile, m, strandRot,true);
@@ -392,7 +392,7 @@ public class RotamerSearch implements Serializable
 			//			if(addWTRot)
 			//				sr.storeWTRotamers(m);
 
-			sr.addUnperturbedRCs(addWTRot,m);
+			sr.addUnperturbedRCs(m);
 			sr.countRCs();
 		}
 
@@ -2613,7 +2613,7 @@ public class RotamerSearch implements Serializable
 			MutableResParams strandMut, boolean usingInitialBest, BigDecimal initialBest,
 			CommucObj cObj, boolean minimizeBB, boolean doBackrubs, String backrubFile,
 			SaveConfsParams saveConfsParams, int curMut,boolean useMaxKSconfs, BigInteger maxKSconfs,
-			int[] prunedStericPerPos, double Ival, KSParser.ASTARMETHOD asMethod) {
+			int[] prunedStericPerPos, double Ival, Settings.ASTARMETHOD asMethod) {
 
 		// A rotamer search is performed. For each residue,
 		//  every allowable rotamer is tried in combination
@@ -2621,8 +2621,8 @@ public class RotamerSearch implements Serializable
 
 		computeEVEnergy = searchComputeEVEnergy;
 		doMinimization = searchDoMinimization;
-		ASAANums = new int[numberMutable];
-		curStrRotNum = new int[numberMutable];
+//		ASAANums = new int[numberMutable];
+//		curStrRotNum = new int[numberMutable];
 		//curASRotNum = new int[numInAS];
 		//int curResToASMap[] = new int[m.strand[sysStrNum].numberOfResidues];
 		// This map maps the system strand residues back to the AS numbering
@@ -2801,7 +2801,7 @@ public class RotamerSearch implements Serializable
 			boolean doBackrubs, String backrubFile, 
 			SaveConfsParams saveConfsParams, int curMut,
 			boolean useMaxKSconfs, BigInteger maxKSconfs, int[] prunedStericByPos, double Ival,
-			KSParser.ASTARMETHOD asMethod) {
+			Settings.ASTARMETHOD asMethod) {
 
 
 		// If we've arrived here then we're ready to
@@ -2888,7 +2888,7 @@ public class RotamerSearch implements Serializable
 	// Called by slaveMutationRotamerSearch(.)
 	private AStarResults slaveRotamerSearchAStar(int numMutable, MutableResParams strandMut, boolean minimizeBB,
 			boolean doBackrubs, SaveConfsParams saveConfsParams, boolean useMaxKSconfs, BigInteger maxKSconfs,
-			int[] prunedStericByPos, double Ival,KSParser.ASTARMETHOD asMethod){
+			int[] prunedStericByPos, double Ival,Settings.ASTARMETHOD asMethod){
 
 
 		if(doPerturbations)//Make sure minimizer is set properly
@@ -3020,7 +3020,7 @@ public class RotamerSearch implements Serializable
 				break;
 			default:
 				System.out.println("Don't Recognize AStar method... using WCSP with reordering");
-				MSAStarSearch = new PGgurobiAStar(treeLevels,numRotForResNonPruned,arpMatrix,KSParser.ASTARMETHOD.ASWCSPREORDER,es,doPerturbations,m, strandRot, strandMut, cetm);
+				MSAStarSearch = new PGgurobiAStar(treeLevels,numRotForResNonPruned,arpMatrix,Settings.ASTARMETHOD.ASWCSPREORDER,es,doPerturbations,m, strandRot, strandMut, cetm);
 				break;
 			}
 		}
@@ -3741,16 +3741,15 @@ public class RotamerSearch implements Serializable
 
 
 	//Do simple Goldstein DEE
-	public static void DoDEEGoldstein(Emat emat,double initEw, boolean doMinimize, boolean useSF, 
-			boolean minimizeBB, boolean typeDep, boolean useMinDEEPruningEw, double Ival,
+	public static void DoDEEGoldstein(Emat emat,double initEw, boolean useSF, 
+			boolean typeDep, boolean useMinDEEPruningEw, double Ival,
 			boolean distrDEE, boolean[] resInMut,int[] singleStartEnd, boolean removeRot){
 
 		//			System.out.println("Starting pruning with DEE (simple Goldstein)");
 		//arpmatrix has a row/column for the backbone energies, so we just need
 		//the # remaining entries, which is length-1 (only the AS and ligand rotamers)
 		DEEGoldsteinPierceNoIter DEERun = new DEEGoldsteinPierceNoIter(emat, initEw, 
-				doMinimize, useSF, minimizeBB,
-				typeDep, useMinDEEPruningEw, Ival,distrDEE,resInMut,singleStartEnd,removeRot);
+				useSF, typeDep, useMinDEEPruningEw, Ival,distrDEE,resInMut,singleStartEnd,removeRot);
 
 		DEERun.ComputeEliminatedRotConf();
 
@@ -4056,7 +4055,7 @@ public class RotamerSearch implements Serializable
 			boolean searchDoMinimization,int numMutable, 
 			MutableResParams strandMut, int numMut, double Ew, double bestScore, 
 			CommucObj cObj, boolean approxMinGMEC, double lambda, boolean minimizeBB, boolean useEref, 
-			boolean doBackrubs, String backrubFile, boolean useMinDEEPruningEw, double Ival,KSParser.ASTARMETHOD asMethod) {
+			boolean doBackrubs, String backrubFile, boolean useMinDEEPruningEw, double Ival,Settings.ASTARMETHOD asMethod) {
 
 		// A rotamer search is performed. For each residue,
 		//  every allowable rotamer is tried in combination
@@ -4072,8 +4071,8 @@ public class RotamerSearch implements Serializable
 		numConfsEvaluated = BigInteger.ZERO;
 		computeEVEnergy = searchComputeEVEnergy;
 		doMinimization = searchDoMinimization;
-		ASAANums = new int[numberMutable];
-		curStrRotNum = new int[numberMutable];
+		//ASAANums = new int[numberMutable];
+		//curStrRotNum = new int[numberMutable];
 		//curASRotNum = new int[numInAS];
 		//int curResToASMap[] = new int[m.strand[sysStrNum].numberOfResidues];
 		// This map maps the system strand residues back to the AS numbering
@@ -4099,10 +4098,7 @@ public class RotamerSearch implements Serializable
 
 		// Prepare Amber
 		if(searchComputeEVEnergy){
-			// Amber should already be loaded
-			/*if(ligPresent) {
-				a96ff.setLigandNum(m.strand[ligStrNum].residue[0].moleculeResidueNumber);
-			}*/
+			
 			if (doMinimization){
 				if (!minimizeBB){ //side-chain minimization
 					if (simpMin == null&&ccdMin == null) {
@@ -4154,7 +4150,7 @@ public class RotamerSearch implements Serializable
 	private double doAStarGMECHelper(int numMutable, MutableResParams strandMut, String fileName, 
 			int numMut, double Ew, double bestScore, CommucObj cObj, 
 			boolean approxMinGMEC, double lambda, boolean minimizeBB, boolean useEref,  
-			boolean doBackrubs, String backrubFile, boolean useMinDEEPruningEw, double Ival, KSParser.ASTARMETHOD asMethod){
+			boolean doBackrubs, String backrubFile, boolean useMinDEEPruningEw, double Ival, Settings.ASTARMETHOD asMethod){
 
 		boolean outputFile = (fileName!=null); //output to file
 
@@ -4672,10 +4668,7 @@ public class RotamerSearch implements Serializable
 						a96ff.setNBEval(hElect,hVDW);
 						if (doMinimization){
 							if (!minimizeBB){
-								/*if(ligPresent){
-                                                                    simpMin.initialize(m,sysStrNum,ligStrNum,a96ff,sysLR,ligROT,curAANum,curLigAANum,doDihedE,rl,grl);
-                                                            }
-                                                                    else*/
+								
 								if(useCCD){
 									efunc = new ForceFieldEnergy(m, a96ff);
 									ContSCObjFunction of = new ContSCObjFunction(m,numberOfStrands,efunc,strandRot,doDihedE,null);

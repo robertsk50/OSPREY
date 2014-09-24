@@ -11,6 +11,7 @@ public class BakerHBond {
 
 	public static final byte SP2 = 1;
 	public static final byte SP3 = 2;
+	public static final byte RING = 2;
 
 	//KER: HBond Poly1DOld Functions
 	Poly1DOld delta_bb_helix;
@@ -177,7 +178,8 @@ public class BakerHBond {
 	public void calculateHBondEnergy(double[] coordinates, int curIndex,
 			double[] energyTerms, Molecule m) {
 
-		int atomix3, atomjx3, atomi, atomj, atomk, atomkx3, atoml, atomlx3, atomm, atommx3;
+		int atomix3, atomjx3, atomi, atomj, atomk, atomkx3;//, atoml, atomlx3, atomm, atommx3;
+		int atomb=0, atombx3=0, atomb2=0, atomb2x3=0; //atom bases
 		double rij, rij2;
 		double cx, cy, cz, cmag;
 		double dx, dy, dz, ex, ey, ez, dmag, emag;
@@ -277,7 +279,7 @@ public class BakerHBond {
 					sDelta = delta_bb_other.getSmoothVal(rij);
 				}
 			}
-			else if(acceptType == SP2){
+			else if(acceptType == SP2 || acceptType == RING){
 				Edelta = delta_sc_sp2.getVal(rij);
 				sDelta = delta_sc_sp2.getSmoothVal(rij);
 			}
@@ -329,7 +331,7 @@ public class BakerHBond {
 				}
 			}
 			else if(rij < 2.1){
-				if(acceptType == SP2){
+				if(acceptType == SP2 || acceptType == RING){
 					Etheta = theta_sc_sp2_short.getVal(costheta);
 					sTheta = theta_sc_sp2_short.getSmoothVal(costheta);
 				}
@@ -339,7 +341,7 @@ public class BakerHBond {
 				}
 			}
 			else if(rij >= 2.1){
-				if(acceptType == SP2){
+				if(acceptType == SP2 || acceptType == RING){
 					Etheta = theta_sc_sp2_long.getVal(costheta);
 					sTheta = theta_sc_sp2_long.getSmoothVal(costheta);
 				}
@@ -359,19 +361,38 @@ public class BakerHBond {
 			//Determine Phi
 			//Hydro-Accept-Base
 			Atom base = null;
+			Atom base2 = null;
+
 			for(int i=0; i<hbp.accept.bond.length;i++){
 				if(!m.atom[hbp.accept.bond[i]].elementType.equals("H")){ //Want a heavy atom
-					base = m.atom[hbp.accept.bond[i]];
+					if(base == null){
+						base = m.atom[hbp.accept.bond[i]];
+						atomb = base.moleculeAtomNumber;
+						atombx3 = atomb*3;
+					}
+					else{
+						base2 = m.atom[hbp.accept.bond[i]];
+						atomb2 = base2.moleculeAtomNumber;
+						atomb2x3 = atomb2*3;
+					}
+				}else if(base2 == null){
+					base2 = m.atom[hbp.accept.bond[i]];
+					atomb2 = base2.moleculeAtomNumber;
+					atomb2x3 = atomb2*3;
 				}
 			}
 
-			atoml = base.moleculeAtomNumber;
-			atomlx3 = atoml*3;
 
 			//Accept-Base
-			ex = coordinates[atomkx3] - coordinates[atomlx3];
-			ey = coordinates[atomkx3 + 1] - coordinates[atomlx3 + 1];
-			ez = coordinates[atomkx3 + 2] - coordinates[atomlx3 + 2];
+			if(hbp.accept.hybridization == RING){ //If acceptor is a ring, then we average the two base atoms
+				ex = coordinates[atomkx3] - 0.5*(coordinates[atombx3]+coordinates[atomb2x3]);
+				ey = coordinates[atomkx3 + 1] - 0.5*(coordinates[atombx3 + 1]+coordinates[atomb2x3 + 1]);
+				ez = coordinates[atomkx3 + 2] - 0.5*(coordinates[atombx3 + 2]+coordinates[atomb2x3 + 2]);
+			} else{
+				ex = coordinates[atomkx3] - coordinates[atombx3];
+				ey = coordinates[atomkx3 + 1] - coordinates[atombx3 + 1];
+				ez = coordinates[atomkx3 + 2] - coordinates[atombx3 + 2];
+			}
 			emag = Math.sqrt(ex*ex + ey*ey + ez*ez);
 
 			cosPhi = (dx*ex + dy*ey + dz*ez) / (dmag * -emag);
@@ -395,7 +416,7 @@ public class BakerHBond {
 				}
 			}
 			else if(rij < 2.1){
-				if(acceptType == SP2){
+				if(acceptType == SP2 || acceptType == RING){
 					Ephi = phi_sc_sp2_short.getVal(cosPhi);
 					sPhi = phi_sc_sp2_short.getSmoothVal(cosPhi);
 				}
@@ -405,7 +426,7 @@ public class BakerHBond {
 				}
 			}
 			else if(rij >= 2.1){
-				if(acceptType == SP2){
+				if(acceptType == SP2 || acceptType == RING){
 					Ephi = phi_sc_sp2_long.getVal(cosPhi);
 					sPhi = phi_sc_sp2_long.getSmoothVal(cosPhi);
 				}
@@ -426,43 +447,42 @@ public class BakerHBond {
 
 			//Determine chi
 			//Not calculating chi right now
-			if(acceptType == SP2 ){
-				Atom R1 = null;
-				for(int i=0; i<base.bond.length;i++){
-					if(m.atom[base.bond[i]].elementType.equals("C") && m.atom[base.bond[i]].moleculeResidueNumber == base.moleculeResidueNumber 
-							&& m.atom[base.bond[i]].moleculeAtomNumber != atomk){ //Doesn't equal the acceptor
-						R1 = m.atom[base.bond[i]];
-					}
-				}	
-				if(R1 == null){
+			if(acceptType == SP2  || acceptType == RING){
+				if(base2 == null){
 					for(int i=0; i<base.bond.length;i++){
-						if(m.atom[base.bond[i]].elementType.equals("N") && m.atom[base.bond[i]].moleculeResidueNumber == base.moleculeResidueNumber
-								&& m.atom[base.bond[i]].moleculeAtomNumber != atomk){
-							R1 = m.atom[base.bond[i]];
+						if(m.atom[base.bond[i]].elementType.equals("C") && m.atom[base.bond[i]].moleculeResidueNumber == base.moleculeResidueNumber 
+								&& m.atom[base.bond[i]].moleculeAtomNumber != atomk){ //Doesn't equal the acceptor
+							base2 = m.atom[base.bond[i]];
+						}
+					}	
+					if(base2 == null){
+						for(int i=0; i<base.bond.length;i++){
+							if(m.atom[base.bond[i]].elementType.equals("N") && m.atom[base.bond[i]].moleculeResidueNumber == base.moleculeResidueNumber
+									&& m.atom[base.bond[i]].moleculeAtomNumber != atomk){
+								base2 = m.atom[base.bond[i]];
+							}
 						}
 					}
-				}
-				if(R1 == null){ //if it's still equal to null we find the connected atom with the most bonds
-					int maxBonds = -1; //if tied we should recurse, but I don't do that yet
-					int maxAtom = -1;
-					for(int i=0; i<base.bond.length;i++){
-						if(m.atom[base.bond[i]].bond.length > maxBonds){
-							maxBonds = m.atom[base.bond[i]].bond.length;
-							maxAtom = base.bond[i];
+					if(base2 == null){ //if it's still equal to null we find the connected atom with the most bonds
+						int maxBonds = -1; //if tied we should recurse, but I don't do that yet
+						int maxAtom = -1;
+						for(int i=0; i<base.bond.length;i++){
+							if(m.atom[base.bond[i]].bond.length > maxBonds){
+								maxBonds = m.atom[base.bond[i]].bond.length;
+								maxAtom = base.bond[i];
+							}
 						}
+						base2 = m.atom[maxAtom];
+
 					}
-					R1 = m.atom[maxAtom];
-
-				}
-
-
-				atomm = R1.moleculeAtomNumber;
-				atommx3 = atomm*3;
+					atomb2 = base2.moleculeAtomNumber;
+					atomb2x3 = atomb2*3;
+					}
 
 				//Accept-Base
-				fx = coordinates[atomlx3] - coordinates[atommx3];
-				fy = coordinates[atomlx3 + 1] - coordinates[atommx3 + 1];
-				fz = coordinates[atomlx3 + 2] - coordinates[atommx3 + 2];
+				fx = coordinates[atombx3] - coordinates[atomb2x3];
+				fy = coordinates[atombx3 + 1] - coordinates[atomb2x3 + 1];
+				fz = coordinates[atombx3 + 2] - coordinates[atomb2x3 + 2];
 				fmag = Math.sqrt(fx*fx + fy*fy + fz*fz);
 
 
@@ -499,13 +519,13 @@ public class BakerHBond {
 				}
 				else if(rij < 2.1){
 					if(chi < 0){chi = -chi;}
-					if(acceptType == SP2){
+					if(acceptType == SP2 || acceptType == RING){
 						Echi = chi_sc_sp2_short.getVal(chi);
 					}	
 				}
 				else if(rij >= 2.1){
 					if(chi < 0){chi = -chi;}
-					if(acceptType == SP2){
+					if(acceptType == SP2 || acceptType == RING){
 						Echi = chi_sc_sp2_long.getVal(chi);
 					}
 				}
@@ -543,7 +563,8 @@ public class BakerHBond {
 
 
 
-		int atomDx3, atomHx3, atomD, atomH, atomA, atomAx3, atomB, atomBx3, atomC, atomCx3;
+		int atomDx3, atomHx3, atomD, atomH, atomA, atomAx3, atomC, atomCx3;
+		int atomB=0, atomBx3=0, atomB2=0, atomB2x3=0;
 		double rij, rij2;
 		double DHx, DHy, DHz, DHmag;
 		double BCx, BCy, BCz, BCmag;
@@ -652,7 +673,7 @@ public class BakerHBond {
 					sDelta = delta_bb_other.getSmoothVal(rij);
 				}
 			}
-			else if(acceptType == SP2){
+			else if(acceptType == SP2 || acceptType == RING){
 				delta_sc_sp2.getValueAndDeriv(rij,HAvalDeriv);
 				sDelta = delta_sc_sp2.getSmoothVal(rij);
 			}
@@ -702,7 +723,7 @@ public class BakerHBond {
 				}
 			}
 			else if(rij < 2.1){
-				if(acceptType == SP2){
+				if(acceptType == SP2 || acceptType == RING){
 					theta_sc_sp2_short.getValueAndDeriv(cosTheta,cosThetaValDeriv);
 					sTheta = theta_sc_sp2_short.getSmoothVal(cosTheta);
 				}
@@ -712,7 +733,7 @@ public class BakerHBond {
 				}
 			}
 			else if(rij >= 2.1){
-				if(acceptType == SP2){
+				if(acceptType == SP2 || acceptType == RING){
 					theta_sc_sp2_long.getValueAndDeriv(cosTheta,cosThetaValDeriv);
 					sTheta = theta_sc_sp2_long.getSmoothVal(cosTheta);
 				}
@@ -742,9 +763,24 @@ public class BakerHBond {
 			//Determine Phi
 			//Hydro-Accept-Base
 			Atom base = null;
+			Atom base2 = null;
+
 			for(int i=0; i<hbp.accept.bond.length;i++){
-				if(!m.atom[hbp.accept.bond[i]].elementType.equals("H")){ //Want Heavy Atom
-					base = m.atom[hbp.accept.bond[i]];
+				if(!m.atom[hbp.accept.bond[i]].elementType.equals("H")){ //Want a heavy atom
+					if(base == null){
+						base = m.atom[hbp.accept.bond[i]];
+						atomB = base.moleculeAtomNumber;
+						atomBx3 = atomB*3;
+					}
+					else{
+						base2 = m.atom[hbp.accept.bond[i]];
+						atomB2 = base2.moleculeAtomNumber;
+						atomB2x3 = atomB2*3;
+					}
+				}else if(base2 == null){
+					base2 = m.atom[hbp.accept.bond[i]];
+					atomB2 = base2.moleculeAtomNumber;
+					atomB2x3 = atomB2*3;
 				}
 			}
 
@@ -752,9 +788,17 @@ public class BakerHBond {
 			atomBx3 = atomB*3;
 
 			//Accept-Base
-			ABx = m.actualCoordinates[atomAx3] - m.actualCoordinates[atomBx3];
-			ABy = m.actualCoordinates[atomAx3 + 1] - m.actualCoordinates[atomBx3 + 1];
-			ABz = m.actualCoordinates[atomAx3 + 2] - m.actualCoordinates[atomBx3 + 2];
+			if(hbp.accept.hybridization == RING){
+				ABx = m.actualCoordinates[atomAx3] - 0.5*(m.actualCoordinates[atomBx3]+m.actualCoordinates[atomB2x3]);
+				ABy = m.actualCoordinates[atomAx3 + 1] - 0.5*(m.actualCoordinates[atomBx3 + 1]+m.actualCoordinates[atomB2x3 + 1]);
+				ABz = m.actualCoordinates[atomAx3 + 2] - 0.5*(m.actualCoordinates[atomBx3 + 2]+m.actualCoordinates[atomB2x3 + 2]);
+			} else{
+				ABx = m.actualCoordinates[atomAx3] - m.actualCoordinates[atomBx3];
+				ABy = m.actualCoordinates[atomAx3 + 1] - m.actualCoordinates[atomBx3 + 1];
+				ABz = m.actualCoordinates[atomAx3 + 2] - m.actualCoordinates[atomBx3 + 2];
+			}
+			
+			//Accept-Base
 			ABmag = Math.sqrt(ABx*ABx + ABy*ABy + ABz*ABz);
 
 
@@ -777,7 +821,7 @@ public class BakerHBond {
 				}
 			}
 			else if(rij < 2.1){
-				if(acceptType == SP2){
+				if(acceptType == SP2 || acceptType == RING){
 					phi_sc_sp2_short.getValueAndDeriv(cosPhi,cosPhiValDeriv);
 					sPhi = phi_sc_sp2_short.getSmoothVal(cosPhi);
 				}
@@ -787,7 +831,7 @@ public class BakerHBond {
 				}
 			}
 			else if(rij >= 2.1){
-				if(acceptType == SP2){
+				if(acceptType == SP2 || acceptType == RING){
 					phi_sc_sp2_long.getValueAndDeriv(cosPhi,cosPhiValDeriv);
 					sPhi = phi_sc_sp2_long.getSmoothVal(cosPhi);
 				}
@@ -818,7 +862,7 @@ public class BakerHBond {
 
 			//Determine chi
 			//Using derivative formulation from 
-			if(acceptType == SP2 ){
+			if(acceptType == SP2 || acceptType == RING ){
 				Atom R1 = null;
 				for(int i=0; i<base.bond.length;i++){
 					if(m.atom[base.bond[i]].elementType.equals("C") && m.atom[base.bond[i]].moleculeResidueNumber == base.moleculeResidueNumber){
@@ -891,13 +935,13 @@ public class BakerHBond {
 				}
 				else if(rij < 2.1){
 					if(chi < 0){chi = -chi;}
-					if(acceptType == SP2){
+					if(acceptType == SP2 || acceptType == RING){
 						chi_sc_sp2_short.getValueAndDeriv(chi,chiValDeriv);
 					}	
 				}
 				else if(rij >= 2.1){
 					if(chi < 0){chi = -chi;}
-					if(acceptType == SP2){
+					if(acceptType == SP2 || acceptType == RING){
 						chi_sc_sp2_long.getValueAndDeriv(chi,chiValDeriv);
 					}
 				}
@@ -994,12 +1038,15 @@ public class BakerHBond {
 	private byte getHybridization(String ffType) {
 		//Check SP2
 		if(ffType.equals("N") || ffType.equals("O") || ffType.equals("O2") || ffType.equals("NA") ||
-				ffType.equals("NB") || ffType.equals("NC") || ffType.equals("N*") || ffType.equals("N2") || ffType.equals("NT")){
+				ffType.equals("NC") || ffType.equals("N*") || ffType.equals("N2") || ffType.equals("NT")){
 			return SP2;
 		}
 		//Check SP3
 		else if(ffType.equals("N3") || ffType.equals("OH") || ffType.equals("OW") || ffType.equals("OS") ){
 			return SP3;
+		}
+		else if(ffType.equals("NB")){
+			return RING;
 		}
 		else{
 			System.out.println("Do not recognize hybridization type of atom: "+ffType);

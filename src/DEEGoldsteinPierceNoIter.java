@@ -125,7 +125,7 @@ public class DEEGoldsteinPierceNoIter {
 	int numRuns = 1;
 
 	//determines if energy minimization is performed: either traditional-DEE or MinDEE is used
-	boolean doMinimize = false;
+//	boolean doMinimize = false;
 
 	//the single and pair interval terms in the MinDEE criterion
 //	double indIntMinDEE[] = null;
@@ -138,17 +138,17 @@ public class DEEGoldsteinPierceNoIter {
 	boolean useFlags = false;
 
 	//determines if backbone minimization is performed
-	boolean minimizeBB = false;
+//	boolean minimizeBB = false;
 
 	//the template interval energy (0.0 if fixed backbone)
-	double templateInt = 0.0f;
+//	double templateInt = 0.0f;
 
 	// 2010: iMinDEE
 	boolean doIMinDEE = false;
 	double Ival = 0.0;
 	double initEw = 0.0;
 
-	boolean getFalseMax = true;
+//	boolean getFalseMax = true;
 
 	private boolean distrDEE;
 	private boolean[] resInMut;
@@ -164,16 +164,15 @@ public class DEEGoldsteinPierceNoIter {
 
 	//constructor
 	DEEGoldsteinPierceNoIter(Emat arpMatrix,
-			double initEw, 
-			boolean doMin, boolean useSF, boolean minBB,
+			double initEw, boolean useSF, 
 			boolean typeDep, boolean iMinDEE, double Ival, 
 			boolean distrDEE, boolean[] resInMut, int[] singleStartEnd, boolean removeRot) {
 
-		doMinimize = doMin;
+//		doMinimize = doMin;
 		typeDependent = typeDep;
 		doIMinDEE = iMinDEE;
 		this.removeRot = removeRot; 
-		getFalseMax = !doMinimize || doIMinDEE;
+//		getFalseMax = !doMinimize || doIMinDEE;
 
 		pairwiseMinEnergyMatrix = arpMatrix;
 		// 2010: No max matrix if doIMinDEE set
@@ -195,7 +194,7 @@ public class DEEGoldsteinPierceNoIter {
 		//sysLR = systemLRot;
 		//rl = rlP;
 		useFlags = useSF;
-		minimizeBB = minBB;
+//		minimizeBB = minBB;
 
 
 		//numMutable = numResMutable;
@@ -216,10 +215,10 @@ public class DEEGoldsteinPierceNoIter {
 
 		numRuns = 1;
 
-		templateInt = 0.0f;
-		if (minimizeBB){ //backbone minimization, so we need the template interval energy (otherwise, templateInt will be 0.0)
-			templateInt = pairwiseMinEnergyMatrix.getTemplMaxE(doIMinDEE)-pairwiseMinEnergyMatrix.getTemplMinE();//pairwiseMaxEnergyMatrix[pairwiseMaxEnergyMatrix.length-1][0][0][0][0][0] - pairwiseMinEnergyMatrix[pairwiseMinEnergyMatrix.length-1][0][0][0][0][0];
-		}
+//		templateInt = 0.0f;
+//		if (minimizeBB){ //backbone minimization, so we need the template interval energy (otherwise, templateInt will be 0.0)
+//			templateInt = pairwiseMinEnergyMatrix.getTemplMaxE(doIMinDEE)-pairwiseMinEnergyMatrix.getTemplMinE();//pairwiseMaxEnergyMatrix[pairwiseMaxEnergyMatrix.length-1][0][0][0][0][0] - pairwiseMinEnergyMatrix[pairwiseMinEnergyMatrix.length-1][0][0][0][0][0];
+//		}
 	}
 
 	//return the split flags for all rotamer pairs
@@ -335,7 +334,7 @@ public class DEEGoldsteinPierceNoIter {
 //			if (!((i_r.aa1()==i_t.aa1())&&(i_r.rot1()==i_t.rot1()))){
 
 				checkSum = pairwiseMinEnergyMatrix.singles.E[pos][i_r_aa][i_r_rot] - pairwiseMinEnergyMatrix.singles.E[pos][i_t_aa][i_t_rot];//pairwiseMinEnergyMatrix.getIntraE(altRe.index).maxE(doIMinDEE);//  [posNum][altAA][altRot][posNum][0][0];		//formula term 2
-				checkSum += -templateInt;
+//				checkSum += -templateInt;
 
 				minDiffPairVoxelE = SumMinDiffPVE(pos, i_r_aa,i_r_rot, i_t_aa,i_t_rot);	//formula term 5
 

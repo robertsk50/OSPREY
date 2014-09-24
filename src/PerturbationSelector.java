@@ -57,7 +57,7 @@ import java.io.*;
 public class PerturbationSelector {
     //This class selects perturbations to apply to a particular molecule, and RCs to allow with those perturbations
 
-    boolean addWTRot;//Should the wild-type "rotamers" be considered?
+//    boolean addWTRot;//Should the wild-type "rotamers" be considered?
 
     int flexMolResNum[];//Molecule residue numbers of flexible residues
     int numMutable;//Total number of flexible residues
@@ -73,10 +73,10 @@ public class PerturbationSelector {
 
     //Now some parameters
 
-    public PerturbationSelector(int numMut, MutableResParams strandMut, boolean addWTRotamers, Molecule molec,
+    public PerturbationSelector(int numMut, MutableResParams strandMut, Molecule molec,
             StrandRotamers[] strandRot, double minrmsd, String startPF, boolean onlyStart){
 
-        addWTRot = addWTRotamers;
+//        addWTRot = addWTRotamers;
 
         numMutable = numMut;
         flexMolResNum = new int[numMutable];
@@ -173,9 +173,9 @@ public class PerturbationSelector {
 
       
         for(int str=0; str<m.numberOfStrands; str++){
-            if(addWTRot)
-                sRC[str].storeWTRotamers(m);
-            sRC[str].addUnperturbedRCs(addWTRot,m);
+//            if(addWTRot)
+//                sRC[str].storeWTRotamers(m);
+            sRC[str].addUnperturbedRCs(m);
         }
 
 
