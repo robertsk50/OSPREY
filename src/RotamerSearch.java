@@ -1624,8 +1624,24 @@ public class RotamerSearch implements Serializable
 		beginE = (double)efunc.getEnergy();
 
 		//Minimize
-		if(useCCD)
+		if(useCCD){
 			ccdMin.minimize();
+			if(arpMatrix.doDih()){
+				Residue[] res1 = new Residue[arpMatrix.resByPos.get(runParams.pos1).size()];
+				int ctr=0;
+				for(int resID: arpMatrix.resByPos.get(runParams.pos1))
+					res1[ctr++] = m.residue[resID];
+				Residue[] res2 = new Residue[0];
+				if(!shellRun){
+					res2 = new Residue[arpMatrix.resByPos.get(runParams.pos2).size()];
+					ctr=0;
+					for(int resID: arpMatrix.resByPos.get(runParams.pos2))
+						res2[ctr++] = m.residue[resID];
+				}
+					
+				dihedrals = ccdMin.getCurSCDihedrals(res1, res2);
+			}
+		}
 		else{
 			simpMin.minimize(numMinSteps);
 			if(arpMatrix.doDih()){
@@ -4051,9 +4067,9 @@ public class RotamerSearch implements Serializable
 	//////////////////////////////////////////////////////////////////////////
 	//	Compute Min GMEC section
 	//////////////////////////////////////////////////////////////////////////
-	public double doAStarGMEC(String fileName, boolean searchComputeEVEnergy, 
+	public AStarResults doAStarGMEC(String fileName, boolean searchComputeEVEnergy, 
 			boolean searchDoMinimization,int numMutable, 
-			MutableResParams strandMut, int numMut, double Ew, double bestScore, 
+			MutableResParams strandMut, double Ew, double bestScore, 
 			CommucObj cObj, boolean approxMinGMEC, double lambda, boolean minimizeBB, boolean useEref, 
 			boolean doBackrubs, String backrubFile, boolean useMinDEEPruningEw, double Ival,Settings.ASTARMETHOD asMethod) {
 
@@ -4085,15 +4101,9 @@ public class RotamerSearch implements Serializable
 			m.residue[strandMut.allMut[i]].flexible = true;
 		}
 
-		/*for (int i=0; i<numInAS; i++) //the AS residues are flexible - this is used by simpMin to set up the minimizer
-			m.residue[residueMap[i]].flexible = true;
-		if (ligPresent) //the ligand is also flexible
-			m.strand[ligStrNum].residue[0].flexible = true;*/
-
-
 		if (searchDoMinimization && !searchComputeEVEnergy){
 			System.out.println("Warning: In order to do minimization computeEVEnergy must be true");
-			return -1;
+			return null;
 		}
 
 		// Prepare Amber
@@ -4103,7 +4113,7 @@ public class RotamerSearch implements Serializable
 				if (!minimizeBB){ //side-chain minimization
 					if (simpMin == null&&ccdMin == null) {
 						System.out.println("Warning: Attempting minimization run but simpMin not allocated, RotamerSearch aborting");
-						return -1;
+						return null;
 					}
 					bbMin = null;
 					brMin = null;
@@ -4112,7 +4122,7 @@ public class RotamerSearch implements Serializable
 					if (!doBackrubs){
 						if (bbMin == null) {
 							System.out.println("Warning: Attempting minimization run but bbMin not allocated, RotamerSearch aborting");
-							return -1;
+							return null;
 						}
 						simpMin = null;
 						brMin = null;
@@ -4120,7 +4130,7 @@ public class RotamerSearch implements Serializable
 					else {
 						if (brMin == null) {
 							System.out.println("Warning: Attempting minimization run but brMin not allocated, RotamerSearch aborting");
-							return -1;
+							return null;
 						}
 						simpMin = null;
 						bbMin = null;
@@ -4132,10 +4142,10 @@ public class RotamerSearch implements Serializable
 		// Make sure the allRotamerPairsEnergyName matrices exist
 		if (arpMatrix == null) {
 			System.out.println("Warning: allRotamerPairsEnergy matrix not loaded");
-			return -1;
+			return null;
 		}
 
-		double asr = doAStarGMECHelper(numMutable, strandMut, fileName, numMut, Ew, bestScore, cObj, 
+		AStarResults asr = doAStarGMECHelper(numMutable, strandMut, fileName, Ew, bestScore, cObj, 
 				approxMinGMEC, lambda, minimizeBB, useEref, doBackrubs, backrubFile, useMinDEEPruningEw, Ival, asMethod);
 
 		if(MSAStarSearch != null){
@@ -4147,8 +4157,8 @@ public class RotamerSearch implements Serializable
 	// Calls AStar repeatedly while the returned conformations still have energy below the threshold;
 	//		computes the partial partition function q*;
 	// Called by mutationRotamerSearch(.)
-	private double doAStarGMECHelper(int numMutable, MutableResParams strandMut, String fileName, 
-			int numMut, double Ew, double bestScore, CommucObj cObj, 
+	private AStarResults doAStarGMECHelper(int numMutable, MutableResParams strandMut, String fileName, 
+			double Ew, double bestScore, CommucObj cObj, 
 			boolean approxMinGMEC, double lambda, boolean minimizeBB, boolean useEref,  
 			boolean doBackrubs, String backrubFile, boolean useMinDEEPruningEw, double Ival, Settings.ASTARMETHOD asMethod){
 
@@ -4210,7 +4220,7 @@ public class RotamerSearch implements Serializable
 					System.exit(0);
 				}
 
-				return -1;
+				return null;
 			}
 			else {
 				numTotalRotRedNonPruned += numRotForResNonPruned[curLevel];
@@ -4331,6 +4341,7 @@ public class RotamerSearch implements Serializable
 		EMatrixEntryWIndex conf[] = new EMatrixEntryWIndex[treeLevels];//the rotamer sequence			
 		int numConfsOutput = 0;//num confs output to file
 		double lowestBound = stericE;
+		double minELowerBound = stericE;
 
 
 		if(es.useEPIC){
@@ -4398,7 +4409,7 @@ public class RotamerSearch implements Serializable
 					logPS.flush(); //there may still be results to output
 				}
 				//					return new AStarResults(getBestE(),lowestBound,numConfsEvaluated.longValue(),minELowerBound);
-				return getBestE() - lowestBound;
+				return new AStarResults(getBestE(),lowestBound,numConfsEvaluated.longValue(),minELowerBound);
 			}
 			conf = curNode.actualConf;
 
@@ -4508,14 +4519,15 @@ public class RotamerSearch implements Serializable
 			double unMinE = 0.0f;
 			double minE = 0.0f;
 
-			double minELowerBound = computeBestRotEnergyBound(curAANums, curRotNums);///*numTotalRotamers,rotamerIndexOffset*/);
+			minELowerBound = computeBestRotEnergyBound(curAANums, curRotNums);///*numTotalRotamers,rotamerIndexOffset*/);
 
 			double minTime = 0;
 			double minTimeEPIC = 0;
 
 			if(es.gettingLowestBound){
 				es.lowestBound = minELowerBound;
-				return 0;//not going to use the interval in this case, just wanted the lowestBound
+				return new AStarResults(getBestE(),lowestBound,numConfsEvaluated.longValue(),minELowerBound);
+//				return 0;//not going to use the interval in this case, just wanted the lowestBound
 			}
 
 
@@ -4621,13 +4633,15 @@ public class RotamerSearch implements Serializable
 						//depending on the EpicFitter samples (hence we need a tolerance).  
 						//But the variation should be (generally much) less than thermal energy, so we use that as tolerance
 						if(run1)//if first conformation, haven't updated best E yet, so just use our single conformational energy so far 
-							return (minE-lowestBound+IvalTol);
+							return new AStarResults(minE,lowestBound,numConfsEvaluated.longValue(),minELowerBound);
+//							return (minE-lowestBound+IvalTol);
 						else//use best so far
-							return (getBestE()-lowestBound+IvalTol);
+							return new AStarResults(getBestE(),lowestBound,numConfsEvaluated.longValue(),minELowerBound);
+//							return (getBestE()-lowestBound+IvalTol);
 					}
 				}
 				else if(lowestBound+Ival+Ew < minELowerBound /*|| getBestE()+Ew < minELowerBound*/){ // We are not done and we pruned too much, repeat search
-					return (getBestE()-lowestBound);
+					return new AStarResults(getBestE(),lowestBound,numConfsEvaluated.longValue(),minELowerBound);
 				}			  
 			}
 
@@ -4652,9 +4666,9 @@ public class RotamerSearch implements Serializable
 					logPS.flush();
 				}
 				if(useMinDEEPruningEw && !approxMinGMEC)
-					return (getBestE()-lowestBound);
+					return new AStarResults(getBestE(),lowestBound,numConfsEvaluated.longValue(),minELowerBound);
 				else
-					return 0; //stop the search
+					return new AStarResults(lowestBound,lowestBound,numConfsEvaluated.longValue(),minELowerBound); //stop the search
 			}
 
 			else{
@@ -5567,7 +5581,8 @@ public class RotamerSearch implements Serializable
 	private void saveConf(EMatrixEntryWIndex[] conf, double energy, String filename, 
 			boolean minimizeBB, boolean doBackrubs) {
 		m.backupAtomCoord();
-		applyRotamers(conf);
+		applyRCs(conf);
+		//TODO: Use CCD minimization if it is turned on
 		if(doMinimization){
 			if(!minimizeBB)
 				simpMin.minimize(numMinSteps);
@@ -5590,14 +5605,14 @@ public class RotamerSearch implements Serializable
 	/**
 	 * @param conf
 	 */
-	public void applyRotamers(EMatrixEntryWIndex[] conf) {
+	public void applyRCs(EMatrixEntryWIndex[] conf) {
 		//Apply the rotamers of the current conformation
 
 
 		for(int i=0; i<arpMatrix.resByPos.size();i++){
 			for(int j=0; j<arpMatrix.resByPos.get(i).size();j++){
 				Residue r = m.residue[arpMatrix.resByPos.get(i).get(j)];
-				MutUtils.applyRotamer(m, r.rl.getRot(arpMatrix.singles.getRot(conf[i].index)[j]), r);
+				MutUtils.applyRC(m, r, m.strand[r.strandNumber].rcl.getRC(arpMatrix.singles.getRot(conf[i].index)[j]));
 
 			}
 		}

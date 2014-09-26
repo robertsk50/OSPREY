@@ -180,12 +180,12 @@ public class SimpleMinimizer implements Serializable {
 	int flexResListSize[] = new int[0];
 		// the number of valid elements in each
 		//  row of flexResAtomList
+	int strDihedToFlexNum[][] = null;
+		// mapping from dihedral number to flexible residue
+		//  number index
 	int strDihedToResNum[][] = null;
 		// mapping from dihedral number to residue
 		//  number
-	//int ligResNum = -1;
-		// the residue index of the ligand in the
-		//  flexResAtomList, flexResListSize
 	int totalFlexRes = 0;
 	int totalTransRotStrands = 0;
 	StrandRotamers[] strandRot = null;
@@ -274,12 +274,14 @@ public class SimpleMinimizer implements Serializable {
 		strDihedralAtNums = new int[numberOfStrands][][];
 		strDihedralDistal = new int[numberOfStrands][][];
 		strNumAtomsDistal = new int[numberOfStrands][];
+		strDihedToFlexNum  = new int[numberOfStrands][];
 		strDihedToResNum  = new int[numberOfStrands][];
 		
 		for(int i=0;i<numberOfStrands;i++){
 			strDihedralAtNums[i] = new int[numStrDihedrals[i]][4];
 			strDihedralDistal[i] = new int[numStrDihedrals[i]][MAX_NUM_ATOMS_DISTAL];
 			strNumAtomsDistal[i] = new int[numStrDihedrals[i]];
+			strDihedToFlexNum[i]  = new int[numStrDihedrals[i]];
 			strDihedToResNum[i]  = new int[numStrDihedrals[i]];
 		}		
 		
@@ -346,7 +348,8 @@ public class SimpleMinimizer implements Serializable {
 				if(localRes.flexible){
 					Rotamer curRotamer = localRes.curRC.rot;
 					for(int j=0;j<curRotamer.aaType.numDihedrals();j++){
-						strDihedToResNum[str][numDihed] = curNumFlex;
+						strDihedToFlexNum[str][numDihed] = curNumFlex;
+						strDihedToResNum[str][numDihed] = localRes.moleculeResidueNumber;
 						atoms = strandRot[str].rl.getDihedralInfo(m,str,i,j);
 					// note: atoms are residue relative numbering
 						strDihedralAtNums[str][numDihed][0] = localRes.atom[atoms[0]].moleculeAtomNumber;
@@ -1326,7 +1329,7 @@ public class SimpleMinimizer implements Serializable {
 			for(int str=0; str<numberOfStrands;str++){
 				for(int j=0;j<numStrDihedrals[str];j++) {
 					strDihedDiff[str][j] = computeDihedDiff(strDihedralAtNums[str][j],strDihedralDistal[str][j],
-						strNumAtomsDistal[str][j],strDihedToResNum[str][j], step, str, j);
+						strNumAtomsDistal[str][j],strDihedToFlexNum[str][j], step, str, j);
 					updateCumulative(strCumulativeDihedStep[str],strDihedDiff[str],j,lmaxMovement);
 					applyDihedStep(strDihedralAtNums[str][j],strDihedralDistal[str][j],strNumAtomsDistal[str][j],strDihedDiff[str][j]);
 				}

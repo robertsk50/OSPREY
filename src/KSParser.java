@@ -305,6 +305,10 @@ public class KSParser
 
 		else if (firstToken.equalsIgnoreCase("doDEE"))
 			handleDoDEE(s);
+		else if (firstToken.equalsIgnoreCase("doExpandedDEE"))
+			handleExpandedIMinDEE(s,true);
+		else if (firstToken.equalsIgnoreCase("doExpandedMatrix"))
+			handleExpandedIMinDEE(s,false);
 		else if (firstToken.equalsIgnoreCase("genStructDEE"))
 			handleMinDEEApplyRot(s);
 		else if (firstToken.equalsIgnoreCase("generateRandConfs"))
@@ -496,32 +500,6 @@ public class KSParser
 		return (factorial(n-1).multiply(BigInteger.valueOf(n)));
 	}
 
-	public void saveMolecule(Molecule m, String fname, double energy){
-
-		try{
-			FileOutputStream fileOutputStream = new FileOutputStream(fname);
-			BufferedOutputStream bufferedOutputStream = new BufferedOutputStream( 
-					fileOutputStream);
-			PrintStream printStream = new PrintStream(bufferedOutputStream);
-			Hashtable params = new Hashtable(7);
-			params.put("printSegID",new Boolean(printSegID));
-			params.put("comment","");
-			params.put("energy", energy);
-			params.put("showConnect",new Boolean(false));					
-			new SaveMolecule(m, printStream, params); 
-			printStream.close();
-		}
-		catch (IOException e) {
-			System.out.println("ERROR: An io exception occurred while writing file: "+fname);
-			System.exit(0);
-		}
-		catch ( Exception e ){
-			System.out.println(e.toString());
-			System.out.println("ERROR: An exception occurred while writing file: "+fname);
-			System.exit(0);
-		}
-	}
-
 	// This function generates all possible combinations of n choose m
 	public void generateCombinations(int residueMutatable[][], int n, int m) {
 
@@ -574,9 +552,6 @@ public class KSParser
 	//Sets up the molecule system and returns the number of ligand rotamers
 	private Molecule setupMolSystem(Molecule m, ParamSet sParams, boolean[] strandPresent, String[][] strandLimits, boolean keepCofactor){
 
-		int ligStrNum = -1;
-		int cofStrNum = -1;
-
 		try{
 			FileInputStream is = new FileInputStream((String)sParams.getValue("PDBNAME"));
 			new PDBChemModel(m, is);
@@ -588,9 +563,6 @@ public class KSParser
 			System.exit(1);
 		}
 
-		/*m.strand[sysStrNum].isProtein = strandPresent[sysStrNum];		// main protein
-		m.strand[sysStrNum].rotTrans = (new Boolean((String)sParams.getValue("STRANDROTTRANS"+sysStrNum))).booleanValue();
-		strandLength[sysStrNum] = m.mapPDBresNumToMolResNum(strandLimits[0][1])-m.mapPDBresNumToMolResNum(strandLimits[0][0])+1;*/
 		int strNum = 0; //the current strand number; 0 is reserved for the protein strand, the ligand strand is 1 (if present)
 
 		//get the number of strands that are present
@@ -1078,7 +1050,6 @@ public class KSParser
 		boolean addWT = (new Boolean((String)sParams.getValue("ADDWT", "true"))).booleanValue();
 		if(!addWT)
 			mp.strandMut.checkWT(mp.strandPresent, sParams);
-		int molStrand = 0;
 		for(int resID:mp.strandMut.allMut){
 				setAllowablesHelper(sParams, addWT, mp.m.residue[resID]);
 		}
@@ -1143,7 +1114,7 @@ public class KSParser
 				sParams.setValue("PERTURBATIONFILE", strandPertFile);
 
 				rs.resetMatrices();
-				Emat emat = loadPairwiseEnergyMatrices(sParams,ematSettings.runNameEMatrixMin,minSettings.doMinimize,i, es,m.aaRotLib, false);
+				Emat emat = loadPairwiseEnergyMatrices(sParams,ematSettings.runNameEMatrixMin,minSettings.doMinimize,i, es,m, false);
 
 
 				if(es.useEPIC)
@@ -1166,7 +1137,7 @@ public class KSParser
 		//Compute the matrices for all strands (-1 is for the complex)
 		//KER: Put this last so the correct Eref matrix is kept
 		rs.resetMatrices();
-		Emat emat = loadPairwiseEnergyMatrices(sParams,ematSettings.runNameEMatrixMin,minSettings.doMinimize,COMPLEX, es,m.aaRotLib, false);
+		Emat emat = loadPairwiseEnergyMatrices(sParams,ematSettings.runNameEMatrixMin,minSettings.doMinimize,COMPLEX, es,m, false);
 
 
 		if(es.useEPIC)
@@ -1284,6 +1255,7 @@ public class KSParser
 		mutMan.setIdealizeSC(Perturbation.idealizeSC);
 		mutMan.setUseFlagsAStar(false);
 		mutMan.setASMethod(enumSettings.asMethod);
+		mutMan.setPDBoutDir(outputSettings.pdbOutDir);
 
 		mutMan.setES(es);
 
@@ -2002,7 +1974,6 @@ public class KSParser
 			MutableResParams strandMut = new MutableResParams(numMutPos, mp.m.numberOfStrands);
 
 			//If we shorten the molecule we need to shorten the allMut as well
-			int[] allMut = new int[numMut];
 			int ctr = 0;
 //			if(!lastRun){
 				for(Residue r:mp.m.residue){
@@ -2041,7 +2012,7 @@ public class KSParser
 
 			boolean doDih = false;
 			double lowestBound = Double.POSITIVE_INFINITY;
-			Emat emat = new Emat(minEmatrixFile,doDih,m.aaRotLib);
+			Emat emat = new Emat(minEmatrixFile,doDih,m);
 			rs.setMinMatrix(emat);
 
 			outPS.print("Starting sequence: ");
@@ -2254,7 +2225,7 @@ public class KSParser
 	//Load the pairwise energy matrices; if not computed, compute, and the load
 	//KER: strandPresent represents the strand that is present for this matrix (complex is -1)
 	private Emat loadPairwiseEnergyMatrices(ParamSet sParams, String minMatrixFile, boolean doMinimize, 
-			int strandPresent, EPICSettings es, RotamerLibrary aaRotLib, boolean storeDih){
+			int strandPresent, EPICSettings es, Molecule m, boolean storeDih){
 		//StrandNumbers are appended to PEM matrix, Complex is denoted with "_COM"
 		// PGC
 		String runName = sParams.getValue("RUNNAME");
@@ -2265,7 +2236,7 @@ public class KSParser
 
 		String ematFileLoc = minMatrixFile+suffix;
 		//Load Emat
-		Emat emat = new Emat(ematFileLoc,storeDih,aaRotLib);
+		Emat emat = new Emat(ematFileLoc,storeDih,m);
 
 		/*if (doMinimize)
 					rs.loadPairwiseEnergyMatrices(maxMatrixFile + suffix);*/
@@ -2288,7 +2259,7 @@ public class KSParser
 			System.out.println("PEM execution time: "+((stopTime-startTime)/(60.0*1000.0)));
 			System.out.println("DONE: Pairwise energy matrix precomputation");
 
-			emat = new Emat(ematFileLoc,storeDih,aaRotLib);
+			emat = new Emat(ematFileLoc,storeDih,m);
 
 		}
 
@@ -2379,10 +2350,7 @@ public class KSParser
 
 		String suffix = "_" + unboundStrand+".dat";
 
-		Emat emat = new Emat(minMatrixFile + suffix,false,rs.m.aaRotLib);
-		//		rs.loadPairwiseEnergyMatrices(minMatrixFile + suffix,true);
-		//		if (doMinimize)
-		//			rs.loadPairwiseEnergyMatrices(maxMatrixFile + suffix,false);
+		Emat emat = new Emat(minMatrixFile + suffix,false,rs.m);
 
 		if ( emat.resByPos == null ) { //at least one of the matrices not computed, so compute
 
@@ -2400,7 +2368,7 @@ public class KSParser
 			System.out.println("PEM execution time: "+((stopTime-startTime)/(60.0*1000.0)));
 			System.out.println("DONE: Pairwise energy matrix precomputation");
 
-			emat = new Emat(minMatrixFile + suffix,false,rs.m.aaRotLib);
+			emat = new Emat(minMatrixFile + suffix,false,rs.m);
 		}
 	}
 
@@ -2550,7 +2518,7 @@ public class KSParser
 
 		//initialize the pairwise energy matrices (full initialization - for all residues in residueMap[], the ligand, and the template)
 		//KER: See if the singles mat has already been computed
-		Emat singlesEmat = new Emat(minEMatrixName+"_single",doDih,m.aaRotLib);
+		Emat singlesEmat = new Emat(minEMatrixName+"_single",doDih,m);
 
 		MutationManager mutMan;
 		OneMutation mutArray[];
@@ -2588,14 +2556,14 @@ public class KSParser
 			//mutMan.setErefMatrix(eRef);
 			//mutMan.setErefMatrixName(eRefMatrix);
 			mutMan.setParams(sParams);
-			mutMan.setStericThresh(stericThresh);
-			mutMan.setSoftStericThresh(softStericThresh);
 			mutMan.setComputeEVEnergy(true);
 			mutMan.setDoMinimization(doMinimize);
 			mutMan.setMinimizeBB(minimizeBB);
 			mutMan.setDoBackrubs(doBackrubs);
 			mutMan.setBackrubFile(backrubFile);
 			mutMan.setCalculateVolumes(false);
+			mutMan.setStericThresh(stericThresh);
+			mutMan.setSoftStericThresh(softStericThresh);
 			mutMan.setDistDepDielect(distDepDielect);
 			mutMan.setDielectConst(dielectConst);
 			mutMan.setDoDihedE(doDihedE);
@@ -3463,6 +3431,13 @@ public class KSParser
 		
 		//Load rotamer and residue conformation libraries
 		String runNameEMatrixMin = (String)(sParams.getValue("MINENERGYMATRIXNAME",runName+"minM" ));
+		
+		//TODO: Right now I just check to see if an expanded matrix exists and then use it if it does
+		//It might be better to have the user denote the expanded matrix somehow instead of just blindly using it
+		File expandedRCfile = new File(runNameEMatrixMin+"_expanded_COM.dat.rcl_0");
+		if(expandedRCfile.exists())
+			runNameEMatrixMin = runNameEMatrixMin+"_expanded";
+		
 		m.aaRotLib.loadGlobalRots(runNameEMatrixMin+"_COM.dat.aaRots");
 		if(m.genRotLib != null)
 			m.genRotLib.loadGlobalRots(runNameEMatrixMin+"_COM.dat.genRots");
@@ -3604,7 +3579,7 @@ public class KSParser
 			if (outputPDB){ //save molecule
 				String fName = runName;
 				String filename = String.format("pdbs/%1$s_%2$03d_unmin.pdb",fName,numSaved);
-				saveMolecule(m,filename,(double)unMinE[0]);
+				m.saveMolecule(filename,(double)unMinE[0]);
 			}
 			if ( doMinimize && (!minimizeBB) ){
 				long minimizeStartTime = System.currentTimeMillis();
@@ -3633,7 +3608,7 @@ public class KSParser
 			if (outputPDB){ //save molecule
 				String fName = runName;
 				String filename = String.format("pdbs/%1$s_%2$03d_min.pdb",fName,numSaved);
-				saveMolecule(m,filename,(double)minE[0]);
+				m.saveMolecule(filename,(double)minE[0]);
 				numSaved++;
 			}
 
@@ -3927,7 +3902,7 @@ public class KSParser
 		for(int molResNum : newMolecRes)
 			newMolec.addResidue(0, mp.m.residue[molResNum]);
 
-		saveMolecule(newMolec,shellPDBFile,0);
+		newMolec.saveMolecule(shellPDBFile,0);
 	}
 
 	////////////////////////////////////////////////////////////////
@@ -3951,13 +3926,22 @@ public class KSParser
 		// 1: System parameter filename (string)
 		// 2: DEE config filename (string)
 
-		long startTimeAll = System.currentTimeMillis();
-
-		System.out.println("Performing DEE");
-
 		ParamSet sParams = new ParamSet();
 		sParams.addParamsFromFile(getToken(s,2)); //read system parameters
 		sParams.addParamsFromFile(getToken(s,3)); //read mutation search parameters
+
+		handleDoDEE(sParams);
+	}
+	
+	public void handleDoDEE(ParamSet sParams) {
+
+		// Takes the following parameters
+		// 1: System parameter filename (string)
+		// 2: DEE config filename (string)
+
+		long startTimeAll = System.currentTimeMillis();
+
+		System.out.println("Performing DEE");
 
 		Settings settings = new Settings();
 		
@@ -4083,11 +4067,11 @@ public class KSParser
 			}
 			
 				
-			if(!minSettings.selectPerturbations || reload)
+			if((!minSettings.selectPerturbations || reload) && !mp.loadedFromCache)
 					rs.setupRCs(minSettings.doPerturbations);
 
 			System.out.print("Loading precomputed energy matrix...");
-			Emat emat = loadPairwiseEnergyMatrices(sParams,ematSettings.runNameEMatrixMin,minSettings.doMinimize,curStrForMatrix,es,mp.m.aaRotLib, false);
+			Emat emat = loadPairwiseEnergyMatrices(sParams,ematSettings.runNameEMatrixMin,minSettings.doMinimize,curStrForMatrix,es,mp.m, false);
 			rs.setMinMatrix(emat);
 
 
@@ -4207,7 +4191,7 @@ public class KSParser
 						//run A* without polynomial fits to get the lowestBound
 						//this is to ensure that our deeSettings.Ival is going to be sufficient
 						rs.doAStarGMEC(outputSettings.outputConfInfo,true,minSettings.doMinimize,
-								mp.strandMut.numMutPos(),mp.strandMut,enumSettings.numMaxMut,deeSettings.initEw,
+								mp.strandMut.numMutPos(),mp.strandMut,deeSettings.initEw,
 								bestScore,null,enumSettings.approxMinGMEC,enumSettings.lambda,minSettings.minimizeBB,
 								ematSettings.useEref,minSettings.doBackrubs,minSettings.backrubFile,
 								localUseMinDEEpruningEw, deeSettings.Ival,enumSettings.asMethod);
@@ -4215,12 +4199,21 @@ public class KSParser
 						rs.es.gettingLowestBound = false;
 					}
 
-					interval = rs.doAStarGMEC(outputSettings.outputConfInfo,true,minSettings.doMinimize,
-							mp.strandMut.allMut.length,mp.strandMut,enumSettings.numMaxMut,deeSettings.initEw,
+					AStarResults asr = rs.doAStarGMEC(outputSettings.outputConfInfo,true,minSettings.doMinimize,
+							mp.strandMut.allMut.length,mp.strandMut,deeSettings.initEw,
 							bestScore,null,enumSettings.approxMinGMEC,enumSettings.lambda,minSettings.minimizeBB,
 							ematSettings.useEref,minSettings.doBackrubs,minSettings.backrubFile,
 							localUseMinDEEpruningEw, deeSettings.Ival,enumSettings.asMethod);
 
+					
+					interval = asr.bestE - asr.lowestBound;
+					if(es.useEPIC){
+						//we want to raise the Ival to make sure that
+						//we have all conformations up to minE, where minE may vary a little bit from run to run
+						//depending on the EpicFitter samples (hence we need a tolerance).  
+						//But the variation should be (generally much) less than thermal energy, so we use that as tolerance
+						interval += RotamerSearch.constRT;
+					}
 					difference = interval - deeSettings.Ival;
 					deeSettings.Ival = interval;
 
@@ -5037,7 +5030,7 @@ public class KSParser
 
 					//Do the rotamer search
 					rs.doAStarGMEC(outputConfInfo,true,doMinimize,numMutable,strandMut,
-							numMaxMut,initEw,bestScore,null,approxMinGMEC,lambda,minimizeBB,useEref,doBackrubs,
+							initEw,bestScore,null,approxMinGMEC,lambda,minimizeBB,useEref,doBackrubs,
 							backrubFile, false, 0.0,asMethod);
 
 					numEvaluatedConfs = numEvaluatedConfs.add(rs.numConfsEvaluated); //add the evaluated confs for this partition
@@ -7520,7 +7513,7 @@ public class KSParser
 				m1.addResidue(0, m.residue[i]);
 			}
 		}
-		saveMolecule(m1,runName+".pdb",0.0f);
+		m1.saveMolecule(runName+".pdb",0.0f);
 	}
 
 	//Computes the information necessary to generate a residue interaction graph for the given system;
@@ -8098,7 +8091,7 @@ public class KSParser
 			System.exit(1);
 		}
 
-		saveMolecule(m, fileOut, Double.NaN);
+		m.saveMolecule(fileOut, Double.NaN);
 	}
 
 	static public Object loadObject(String fileName) {
@@ -8262,6 +8255,476 @@ public class KSParser
 			}
 
 		}
+
+	}
+	
+	/**
+	 * Performs a DEE (Traditional, MinDEE, BD, or BRDEE) pruning with A* search, with or without DACS;
+	 * the only parameter 's' (String) includes the command-line arguments specifying the filenames of the two input configuration files.
+	 * If distributed DACS is performed, the computation is distributed to the available processors for evaluation.
+	 */
+	public void handleExpandedIMinDEE(String s, boolean doDEE) {
+
+		// Takes the following parameters
+		// 1: System parameter filename (string)
+		// 2: DEE config filename (string)
+
+//		metrics.setStartTime();
+
+		System.out.println("Performing DEE");
+
+		ParamSet sParams = new ParamSet();
+		sParams.addParamsFromFile(getToken(s,2)); //read system parameters
+		sParams.addParamsFromFile(getToken(s,3)); //read mutation search parameters
+
+		Settings settings = new Settings();
+		
+		/******** Load all of the settings for DEE *******/
+		// Pull search parameters
+		String runName = Settings.getRunName(sParams);
+		
+		//DEE Settings
+		Settings.DEE deeSettings = settings.new DEE(sParams);
+		double difference = deeSettings.Ival;
+		
+		//Minimization Settings
+		Settings.Minimization minSettings = settings.new Minimization(sParams);
+		
+		
+		//EPICSettings
+		EPICSettings es = new EPICSettings(sParams);
+		if(deeSettings.Ival+deeSettings.initEw>es.EPICThresh2){
+			System.out.println("EPICThresh2 must be at least Ival+Ew: raising to Ival="+(deeSettings.Ival+deeSettings.initEw));
+			es.EPICThresh2 = deeSettings.Ival+deeSettings.initEw;
+		}
+		
+		//Enumeration Settings
+		Settings.Enum enumSettings = settings.new Enum(sParams);
+		
+		//Emat Settings
+		Settings.Emat ematSettings = settings.new Emat(sParams, runName, minSettings.doPerturbations);
+		
+		//InteractionGraph Settings
+		Settings.InteractionGraph graphSettings = settings.new InteractionGraph(sParams);
+		
+		//Output Settings
+		Settings.Output outputSettings = settings.new Output(sParams, runName);
+				
+		//Unclassified Settings
+		int curStrForMatrix = (new Integer((String)sParams.getValue("ONLYSINGLESTRAND","-1"))).intValue();
+				
+		boolean resumeSearch = (new Boolean((String)sParams.getValue("RESUMESEARCH","false"))).booleanValue();
+		String resumeFilename ="";
+		if(resumeSearch){
+			resumeFilename = ((String)sParams.getValue("RESUMEFILENAME"));
+		}
+		
+		/***************** Done Loading Settings ************/
+		
+		minSettings.doMinimize = true; //Minimization is turned on for the expanded rotamer library calculation
+		if (!minSettings.doMinimize) //no minimization
+			minSettings.minimizeBB = false;
+		if (!minSettings.minimizeBB) //not backbone minimization
+			minSettings.doBackrubs = false;
+
+		if (graphSettings.genInteractionGraph) //DACS is not performed when generating the interaction graph
+			deeSettings.doDACS = false;
+
+		//Setup the molecule system
+		MolParameters mp = loadMolecule(sParams,curStrForMatrix,graphSettings.neighborList,graphSettings.distCutoff,true);
+
+		boolean reload=false;
+		if(minSettings.selectPerturbations){//Need to run the automatic perturbation selection
+			//This only needs to be done once though: after that the perturbations can be read from pertFile
+			selectPerturbations(mp, minSettings.doPerturbations, minSettings.pertFile, minSettings.minimizePerts, ematSettings.addWTRot, sParams);
+			reload = true;
+		}
+		
+		// 2010: If useMinDEEPruningEw is set to false, this cycle never repeats itself.
+		//  If it is set to true, it can repeat at most once: if none of the rotamer vectors
+		//  between the conformation of lowest energy (i.e. lowestBound) 
+		//  and lowestBound+InitEw can minimize to a lower energy than lowestBound+InitEw, 
+		//   then let minimumEnergy be the minimum nergy found among the enumerated conformations,
+		//   we set a new Ew equal to minimumEnergy - lowestBount and repeat this cycle.  We
+		//   only have to do it at most twice.  
+		//		long start;
+		//		long totalEtime = 0;
+		//		start = System.currentTimeMillis();	
+		long totalConfsEvaluated = 0;
+
+		RotamerSearch rs = new RotamerSearch(mp.m, mp.strandMut.numMutPos(),mp.strandsPresent, hElect, hVDW, hSteric, true,
+				true, 0.0f, stericThresh, softStericThresh, distDepDielect, dielectConst, doDihedE, 
+				doSolvationE, solvScale, softvdwMultiplier, minSettings.doPerturbations, minSettings.pertFile, minSettings.minimizePerts, 
+				deeSettings.useTriples, enumSettings.useFlagsAStar, es,hbonds, mp.strandMut);
+
+		rs.useCCD = minSettings.useCCD;
+//		rs.superRotamers = superRotamers;
+//		rs.tuples = doTuples || readTuples;
+//		rs.subRotamers = subRotamers;
+
+		//Set the allowable AAs for each AS residue
+		boolean addWT = (new Boolean((String)sParams.getValue("ADDWT", "true"))).booleanValue();
+		if(!addWT)
+			mp.strandMut.checkWT(mp.strandPresent, sParams);
+		int molStrand = 0;
+		for(int resID:mp.strandMut.allMut){
+			setAllowablesHelper(sParams, addWT, mp.m.residue[resID]);
+		}
+		
+		if(!minSettings.selectPerturbations || reload)
+			rs.setupRCs(minSettings.doPerturbations);
+		
+		int numSplits = 0;
+
+		//Load Energy Matrix
+//		long startEmat = System.currentTimeMillis();
+		System.out.print("Loading precomputed energy matrix...");
+		Emat emat = loadPairwiseEnergyMatrices(sParams,ematSettings.runNameEMatrixMin,minSettings.doMinimize,curStrForMatrix,es,mp.m,true);
+		rs.setMinMatrix(emat);
+		System.out.println("done");
+//		long endEmat = System.currentTimeMillis();
+//		metrics.EmatTime += (endEmat-startEmat);
+
+		
+		
+		
+		//Recalculate energy of the matrix
+		sParams.setValue("doMinimize", "false");
+		File ematFile = new File(ematSettings.runNameEMatrixMin+"_expanded_COM.dat.templE");
+
+		if(!ematFile.exists()){
+			
+			/********* Get rid of any minimized rotamers that we know won't be part of the GMEC ******/ 
+			//Prune down the matrix to find the conformation with lowest bound
+			double Ival = 0.0; //Prune as much as possible to find the lowest bound conformation
+			double initEw = 0.0;
+			boolean localUseMinDEEPruningEw = true;
+			boolean removeRot = false;
+			int timesRunFullPairs = 0;
+			int maxLoopNum = 1;
+			runDEE(deeSettings.useFlags, minSettings.doMinimize, minSettings.minimizeBB, deeSettings.scaleInt,
+					initEw, deeSettings.maxIntScale, deeSettings.typeDep, Ival,
+					emat, localUseMinDEEPruningEw, removeRot,deeSettings.stericE, sParams,timesRunFullPairs,
+					maxLoopNum,deeSettings.deeSettings,rs.strandRot,mp.strandMut,rs.m,rs.doPerturbations);
+			
+			double bestScore = Double.POSITIVE_INFINITY;
+			double ENUMIval = 0.0;
+			int numToEnumerate = 1;
+			
+			Settings.ASTARMETHOD asMethod = Settings.ASTARMETHOD.WCSP;
+			AStarResults asr = rs.doAStarGMEC("preliminaryConfs.conf",true,minSettings.doMinimize, 
+					mp.strandMut.numMutPos(), mp.strandMut,0.0,
+					bestScore,null,enumSettings.approxMinGMEC,enumSettings.lambda,minSettings.minimizeBB,
+					ematSettings.useEref,minSettings.doBackrubs,minSettings.backrubFile,
+					localUseMinDEEPruningEw, ENUMIval,asMethod);
+			Ival = Math.min(enumSettings.bestE-asr.lowestBound, asr.bestE-asr.lowestBound);
+			emat.unPrune();
+			removeRot = true;
+			runDEE(deeSettings.useFlags, minSettings.doMinimize, minSettings.minimizeBB, deeSettings.scaleInt,
+					deeSettings.initEw, deeSettings.maxIntScale, deeSettings.typeDep, Ival,
+					emat, localUseMinDEEPruningEw, removeRot, 
+					deeSettings.stericE,  sParams,timesRunFullPairs,
+					maxLoopNum,deeSettings.deeSettings,rs.strandRot,mp.strandMut,rs.m,rs.doPerturbations);
+			
+			/************* The Rotamers remaining we know are good rotamers **************/
+			
+			ArrayList<RCToAdd> rigidRotsToAdd = identifyRotamerDifferences(emat,mp.m);
+			emat.convertToRigid(); 
+			emat.pairs = null;
+			//Add all of the new rigid rots
+			ArrayList<ArrayList<ArrayList<ArrayList<ResidueConformation>>>> rcsToAddByPosAA = emat.getEmptyRCsToAdd();
+
+			for(RCToAdd rcTA: rigidRotsToAdd){
+				if(rcTA.rc.rot.aaType.numDihedrals()!=0){ //Don't add an ALA or GLY rotamer (also update this not to add rotamers that are too close together) 
+					//					ArrayList<ArrayList<Rotamer>> rotsForPos = new ArrayList<ArrayList<Rotamer>>();
+					int resid = emat.resByPos.get(rcTA.pos).get(0);
+					Residue res = mp.m.residue[resid];
+					String pdbNum = res.getResNumberString();
+					for(double[] dihedVals: rcTA.confs){
+						double[] minWidths = new double[dihedVals.length];
+						for(int i=0; i<dihedVals.length;i++){//The dihedVals are just offsets so we need to convert them to actual dihedrals
+							minWidths[i] = 9.0 - Math.abs(dihedVals[i]);
+							dihedVals[i] += rcTA.rc.rot.values[i];
+						}
+						ArrayList<ResidueConformation> rcToAdd = new ArrayList<ResidueConformation>();
+						//Add the new rotamer and the new Residue Conformation						
+						Rotamer rot = mp.m.residue[resid].rl.addRotamer(rcTA.rc.rot.aaType.name, pdbNum,dihedVals,minWidths,false);
+						ResidueConformation rc = mp.m.strand[res.strandNumber].rcl.addResidueConformation(rot, rcTA.rc.pertState, res.strandResidueNumber); 
+						mp.m.residue[resid].setAllowable(rc);
+						rcToAdd.add(rc);
+
+						int a1 = emat.getRCAALoc(mp.m,rcTA.pos,rcToAdd);
+
+						rcsToAddByPosAA.get(rcTA.pos).get(a1).add(rcToAdd);
+						//						rotsForPos.add(rotToAdd);
+					}
+
+				}
+				else{
+					System.out.println("Skipped Rot");
+				}
+			}
+
+			emat.addAllRCs(mp.m,rcsToAddByPosAA,true);
+
+//			startEmat = System.currentTimeMillis();
+			emat = recalculateAllEnergies(emat, -1,sParams,mp.m,deeSettings.stericE,minSettings.minimizeBB,minSettings.doBackrubs,
+					minSettings.minScheme, mp.strandMut);
+//			endEmat = System.currentTimeMillis();
+//			metrics.EmatTime += (endEmat - startEmat);
+			emat.save(ematSettings.runNameEMatrixMin+"_expanded_COM.dat",mp.m);
+		}
+		//else{
+		emat = null;
+		System.gc();
+		//emat = new Emat(runNameEMatrixMin+"_expanded_COM.dat",false);
+		//}
+
+		if(doDEE){
+			sParams.setValue("minEnergyMatrixName",ematSettings.runNameEMatrixMin+"_expanded" );
+			sParams.setValue("doMinimize","false");
+			handleDoDEE(sParams);
+		}
+
+//		metrics.setEndTime();
+
+//		metrics.print();
+
+
+
+	}
+	
+	private ArrayList<RCToAdd> identifyRotamerDifferences(Emat emat, Molecule m) {
+
+		ArrayList<RCToAdd> rcsToAdd = new ArrayList<RCToAdd>();
+
+		SinglesIterator iter = emat.singlesIterator();
+		while(iter.hasNext()){
+			EMatrixEntryWIndex rot = iter.next();
+
+//			Rotamer r = emat.getRotamers(m, rot.rot1index3()).get(0);
+			ResidueConformation rc = emat.getRCs(m,rot.rot1index3()).get(0); //0 index assumes no superRotamers
+			
+			//First we have to figure out the clusters for the rotamer
+			ArrayList<double[]> clusters = new ArrayList<double[]>();
+
+			clusters.add(emat.singles.rotDih[rot.pos1()][rot.aa1()][rot.rot1()]);
+
+			for(int p2 = 0; p2<emat.pairs.E[rot.pos1()][rot.aa1()][rot.rot1()].length;p2++){
+				if(p2 != rot.pos1() && emat.areNeighbors(p2, rot.pos1())){
+					for(int a2 = 0; a2<emat.pairs.E[rot.pos1()][rot.aa1()][rot.rot1()][p2].length;a2++){
+						for(int r2 = 0; r2<emat.pairs.E[rot.pos1()][rot.aa1()][rot.rot1()][p2][a2].length;r2++){
+							if(emat.pairs.E[rot.pos1()][rot.aa1()][rot.rot1()][p2][a2][r2] < Double.POSITIVE_INFINITY){
+								//For every cluster see if rotDih1 matches that cluster or we need to add a new cluster
+								boolean inCluster = false;
+								for(double[] cluster: clusters){
+									inCluster = inCluster || clustersMatch(emat.pairs.rotDih1[rot.pos1()][rot.aa1()][rot.rot1()][p2][a2][r2], cluster, emat);
+								}
+								if(!inCluster){
+									clusters.add(emat.pairs.rotDih1[rot.pos1()][rot.aa1()][rot.rot1()][p2][a2][r2]);
+								}
+							}
+
+						}
+					}
+				}
+			}
+
+
+			//For every cluster figure out the lowest score
+			ArrayList<Double> values = new ArrayList<Double>();
+			for(double[] cluster: clusters){
+				double minBound = 0;
+
+				if(clustersMatch(cluster,emat.singles.rotDih[rot.pos1()][rot.aa1()][rot.rot1()],emat))
+					minBound += emat.singles.E[rot.pos1()][rot.aa1()][rot.rot1()];
+				else
+					minBound += emat.singles.maxE[rot.pos1()][rot.aa1()][rot.rot1()];
+
+				for(int p2 = 0; p2<emat.pairs.E[rot.pos1()][rot.aa1()][rot.rot1()].length;p2++){
+					double minEforPos = Double.POSITIVE_INFINITY;
+					if(p2!= rot.pos1() && emat.areNeighbors(p2, rot.pos1())){
+						for(int a2 = 0; a2<emat.pairs.E[rot.pos1()][rot.aa1()][rot.rot1()][p2].length;a2++){
+							for(int r2 = 0; r2<emat.pairs.E[rot.pos1()][rot.aa1()][rot.rot1()][p2][a2].length;r2++){
+								if(emat.pairs.E[rot.pos1()][rot.aa1()][rot.rot1()][p2][a2][r2] < Double.POSITIVE_INFINITY)
+								if(clustersMatch(cluster,emat.pairs.rotDih1[rot.pos1()][rot.aa1()][rot.rot1()][p2][a2][r2],emat))
+									minEforPos = Math.min(minEforPos, emat.pairs.E[rot.pos1()][rot.aa1()][rot.rot1()][p2][a2][r2]);
+								else
+									minEforPos = Math.min(minEforPos, emat.pairs.maxE[rot.pos1()][rot.aa1()][rot.rot1()][p2][a2][r2]);
+							}
+						}
+
+						minBound += minEforPos;
+					}
+				}
+				values.add(minBound);
+
+			}
+
+			//calculate the most optimistic bound
+			double bestBound = 0;
+			bestBound += emat.singles.E[rot.pos1()][rot.aa1()][rot.rot1()];
+			for(int p2 = 0; p2<emat.pairs.E[rot.pos1()][rot.aa1()][rot.rot1()].length;p2++){
+				double minEforPos = Double.POSITIVE_INFINITY;
+				if(p2!= rot.pos1() && emat.areNeighbors(p2, rot.pos1())){
+					for(int a2 = 0; a2<emat.pairs.E[rot.pos1()][rot.aa1()][rot.rot1()][p2].length;a2++){
+						for(int r2 = 0; r2<emat.pairs.E[rot.pos1()][rot.aa1()][rot.rot1()][p2][a2].length;r2++){
+							minEforPos = Math.min(minEforPos, emat.pairs.E[rot.pos1()][rot.aa1()][rot.rot1()][p2][a2][r2]);
+						}
+					}
+
+					bestBound += minEforPos;
+				}
+			}
+
+			//calculate the most optimistic bound
+			double rigidBound = 0;
+			rigidBound += emat.singles.maxE[rot.pos1()][rot.aa1()][rot.rot1()];
+			for(int p2 = 0; p2<emat.pairs.maxE[rot.pos1()][rot.aa1()][rot.rot1()].length;p2++){
+				double minEforPos = Double.POSITIVE_INFINITY;
+				if(p2!= rot.pos1() && emat.areNeighbors(p2, rot.pos1())){
+					for(int a2 = 0; a2<emat.pairs.E[rot.pos1()][rot.aa1()][rot.rot1()][p2].length;a2++){
+						for(int r2 = 0; r2<emat.pairs.E[rot.pos1()][rot.aa1()][rot.rot1()][p2][a2].length;r2++){
+							minEforPos = Math.min(minEforPos, emat.pairs.maxE[rot.pos1()][rot.aa1()][rot.rot1()][p2][a2][r2]);
+						}
+					}
+
+					rigidBound += minEforPos;
+				}
+			}
+
+
+			//Check the difference between the bestBound and the more realistic bounds for each cluster
+			ArrayList<double[]> clustersToAdd = new ArrayList<double[]>();
+			double minDiff = Double.POSITIVE_INFINITY;
+			int ctr= 0;
+			int clusterCtr=0;
+			for(double bound: values){
+				double diff = bound - bestBound;
+				double rigidDiff = bound - rigidBound;
+				if(/*diff+bestBound < 0 &&*/ rigidDiff < -0.4){
+					ctr++;
+					clustersToAdd.add(clusters.get(clusterCtr));
+				}
+				minDiff = Math.min(minDiff, diff);
+				clusterCtr++;
+			}
+
+			rcsToAdd.add(new RCToAdd(clustersToAdd, rc, rot.pos1()));
+			System.out.println(rot.toString()+" "+minDiff+" "+clusters.size()+" "+bestBound+" "+ctr);
+
+		}
+
+		return rcsToAdd;
+
+	}
+	
+	public boolean clustersMatch(double[] cluster1, double[] cluster2, Emat emat){ 
+
+		for(int i=0; i<cluster1.length;i++){
+			if(Math.abs(cluster1[i]-cluster2[i]) > 2)
+				return false;
+		}
+
+		return true;
+	}
+	
+	/**
+	 * 
+	 * 
+	 * 
+	 */
+	private Emat recalculateAllEnergies(Emat emat, int curStrForMatrix,ParamSet params, Molecule m, double stericE,
+			boolean minimizeBB, boolean doMinimize, RotamerSearch.MINIMIZATIONSCHEME minScheme, MutableResParams strandMut) {
+		//Emat ematToSend = new Emat(emat, mutPos);
+		//KER: split this into several small runs for each AA vs. Pos
+
+
+		OneMutation singleMutArray[] = getMutArraySingleEcomp(emat.numMutPos(),minimizeBB);
+
+		MutationManager mutMan = new MutationManager(null, singleMutArray, true);
+		mutMan.setPairEMatrixMin(emat);
+		mutMan.setcurStrForMatrix(curStrForMatrix);
+		mutMan.setParams(params);
+		mutMan.setMolecule(m);
+		mutMan.setDoMinimization(doMinimize);
+		mutMan.setMinScheme(minScheme);
+		mutMan.setStrandMut(strandMut);
+		mutMan.setStericThresh(stericThresh);
+		mutMan.setSoftStericThresh(softStericThresh);
+		mutMan.setDistDepDielect(distDepDielect);
+		mutMan.setDielectConst(dielectConst);
+		mutMan.setDoDihedE(doDihedE);
+		mutMan.setDoSolvationE(doSolvationE);
+		mutMan.setSolvScale(solvScale);
+		mutMan.setVdwMult(softvdwMultiplier);
+		
+
+		try {
+			handleDoMPIMaster(mutMan, singleMutArray.length);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+
+		int[] numRotPerPos = emat.numRotPerPos();
+		System.out.print("RotsPerPos: ");
+		for(int i:numRotPerPos)
+			System.out.println(i+" ");
+
+		
+		RotamerSearch.DoPruneStericTemplate(emat,stericE, false,outPS);
+		emat.removePrunedRotReducedMem(true);
+
+		numRotPerPos = emat.numRotPerPos();
+		System.out.print("RotsPerPos: ");
+		for(int i:numRotPerPos)
+			System.out.println(i+" ");
+
+		emat = new Emat(emat,m,false);
+
+		OneMutation pairMutArray[] = getMutArrayPairEcomp(emat.numMutPos(),minimizeBB,emat);
+
+		//		OneMutation mutArray[] = new OneMutation[singleMutArray.length+pairMutArray.length];
+
+		//		System.arraycopy(singleMutArray, 0, mutArray, 0, singleMutArray.length);
+		//		System.arraycopy(pairMutArray, 0, mutArray, singleMutArray.length, pairMutArray.length);
+
+
+		HashMap<String,double[]> eRef = new HashMap<String,double[]>();
+		for(int res: emat.allMutRes()){
+			eRef.put(m.residue[res].getResNumberString(), new double[m.residue[res].rl.getNumAAallowed()]);
+		}
+
+
+		mutMan = new MutationManager(null, pairMutArray, true);
+		mutMan.setPairEMatrixMin(emat);
+		mutMan.setcurStrForMatrix(curStrForMatrix);
+		mutMan.setParams(params);
+		mutMan.setMolecule(m);
+		mutMan.setDoMinimization(doMinimize);
+		mutMan.setErefMatrix(eRef);
+		mutMan.setMinScheme(minScheme);
+		mutMan.setStrandMut(strandMut);
+		mutMan.setStericThresh(stericThresh);
+		mutMan.setSoftStericThresh(softStericThresh);
+		mutMan.setDistDepDielect(distDepDielect);
+		mutMan.setDielectConst(dielectConst);
+		mutMan.setDoDihedE(doDihedE);
+		mutMan.setDoSolvationE(doSolvationE);
+		mutMan.setSolvScale(solvScale);
+		mutMan.setVdwMult(softvdwMultiplier);
+
+		try {
+			handleDoMPIMaster(mutMan, pairMutArray.length);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+
+		//KER: do we have to set these if we pass emat to the mutMan?
+		//emat.singles = mutMan.pairEMatrixMin.singlesintraE[mutPos];
+		//emat.pairs = mutMan.pairEMatrixMin.pairE[mutPos];
+
+		return emat;
 
 	}
 

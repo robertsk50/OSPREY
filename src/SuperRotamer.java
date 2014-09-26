@@ -155,16 +155,29 @@ public class SuperRotamer implements Serializable{
 		return retString;
 	}
 
-	public ArrayList<Rotamer> getRotamers(Molecule m, ArrayList<Integer> residues){
-		ArrayList<Rotamer> rots = new ArrayList<Rotamer>();
+//	public ArrayList<Rotamer> getRotamers(Molecule m, ArrayList<Integer> residues){
+//		ArrayList<Rotamer> rots = new ArrayList<Rotamer>();
+//		int ctr=0;
+//		for(Integer resID:residues){
+//			rots.add(m.residue[resID].rl.getRot(rotamers[ctr]));
+//			ctr++;
+//		}
+//		
+//		
+//		return rots;
+//	}
+	
+	public ArrayList<ResidueConformation> getRCs(Molecule m, ArrayList<Integer> residues){
+		ArrayList<ResidueConformation> rcs = new ArrayList<ResidueConformation>();
 		int ctr=0;
 		for(Integer resID:residues){
-			rots.add(m.residue[resID].rl.getRot(rotamers[ctr]));
+			Residue res = m.residue[resID];
+			rcs.add(m.strand[res.strandNumber].rcl.getRC(rotamers[ctr]));
 			ctr++;
 		}
 		
 		
-		return rots;
+		return rcs;
 	}
 
 	

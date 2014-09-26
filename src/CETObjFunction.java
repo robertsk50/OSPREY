@@ -192,6 +192,22 @@ public class CETObjFunction implements ObjectiveFunction, Serializable {
         else
             return globalDOFList[DOFNum].isDOFAngle();
     }
+    
+    @Override
+    public boolean isDOFSCAngle(int dof){
+        int DOFNum = ef.DOFNums[dof];
+        return globalDOFList[DOFNum].isDOFSCAngle();
+    }
+    
+    @Override
+    public boolean isDOFforRes(int dofInd, Residue r) {
+    	int DOFNum = ef.DOFNums[dofInd];
+    	DegreeOfFreedom dof = globalDOFList[DOFNum];
+    	if(dof.strandNum == r.strandNumber && dof.strResNum == r.strandResidueNumber)
+    		return true;
+    	
+    	return false;
+    }
      
     
     public void printTerms(DoubleMatrix1D x){

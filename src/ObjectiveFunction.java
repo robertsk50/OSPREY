@@ -73,7 +73,7 @@ public interface ObjectiveFunction {
 
     //Set just one degree of freedom
     public void setDOF(int dof, double val);
-
+    
     //Value and gradient at a given point (specified as values for all DOFs)
     public double getValue(DoubleMatrix1D x);
     //public DoubleMatrix1D getGradient(DoubleMatrix1D x);
@@ -90,4 +90,8 @@ public interface ObjectiveFunction {
     
     
     public boolean isDOFAngle(int dof);//Is the given degree of freedom an angle?
+    
+    public boolean isDOFSCAngle(int dof);//Is the given degree of freedom a side-chain dihedral?
+    
+    public boolean isDOFforRes(int dof, Residue r);//Does the given degree of freedom for the given residue?  
 }

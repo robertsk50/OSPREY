@@ -116,8 +116,8 @@ public class Emat implements Serializable {
 		fullEmat(emat,m,doDih);
 	}
 
-	public Emat(String fileName, boolean doDih, RotamerLibrary aaRotLib){
-		open(fileName,doDih, aaRotLib);
+	public Emat(String fileName, boolean doDih, Molecule m){
+		open(fileName,doDih, m);
 	}
 
 	public Emat(double templ_E, ArrayList<ArrayList<Integer>> resByPos,SingleMats singles, PairMats pairs){
@@ -327,9 +327,9 @@ public class Emat implements Serializable {
 
 
 	//KER: Wrapper functions to change way Emat is written and read
-	public void open(String fileName, boolean doDih, RotamerLibrary aaRotLib){
+	public void open(String fileName, boolean doDih, Molecule m){
 		//readFromFile(fileName);
-		read(fileName,doDih,aaRotLib);
+		read(fileName,doDih,m);
 	}
 
 	public void save(String fileName, Molecule m){
@@ -373,7 +373,7 @@ public class Emat implements Serializable {
 		
 	}
 
-	public void read(String file,boolean doDih, RotamerLibrary aaRotLib){
+	public void read(String file,boolean doDih, Molecule m){
 
 
 		pairs = PairMats.read(file,doDih);
@@ -405,15 +405,26 @@ public class Emat implements Serializable {
 			hasEntropy = false;
 		}
 
+		//Load the amino acid rotamer library
 		try{
-			aaRotLib.loadGlobalRots(file+".aaRots");
+			m.aaRotLib.loadGlobalRots(file+".aaRots");
+		}
+		catch (Exception e){
+			System.out.println("Couldn't properly load amino acid rot library for Emat.");
+		}
+		
+		//Load the general rotamer library 
+		try{
+			m.genRotLib.loadGlobalRots(file+".genRots");
 		}
 		catch (Exception e){
 			System.out.println("Couldn't properly load rot library for Emat.");
 		}
 
-		//		return aaRotLib;
-
+		//Load the strand dependent residue conformation libraries
+		for(Strand s : m.strand){
+			s.rcl.loadGlobalRCs(file+".rcl_"+s.number,m.rotLibForStrand(s.number));
+		}
 		
 		//Read Eref File
 		eRef = loadErefMatrix(file+".eref");
@@ -1854,8 +1865,12 @@ public class Emat implements Serializable {
 		return null;
 	}
 	
-	ArrayList<Rotamer> getRotamers(Molecule m, Index3 rot){
-		return singles.getTerm(rot).r.getRotamers(m, resByPos.get(rot.pos));
+//	ArrayList<Rotamer> getRotamers(Molecule m, Index3 rot){
+//		return singles.getTerm(rot).r.getRotamers(m, resByPos.get(rot.pos));
+//	}
+	
+	ArrayList<ResidueConformation> getRCs(Molecule m, Index3 rot){
+		return singles.getTerm(rot).r.getRCs(m, resByPos.get(rot.pos));
 	}
 
 	//KER: go through the Emat and for every rotamer that's not pruned
@@ -2265,6 +2280,103 @@ public class Emat implements Serializable {
 		//		return returnTuples;
 
 	}
+	
+	/**
+	 * Takes in a list of rotamers to add at every position.
+	 * This function makes sure that you only need to extend each array once instead of
+	 * calling the above function (addRotamers).
+	 * @param m
+	 * @param rotsToAdd - Rotamers to add by position,AA
+	 * @param intraOnly
+	 * @return
+	 */
+	public void addAllRCs(Molecule m, ArrayList<ArrayList<ArrayList<ArrayList<ResidueConformation>>>> rcsToAddByPosAA, boolean intraOnly){
+
+
+		for(int mutPos=0; mutPos<rcsToAddByPosAA.size();mutPos++){
+			ArrayList<ArrayList<ArrayList<ResidueConformation>>> rcsToAddByAA = rcsToAddByPosAA.get(mutPos);
+			if(rcsToAddByAA.size() == 0)
+				continue;
+			
+			if(!intraOnly){
+				//First just going to add the rotamers to the 6th dimension
+				for(int p1=0; p1<pairs.E.length;p1++){
+					if(p1 != mutPos && areNeighbors(p1, mutPos, m)){
+						for(int a1=0; a1<pairs.E[p1].length;a1++){
+							for(int r1=0; r1<pairs.E[p1][a1].length;r1++){
+								int p2 = mutPos;
+								boolean addedRot = false;
+								for(int a2=0;a2<pairs.E[p1][a1][r1][p2].length;a2++){
+
+									if(singles.supRot[p2][a2].length == 0)
+										continue;
+
+									int numRotsToAdd = rcsToAddByAA.get(a2).size();
+
+
+									if(numRotsToAdd > 0){
+										int[] p1a1r1p2a2ind = {p1,a1,r1,p2,a2};
+										pairs.extendDim(p1a1r1p2a2ind, numRotsToAdd);
+										addedRot = true;
+									}
+
+								}
+								if(!addedRot)
+									System.out.println("Error adding rot");
+							}
+						}
+					}
+				}
+			}
+
+			int p1 = mutPos;
+			for(int a1=0;a1<singles.E[p1].length;a1++){
+
+				if(singles.supRot[p1][a1].length==0)
+					continue;
+
+				ArrayList<ArrayList<ResidueConformation>> curRCsToAdd = rcsToAddByAA.get(a1);
+
+
+				if(curRCsToAdd.size() > 0){
+					int[] p1a1ind = {p1,a1};
+					int r1 = singles.E[p1][a1].length;
+
+					//Extend Dimension by one for both pair and single
+					this.singles.extendDim(p1a1ind,curRCsToAdd.size());//intraE[p1][a1] = new EMatrixEntry[aaType1.numRotamers()];
+					if(!intraOnly)
+						this.pairs.extendDim(p1a1ind,curRCsToAdd.size());//pairE[p1][a1] = new EMatrixEntry[aaType1.numRotamers()][][][];
+
+					for(ArrayList<ResidueConformation> supRot: curRCsToAdd){
+						//Add rot to singles
+						int[] rot1Array = new int[supRot.size()];
+						for(int i=0; i<supRot.size();i++)
+							rot1Array[i] = supRot.get(i).id;
+
+						int[] p1a1r1ind = {p1,a1,r1};
+						this.singles.setSupRot(p1, a1, r1, rot1Array);
+						if(!intraOnly){
+							this.pairs.addDim(p1a1r1ind,resByPos.size());//pairE[p1][a1][r1] = new EMatrixEntry[strandMut.numMutPos()][][];
+							for(int p2=0;p2<pairs.E[p1][a1][r1].length;p2++){
+								if(p2 != p1 && areNeighbors(p1, p2, m)){
+									int[] p1a1r1p2ind = {p1,a1,r1,p2};
+									this.pairs.addDim(p1a1r1p2ind,singles.E[p2].length);
+									for(int a2=0;a2<pairs.E[p1][a1][r1][p2].length;a2++){
+										int[] p1a1r1p2a2ind = {p1,a1,r1,p2,a2};
+										this.pairs.addDim(p1a1r1p2a2ind,singles.E[p2][a2].length);
+									}
+								}
+							}
+						}
+
+						r1++;
+					}
+				}
+			}
+
+		}
+
+	}
 
 
 	/**
@@ -2355,6 +2467,26 @@ public class Emat implements Serializable {
 
 		return retArray;
 	}
+	
+	/**
+	 * Retuns an ArrayList<ArrayList<?> that has dimensions equal to the first two dimensions of 
+	 * the singles matrix
+	 * @return
+	 */
+	public ArrayList<ArrayList<ArrayList<ArrayList<ResidueConformation>>>> getEmptyRCsToAdd() {
+
+		ArrayList<ArrayList<ArrayList<ArrayList<ResidueConformation>>>> retArray = new ArrayList<ArrayList<ArrayList<ArrayList<ResidueConformation>>>>();
+
+		for(int p = 0; p<singles.E.length;p++){
+			ArrayList<ArrayList<ArrayList<ResidueConformation>>> tmp = new ArrayList<ArrayList<ArrayList<ResidueConformation>>>();
+			for(int a=0; a<singles.E[p].length;a++){
+				tmp.add(new ArrayList<ArrayList<ResidueConformation>>());
+			}
+			retArray.add(tmp);
+		}
+
+		return retArray;
+	}
 
 	public int getRotAALoc(Molecule m, int pos, ArrayList<Rotamer> supRot) {
 
@@ -2396,6 +2528,46 @@ public class Emat implements Serializable {
 
 	}
 
+	public int getRCAALoc(Molecule m, int pos, ArrayList<ResidueConformation> supRot) {
+
+
+
+		int p1 = pos;
+		for(int a1=0;a1<singles.E[p1].length;a1++){
+
+			if(singles.supRot[p1][a1].length==0)
+				continue;
+			int[] rotInd1 = singles.supRot[p1][a1][0]; //Just want to extract the AA type (and all rotamers have same type so just grab first one)
+			String[] aaName1 = new String[rotInd1.length];
+			//AA names of the current emat rotamer
+			for(int a1ctr=0; a1ctr<aaName1.length;a1ctr++)
+				aaName1[a1ctr] = m.strand[m.residue[resByPos.get(p1).get(a1ctr)].strandNumber].rcl.getRC(rotInd1[a1ctr]).rot.aaType.name;
+
+			//Figure out how many Rotamers are of this AA type
+			ArrayList<ArrayList<Rotamer>> curRotsToAdd = new ArrayList<ArrayList<Rotamer>>();
+			boolean correctAA = true;
+			int a1ctr = 0;
+
+			for(ResidueConformation rc : supRot){
+
+				//Is this AAtype the same as the rotamer we want to add
+				if(!aaName1[a1ctr].equalsIgnoreCase(rc.rot.aaType.name)){
+					correctAA = false;
+				}	
+				a1ctr++;
+			}
+
+			if(correctAA){	
+				return a1;
+			}
+		}
+
+
+
+		return -1;
+
+	}
+	
 	public Index3[] getConf(int[] globalRots) {
 		Index3[] conf = new Index3[globalRots.length];
 		for(int i=0; i<resByPos.size();i++){

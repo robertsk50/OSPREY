@@ -359,8 +359,6 @@ public class CCDMinimizer {
     }
 
 
-
-
     public double getStepSize(int dof, int iter){//Get a good step size for a DOF
         //for initial value checking in CCD, in iteration number iter
 
@@ -862,5 +860,62 @@ public class CCDMinimizer {
         objFcn.setDOFs(x);
         return E;
     }
+    
+    /**
+     * Return an array that contains the values for 
+     * all SC dihedral degrees of freedom
+     * @param res1 
+     * @param res2
+     */
+    public double[][] getCurSCDihedrals(Residue[] res1, Residue[] res2){
+  
+    	ArrayList<ArrayList<Double>> dihedralList = new ArrayList<ArrayList<Double>>();
+    	dihedralList.add(new ArrayList<Double>()); //Add to arraylists, one for each residue array
+    	dihedralList.add(new ArrayList<Double>());
+    	for(int dof=0; dof<objFcn.getNumDOFs();dof++){
+    	
+    		for(Residue res: res1){
+    			if(objFcn.isDOFSCAngle(dof) && objFcn.isDOFforRes(dof, res)){
+    				//calculate distance dihedral moved
+    				double initial = ( DOFmin.get(dof) + DOFmax.get(dof) ) / 2;
+    				double val = dihDistance(initial,x.get(dof));
+    				dihedralList.get(0).add(val);
+    			}
+    		}
+    		for(Residue res: res2){
+    			if(objFcn.isDOFSCAngle(dof) && objFcn.isDOFforRes(dof, res)){
+    				double initial = ( DOFmin.get(dof) + DOFmax.get(dof) ) / 2;
+    				double val = dihDistance(initial,x.get(dof));
+    				dihedralList.get(1).add(val);
+    			}
+    		}
+    		
+    	}
+		
+    	//Copy over arrayList to array
+    	double[][] dihedrals = new double[2][];
+    	for(int i=0; i<dihedrals.length; i++){
+    		dihedrals[i] = new double[dihedralList.get(i).size()];
+    		for(int j=0; j<dihedrals[i].length;j++){
+    			dihedrals[i][j] = dihedralList.get(i).get(j);
+    		}
+    	}
+    	
 
+		return dihedrals;
+
+    	
+    }
+
+    //Return the distance dih2 is away from initDih 
+	private double dihDistance(double initDih, double dih2) {
+		double d = dih2 - initDih;
+		d = mod(d+180,360) - 180;
+		return d;
+	}
+
+	private double mod(double a, int n){
+		return ((a % n) + n) % n;
+	}
+    
 }

@@ -50,7 +50,7 @@ public class CompareEmats {
 		rcl.loadGlobalRCs("/usr/project/dlab/Users/kroberts/Troubleshooting/Kyle/082714/DEEPERepic/merged/1CC8_pertminM_COM.dat.rcl_0", aaRotLib);
 		
 		
-		Emat emat = new Emat("1CC8_pertminM_COM.dat",false,aaRotLib);
+		Emat emat = new Emat("1CC8_pertminM_COM.dat",false,null);
 		PairwiseEnergyMatrix pairEmat =  new PairwiseEnergyMatrix();
 		try{
 			ObjectInputStream in = new ObjectInputStream(new FileInputStream("/usr/project/dlab/Users/kroberts/Troubleshooting/Kyle/082714/DEEPERepic/github/1CC8_pertminM_COM.dat"));

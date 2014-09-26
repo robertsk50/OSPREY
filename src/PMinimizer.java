@@ -351,7 +351,7 @@ public class PMinimizer extends SimpleMinimizer {
 			for(int str=0; str<numberOfStrands;str++){
 				for(int j=0;j<numStrDihedrals[str];j++) {
 					strDihedDiff[str][j] = computeDihedDiff(strDihedralAtNums[str][j],strDihedralDistal[str][j],
-						strNumAtomsDistal[str][j],strDihedToResNum[str][j], step, str, j);
+						strNumAtomsDistal[str][j],strDihedToFlexNum[str][j], step, str, j);
 					updateCumulative(strCumulativeDihedStep[str],strDihedDiff[str],j,lmaxMovement);
 					applyDihedStep(strDihedralAtNums[str][j],strDihedralDistal[str][j],strNumAtomsDistal[str][j],strDihedDiff[str][j]);
 				}

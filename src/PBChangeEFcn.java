@@ -98,7 +98,7 @@ public class PBChangeEFcn extends EnergyFunction {
         //without messing anything up
         
         //save the molecule to a PDB file and run Delphi on it
-        new KSParser().saveMolecule(mCopy, delphiFolder+"/struct.pdb", 0);
+        mCopy.saveMolecule(delphiFolder+"/struct.pdb", 0);
         double E = 0;
         
         try{

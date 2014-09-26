@@ -1264,5 +1264,9 @@ public class MutationManager
 	public void setDEEsettings(DEEsettings deeSettings) {
 		this.deeSettings = deeSettings;	
 	}
+	
+	public void setPDBoutDir(String pdbOutDir) {
+		this.pdbOutDir = pdbOutDir;
+	}
 
 }

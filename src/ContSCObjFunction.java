@@ -809,6 +809,20 @@ public class ContSCObjFunction implements ObjectiveFunction, Serializable {
 		return curDOF.isDOFAngle();
 	}
 
+	@Override
+	public boolean isDOFSCAngle(int dof){
+		DegreeOfFreedom curDOF = m.DOFs[DOFNums[dof]];
+		return curDOF.isDOFSCAngle();
+	}
+	
+	@Override
+	public boolean isDOFforRes(int dof, Residue r) {
+		DegreeOfFreedom curDOF = m.DOFs[DOFNums[dof]];
+		if(curDOF.strandNum == r.strandNumber && curDOF.strResNum == r.strandResidueNumber)
+			return true;
+		
+		return false;
+	}
 
 	public static double enforceAngleRangeConvention(double theta){
 		//Enforces angle range convention for ideal dihedrals

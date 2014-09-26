@@ -746,6 +746,17 @@ public class DegreeOfFreedom implements RyanComparable, Serializable {//DOF for 
         
         return false;
     }
+    
+    /**
+     * Check whether this DOF is a SC dihedral
+     * @return whether or not this DOF is a SC dihedral
+     */
+    public boolean isDOFSCAngle(){
+    	if(type==SCDIHEDRAL)
+    		return true;
+    	
+    	return false;
+    }
 
 
        /* public int getNumIntervals(){

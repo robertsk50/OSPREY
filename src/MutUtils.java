@@ -102,9 +102,13 @@ public class MutUtils {
 			// Perform the rotation
 			// at[0], at[1], and at[2] don't move, at[3] and the atoms
 			//  in the atomList rotate
+			try{
 			m.setTorsion(at[0].moleculeAtomNumber,at[1].moleculeAtomNumber,
 				at[2].moleculeAtomNumber,at[3].moleculeAtomNumber,
 				rot.values[i],atomList,alSize);
+			}catch(Exception E){
+				System.out.println("DELETE ME");
+			}
 		}
 		
 		return true;

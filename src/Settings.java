@@ -32,6 +32,8 @@ public class Settings {
 		
 		boolean useCCD;
 		
+		RotamerSearch.MINIMIZATIONSCHEME minScheme;
+		
 		Minimization(ParamSet sParams){
 			doMinimize = (new Boolean((String)sParams.getValue("DOMINIMIZE", "false"))).booleanValue();
 			minimizeBB = (new Boolean((String)sParams.getValue("MINIMIZEBB", "false"))).booleanValue();
@@ -56,6 +58,8 @@ public class Settings {
 				minimizeBB = false;
 			if (!minimizeBB) //not backbone minimization
 				doBackrubs = false;
+			
+			minScheme = RotamerSearch.MINIMIZATIONSCHEME.valueOf(sParams.getValue("MINIMIZATIONSCHEME","PAIRWISE").toUpperCase());
 		}
 		
 	}
@@ -184,6 +188,7 @@ public class Settings {
 		boolean useFlagsAStar;
 		ASTARMETHOD asMethod;
 		int numMaxMut;
+		double bestE;
 		
 		Enum(ParamSet sParams){
 			EnvironmentVars.useMPLP = (new Boolean((String)sParams.getValue("USEMPLP", "false"))).booleanValue(); 		//from Pablo
@@ -192,6 +197,7 @@ public class Settings {
 			useFlagsAStar = (new Boolean((String)sParams.getValue("USEFLAGSASTAR","false"))).booleanValue();
 			asMethod = ASTARMETHOD.valueOf(sParams.getValue("ASTARMETHOD","ASWCSPREORDER").toUpperCase());
 			numMaxMut = (new Integer((String)sParams.getValue("NUMMAXMUT", "1000"))).intValue();
+			bestE = (new Double((String)sParams.getValue("BESTE","10000000"))).doubleValue();
 		}
 		
 	}
@@ -254,10 +260,12 @@ public class Settings {
 	public class Output{
 		String outputConfInfo;
 		String outputPruneInfo;
+		String pdbOutDir;
 		
 		Output(ParamSet sParams, String runName){
 			outputConfInfo = (String)(sParams.getValue("OUTPUTCONFINFO","c_"+runName));
 			outputPruneInfo = (String)(sParams.getValue("OUTPUTPRUNEINFO","p_"+runName));
+			pdbOutDir = sParams.getValue("pdbOutDir","pdbs");
 		}
 	}
 	
