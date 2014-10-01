@@ -2269,12 +2269,14 @@ public class RotamerSearch implements Serializable
 			pos2 = emeWI.pos2();
 
 		storeDiscreteDOFs(emeWI.pos1(),aaType1,pos2,aaType2,bestSer);
-
+		
+		
 		if (shellRun)
 			cetm.setShellRotE(emeWI.index, bestSer);
 		else
 			cetm.setPairwiseE( emeWI.index, bestSer );    
-
+		
+		
 		if(es.PBTest||es.quantumTest)//revert to regular energy function
 			((ContSCObjFunction)ccdMin.objFcn).efunc = oldEF;
 	}
@@ -3332,6 +3334,8 @@ public class RotamerSearch implements Serializable
 			bestE += tmpSingleE;
 
 			for(int j=i+1;j<AAnums.length;j++){
+				if(!arpMatrix.areNeighbors(i, j))
+					continue;
 				double tmpPairE = arpMatrix.getPairwiseE(i,AAnums[i],ROTnums[i],j,AAnums[j],ROTnums[j]);
 				bestE += tmpPairE;
 //				System.out.println("p_"+i+"_"+AAnums[i]+"_"+ROTnums[i]+"_"+j+"_"+AAnums[j]+"_"+ROTnums[j]+" "+tmpPairE);

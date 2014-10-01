@@ -1399,6 +1399,7 @@ public class Amber96ext implements ForceField, Serializable {
 				r1 = m.atom[atom1].moleculeResidueNumber;
 				r4 = m.atom[atom4].moleculeResidueNumber;
 				if (evalAtom[atom1] && evalAtom[atom4] && 
+						m.areNeighbors(r1, r4) &&
 						(!onlySingle || m.residue[r1].flexible || m.residue[r4].flexible ) &&
 						(!onlyPair || ((pair1.contains(r1) && pair2.contains(r4)) ||
 								(pair2.contains(r1) && pair1.contains(r4)) ))) {
@@ -1485,6 +1486,9 @@ public class Amber96ext implements ForceField, Serializable {
 		numberNonBonded = 0;
 		for(int res1=0; res1<m.nonBonded.length; res1++) {
 			for(int res2=res1; res2<m.nonBonded[res1].length;res2++){
+				if(!m.areNeighbors(res1, res2))
+					continue;
+				
 				if( onlySingle && !(m.residue[res1].flexible || m.residue[res2].flexible) ) //the residue isn't part of the intra energy we're calculating 
 					continue;
 				

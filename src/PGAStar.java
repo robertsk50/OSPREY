@@ -1323,12 +1323,12 @@ public class PGAStar extends AStar{
 
 	//Check whether the pair is pruned with any assigned rotamer so far
 	private boolean isPruned(Index3 secondIndex, Index3 index1, PGQueueNode node) {
-		if(emat.getPairPruned(index1, secondIndex))
+		if(emat.areNeighbors(index1.pos, secondIndex.pos) && emat.getPairPruned(index1, secondIndex))
 			return true;
 		
 		for(int level: node.nonEmptyLevels){
 			Index3 i3 = twoDTo3D[level][node.confSoFar[level]];
-			if(emat.getPairPruned(i3, secondIndex))
+			if(emat.areNeighbors(i3.pos, secondIndex.pos) && emat.getPairPruned(i3, secondIndex))
 				return true;
 		}
 		

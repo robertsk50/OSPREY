@@ -1645,9 +1645,10 @@ public class PGgurobiAStar extends AStar{
             
     	 Index3[] indices = new Index3[node.nonEmptyLevels.size()];
          //int rots[] = new int[node.nonEmptyLevels.size()];
-    	 for(int level: node.nonEmptyLevels){
-    		 if(conf[level]>=0){
-             	indices[level] = twoDTo3D[level][node.confSoFar[level]];
+    	 for(int i=0; i<node.nonEmptyLevels.size();i++){
+    		 int level = node.nonEmptyLevels.get(i);
+    		 if(conf[level]>=0){ //Should now always be greater than 0
+             	indices[i] = twoDTo3D[level][node.confSoFar[level]];
     		 }
     	 }
     	 
@@ -1728,7 +1729,7 @@ public class PGgurobiAStar extends AStar{
     void applyRotamers(PGQueueNode node, Index3[] indices){
         //apply AA types and rotamers up to the current level
                 	
-        for (int i : node.nonEmptyLevels){
+        for (int i=0; i< node.nonEmptyLevels.size();i++){
 
             RotamerEntry re = emat.singles.getTerm(indices[i]);
             re.applyMutation(m, emat.resByPos, true,true );

@@ -109,7 +109,7 @@ public class DEEIndirect extends DEE {
 					pairK[pos][AA] = new double[arpMatrix.pairs.E[pos][AA].length][][];
 
 					for(int rot=0; rot<pairK[pos][AA].length; rot++){
-						pairK[pos][AA][rot] = new double[arpMatrix.pairs.E[pos][AA][rot].length][];
+						pairK[pos][AA][rot] = new double[arpMatrix.pairs.E[pos].length][];
 
 						for(int AA2=0; AA2<arpMatrix.singles.E[pos].length; AA2++){
 							if(arpMatrix.singles.E[pos][AA2] == null)
@@ -217,7 +217,9 @@ public class DEEIndirect extends DEE {
 					System.out.print("..");
 
 					for (int curPos2=curPos1+1; curPos2<numMutable; curPos2++){
-
+						if(!pairwiseMinEnergyMatrix.areNeighbors(curPos1, curPos2))
+							continue;
+						
 						if ( inZ[curPos2] && ( (magicBullet)||(!distrDEE)||(resInPair[curPos2]) ) ){ //mb-pairs or not distrDEE or cur res is in distr pair
 
 
@@ -301,7 +303,7 @@ public class DEEIndirect extends DEE {
 								int s_rots[] = new int[numMutable];
 
 								for(int pos2=0; pos2<numMutable; pos2++){
-
+									
 									if(pos2 == posNum){
 										checkSum += pairK[posNum][AANumAtPos][rotNumAtPos][altAA][altRot];
 										continue;
@@ -315,7 +317,7 @@ public class DEEIndirect extends DEE {
 											for(int sRot=0; sRot<pairwiseMinEnergyMatrix.singles.E[pos2][sAA].length; sRot++){
 
 												if( pairwiseMinEnergyMatrix.getSinglePruned(pos2, sAA, sRot)
-														|| pairwiseMinEnergyMatrix.pairs.pruned[pos2][sAA][sRot][posNum][altAA][altRot] )
+														|| (pairwiseMinEnergyMatrix.areNeighbors(pos2,posNum) && pairwiseMinEnergyMatrix.pairs.pruned[pos2][sAA][sRot][posNum][altAA][altRot]) )
 													continue;//Don't use this j_s
 
 													double sKmin = Double.POSITIVE_INFINITY;
@@ -325,7 +327,7 @@ public class DEEIndirect extends DEE {
 														for(int uRot=0; uRot<pairwiseMinEnergyMatrix.singles.E[pos2][uAA].length; uRot++){
 
 															if( pairwiseMinEnergyMatrix.getSinglePruned(pos2, uAA, uRot)
-																	|| pairwiseMinEnergyMatrix.pairs.pruned[pos2][uAA][uRot][posNum][AANumAtPos][rotNumAtPos] )
+																	|| (pairwiseMinEnergyMatrix.areNeighbors(pos2, posNum) && pairwiseMinEnergyMatrix.pairs.pruned[pos2][uAA][uRot][posNum][AANumAtPos][rotNumAtPos]) )
 																continue;
 
 															if( pairK[pos2][uAA][uRot][sAA][sRot] < sKmin )
@@ -339,6 +341,9 @@ public class DEEIndirect extends DEE {
 													if(sKmin > Kmaxmin){
 														boolean isCompatible = true;//is index_s compatible with the rest of the s-indices used?
 														for(int a=0;a<pos2;a++){
+															if(!pairwiseMinEnergyMatrix.areNeighbors(a, pos2))
+																continue;
+															
 															if( inZ[a] && (a != posNum) && pairwiseMinEnergyMatrix.pairs.pruned[a][s_AAtypes[a]][s_rots[a]][pos2][sAA][sRot] )
 																isCompatible = false;
 														}
@@ -459,8 +464,8 @@ public class DEEIndirect extends DEE {
 					for(int sRot=0; sRot<pairwiseMinEnergyMatrix.singles.E[posj][sAA].length; sRot++){
 
 						if( pairwiseMinEnergyMatrix.getSinglePruned(posj, sAA, sRot)
-								|| pairwiseMinEnergyMatrix.pairs.pruned[posj][sAA][sRot][pos1][t1AA][t1Rot]
-										|| pairwiseMinEnergyMatrix.pairs.pruned[posj][sAA][sRot][pos2][t2AA][t2Rot] )
+								|| (pairwiseMinEnergyMatrix.areNeighbors(posj, pos1) && pairwiseMinEnergyMatrix.pairs.pruned[posj][sAA][sRot][pos1][t1AA][t1Rot])
+										|| (pairwiseMinEnergyMatrix.areNeighbors(posj, pos2) && pairwiseMinEnergyMatrix.pairs.pruned[posj][sAA][sRot][pos2][t2AA][t2Rot]) )
 							continue;//Don't use this j_s
 
 							if( isPrunedTriple(posj,sAA,sRot,pos1,t1AA,t1Rot,pos2,t2AA,t2Rot) )
@@ -475,8 +480,8 @@ public class DEEIndirect extends DEE {
 								for(int uRot=0; uRot<pairwiseMinEnergyMatrix.singles.E[posj][uAA].length; uRot++){
 
 									if( pairwiseMinEnergyMatrix.getSinglePruned(posj, uAA, uRot)
-											|| pairwiseMinEnergyMatrix.pairs.pruned[posj][uAA][uRot][pos1][r1AA][r1Rot]
-													|| pairwiseMinEnergyMatrix.pairs.pruned[posj][uAA][uRot][pos2][r2AA][r2Rot] )
+											|| (pairwiseMinEnergyMatrix.areNeighbors(posj, pos1) && pairwiseMinEnergyMatrix.pairs.pruned[posj][uAA][uRot][pos1][r1AA][r1Rot])
+													|| (pairwiseMinEnergyMatrix.areNeighbors(posj, pos2) && pairwiseMinEnergyMatrix.pairs.pruned[posj][uAA][uRot][pos2][r2AA][r2Rot]) )
 										continue;
 
 									if( isPrunedTriple(posj,uAA,uRot,pos1,r1AA,r1Rot,pos2,r2AA,r2Rot) )
@@ -496,6 +501,9 @@ public class DEEIndirect extends DEE {
 							if(sKmin > Kmaxmin){
 								boolean isCompatible = true;//is index_s compatible with the rest of the s-indices used?
 										for(int a=0;a<posj;a++){
+											if(!pairwiseMinEnergyMatrix.areNeighbors(a, posj))
+												continue;
+											
 											if( inZ[a] && (a != pos1) && (a != pos2) && pairwiseMinEnergyMatrix.pairs.pruned[a][s_AAtypes[a]][s_rots[a]][posj][sAA][sRot] )
 												isCompatible = false;
 										}
@@ -535,6 +543,9 @@ public class DEEIndirect extends DEE {
 		for(int posj=0; posj<pos2; posj++){
 			//We are assuming pos2 > pos1
 
+			if(!pairwiseMinEnergyMatrix.areNeighbors(pos1,posj) || !pairwiseMinEnergyMatrix.areNeighbors(pos2, posj))
+				continue;
+			
 			if( inZ[posj] && (posj != pos1) ){
 
 				double minTerm = Double.POSITIVE_INFINITY;//This will be the minimum E(i_r,j_s) over j_s in R_(j,i_r)
@@ -644,7 +655,9 @@ public class DEEIndirect extends DEE {
 
 		//Now sum pairwise energy differences within the pruning zone
 		for(int pos2=0; pos2<curPos; pos2++){
-
+			if(!pairwiseMinEnergyMatrix.areNeighbors(curPos, pos2))
+				continue;
+			
 			if( inZ[pos2] ){
 
 				double minTerm = Double.POSITIVE_INFINITY;//This will be the minimum E(i_r,j_s) over j_s in R_(j,i_r)

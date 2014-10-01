@@ -435,6 +435,7 @@ public class KSParser
 		rotamerIndexOffset = rl.getRotamerIndexOffset();
 		totalNumRotamers = rl.getTotalNumRotamers();*/
 
+		EnvironmentVars.STORE_FULL_WT_ROT = new Boolean((String)rParams.getValue("STORE_FULL_WT_ROT","true")).booleanValue();
 		EnvironmentVars.autoFix = new Boolean((String)rParams.getValue("AUTOFIX","true")).booleanValue();
 
 		String ramaGlyFile = (String)rParams.getValue("RAMAGLYFILE","rama500-gly-sym.data");
@@ -4561,13 +4562,13 @@ public class KSParser
 				//
 //				if(algOption >= 4){
 					//Indirect pruning goes at the end because it benefits strongly from prior pruned pairs and triples
-					System.out.println("Starting indirect pruning");
-
-					RotamerSearch.DoDEEIndirect(emat, strandMut, initEw, 
-							null, doMinimize, false, false,
-							minimizeBB, typeDep, localUseMinDEEPruningEw, Ival,doPerturbations,m, strandRot);
-
-					System.out.println();
+//					System.out.println("Starting indirect pruning");
+//
+//					RotamerSearch.DoDEEIndirect(emat, strandMut, initEw, 
+//							null, doMinimize, false, false,
+//							minimizeBB, typeDep, localUseMinDEEPruningEw, Ival,doPerturbations,m, strandRot);
+//
+//					System.out.println();
 					//This prunes full rather than magic-bullet pairs
 //				}
 

@@ -338,6 +338,35 @@ public class Residue implements Serializable {
 
 	}
 
+	//Returns the distance (the minimum distance between a pair of atoms) between the side-chains of this residue and res2;
+	//If bbAt is false, then only side-chain atoms are considered
+	public double getDistCountH(Residue res2, boolean bbAt){
+		
+		double minDist = Double.POSITIVE_INFINITY;
+		
+		for (int a1=0; a1<numberOfAtoms; a1++){
+			
+			//String a1type = atom[a1].elementType;
+			
+			if ( /*(!a1type.equalsIgnoreCase("H")) &&*/ ( bbAt || (!atom[a1].getIsBBatom()) ) ){
+				
+				for (int a2=0; a2<res2.numberOfAtoms; a2++){
+					
+					//String a2type = res2.atom[a2].elementType;
+					
+					if ( /*(!a2type.equalsIgnoreCase("H")) &&*/ (bbAt || (!res2.atom[a2].getIsBBatom()) ) ){
+						
+						double curDist = getDist(atom[a1],res2.atom[a2]);
+						minDist = Math.min(minDist, curDist);
+					}
+				}
+			}
+		}
+		
+		return minDist;
+	}
+	
+	
 	//Returns the distance (the minimum distance between a pair of non-hydrogen side-chain atoms) between the side-chains of this residue and res2;
 	//If bbAt is false, then only side-chain atoms are considered
 	public double getDist(Residue res2, boolean bbAt){
@@ -954,14 +983,17 @@ public class Residue implements Serializable {
 				CA = this.wildtypeAtoms[aIx];
 		}
 		
+		double CAx = CA.coord[0];
+		double CAy = CA.coord[1];
+		double CAz = CA.coord[2];
 		if(CA == null){
 			System.out.println("Wasn't able to find CA atom in residue when saving WT coords.");
 			System.exit(0);
 		}else{
 			for(Atom a: this.wildtypeAtoms){
-				a.coord[0] -= CA.coord[0];
-				a.coord[1] -= CA.coord[1];
-				a.coord[2] -= CA.coord[2];
+				a.coord[0] -= CAx;
+				a.coord[1] -= CAy;
+				a.coord[2] -= CAz;
 			}
 		}
 		
@@ -993,7 +1025,7 @@ public class Residue implements Serializable {
 		int atomsChanged = 0;
 //		System.out.println("Restoring wildtype rotamer coordinates for residue: "+this.fullName);
 		for(int aIx1 = 0; aIx1 < this.atom.length; aIx1++){
-			if(this.atom[aIx1].isBBatom || !skipBB ){
+			if(!this.atom[aIx1].isBBatom || !skipBB ){
 				nonBBatoms++;
 				boolean atomMatched = false;
 				for(int aIx2 = 0; aIx2 < this.wildtypeAtoms.length; aIx2++){

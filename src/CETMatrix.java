@@ -384,6 +384,8 @@ public class CETMatrix implements Serializable {
             termCount++;
 
             for(int res2=0; res2<res; res2++){
+            	if(!areNeighbors(i[res].pos,i[res2].pos))
+            		continue;
                 terms[termCount] = pairwiseBounds[i[res].pos][i[res].aa][i[res].rot][i[res2].pos][i[res2].aa][i[res2].rot];
                 termCount++;
             }
@@ -395,7 +397,28 @@ public class CETMatrix implements Serializable {
     
     
     
-    
+    /**
+	 * Determines if two positions in the Emat are neighbors
+	 * For now I just check if the pair matrix is defined for
+	 * these two positions
+	 * @param pos1
+	 * @param pos2
+	 * @return areNeighbors
+	 */
+	public boolean areNeighbors(int pos1, int pos2) {
+		//Find a valid rotamer for pos1 and then check
+		//if pos2 is defined for the rotamer
+		for(int a1=0; a1<pairwiseBounds[pos1].length;a1++){
+			for(int r1=0; r1<pairwiseBounds[pos1][a1].length;r1++){
+				if(pairwiseBounds[pos1][a1][r1][pos2] == null)
+					return false;
+				else
+					return true;
+			}
+		}
+
+		return true;
+	}
     
     
     
@@ -627,6 +650,8 @@ public class CETMatrix implements Serializable {
                     for(ContETerm ccc[][][] : cc){
                         if(ccc!=null){
                             for(int res2=0; res2<res; res2++){
+                            	if(!areNeighbors(res, res2))
+                            		continue;
                                 for(ContETerm cccc[] : ccc[res2]){
                                     if(cccc!=null){
                                         for(ContETerm ccccc : cccc){
@@ -678,6 +703,8 @@ public class CETMatrix implements Serializable {
 						intraAndShellBounds[p1][a1][r1] = cetm.intraAndShellBounds[p1][a1][oldR1];
 						
 						for(int p2=p1+1; p2<intraAndShellBounds.length;p2++ ){
+							if(!areNeighbors(p1, p2))
+								continue;
 							for(int a2=0; a2<intraAndShellBounds[p2].length;a2++ ){
 								int oldR2 = 0;
 								for(int r2=0; r2<intraAndShellBounds[p2][a2].length;r2++ ){

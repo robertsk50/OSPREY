@@ -929,6 +929,26 @@ public class Molecule implements Serializable{
 			if(!(residue[i].strandNumber == strandNumber))
 				smallerResidueArray[j++] = residue[i];
 		}
+		
+		//fix the neighbor list
+		if(neighborList!=null){
+			boolean[][] newNeighborList = new boolean[newResidueNumber][newResidueNumber];
+			int ctri=0;
+			for(int i=0; i<residue.length;i++){
+				if(!(residue[i].strandNumber == strandNumber)){
+					int ctrj=0;
+					for(int j=0; j<residue.length;j++){
+						if(!(residue[j].strandNumber == strandNumber)){
+							newNeighborList[ctri][ctrj] = neighborList[i][j];
+							ctrj++;
+						}
+					}
+					ctri++;
+				}
+			}
+			neighborList = newNeighborList;
+		}
+		
 		residue = smallerResidueArray;
 
 		numberOfAtoms = newAtomNumber;
@@ -2189,12 +2209,14 @@ public class Molecule implements Serializable{
 			for(int j=i+1; j<numberOfAtoms; j++) {
 				Atom a2 = this.atom[j];
 				if (bondedMatrix[i][j] == false) {
-					numberNonBonded++;
-					if (nonBonded[a1.moleculeResidueNumber][a2.moleculeResidueNumber] == null) {
-						nonBonded[a1.moleculeResidueNumber][a2.moleculeResidueNumber] = new ArrayList<Atom>();
+					if (areNeighbors(atom[i].moleculeResidueNumber,atom[j].moleculeResidueNumber)){
+						numberNonBonded++;
+						if (nonBonded[a1.moleculeResidueNumber][a2.moleculeResidueNumber] == null) {
+							nonBonded[a1.moleculeResidueNumber][a2.moleculeResidueNumber] = new ArrayList<Atom>();
+						}
+						nonBonded[a1.moleculeResidueNumber][a2.moleculeResidueNumber].add(a1);
+						nonBonded[a1.moleculeResidueNumber][a2.moleculeResidueNumber].add(a2);
 					}
-					nonBonded[a1.moleculeResidueNumber][a2.moleculeResidueNumber].add(a1);
-					nonBonded[a1.moleculeResidueNumber][a2.moleculeResidueNumber].add(a2);
 				}
 			}
 		}
@@ -3296,7 +3318,7 @@ public class Molecule implements Serializable{
 					for(int rot2=0; rot2<numRot2;rot2++){
 						if(r2.isMutable)
 							MutUtils.applyRotamer(this, rotsForPos.get(j).get(rot2), r2);
-						if(r1.getDist(r2, true) <= Dcut){
+						if(r1.getDistCountH(r2, true) <= Dcut){
 							areNeighbors = true;
 							break;
 						}
