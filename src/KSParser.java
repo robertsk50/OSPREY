@@ -1108,6 +1108,9 @@ public class KSParser
 				m = setupMolSystem(m,sParams,strandPresent,strandLimits);
 			}
 			else{
+				
+				mp = loadMolecule(sParams, i, graphSettings.neighborList, graphSettings.distCutoff,true); //Load new molecule for curStrForMatrix
+				
 				if(rs==null || minSettings.selectPerturbations){//MH: this can happen if we just handled a special unbound-strand structure
 					rs = new RotamerSearch(m,numberMutable, strandsPresent,hElect,hVDW,hSteric,true,true,
 							kstarSettings.epsilon,stericThresh,softStericThresh,distDepDielect,dielectConst,doDihedE,doSolvationE,solvScale,
@@ -1119,7 +1122,7 @@ public class KSParser
 				sParams.setValue("PERTURBATIONFILE", strandPertFile);
 
 				rs.resetMatrices();
-				Emat emat = loadPairwiseEnergyMatrices(sParams,ematSettings.runNameEMatrixMin,minSettings.doMinimize,i, es,m, false);
+				Emat emat = loadPairwiseEnergyMatrices(sParams,ematSettings.runNameEMatrixMin,minSettings.doMinimize,i, es,mp.m, false);
 
 
 				if(es.useEPIC)
