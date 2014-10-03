@@ -414,10 +414,10 @@ public class DegreeOfFreedom implements RyanComparable, Serializable {//DOF for 
 
         //All RCs at residues in the strand are compatible with this interval
         compatibleRCs = initializeBitSets(numIntervals, numResAffected, strandRot.rl.getNumAAallowed());
-
-        Residue r = m.strand[strandNum].residue[strResNum];
         
         for(int ares=0; ares<numResAffected; ares++){//Loop through affected residues
+        	int curStrResNum = strandMut.resStrandNum[flexResAffected[ares]];
+        	Residue r = m.strand[strandNum].residue[curStrResNum];
         	for(AARotamerType aaType : r.AATypesAllowed()){
                 int numRCs = r.getRCsForType(aaType).size();
                 compatibleRCs[0][ares][aaType.index].set(0,numRCs);

@@ -19,15 +19,8 @@ import java.util.TreeSet;
 public class Emat implements Serializable {
 
 
-	//ArrayList<ArrayList<ArrayList<EMatrixEntry>>> pairE;
-	//ArrayList<ArrayList<EMatrixEntry>> intraE;
-
 	//KER: Since objects take up lots of space I'm just going
 	//KER: to have lots of matrices that all have primitives
-
-
-	//EMatrixEntry[][][][][][] pairE;
-
 	PairMats pairs;
 	SingleMats singles;
 
@@ -1968,18 +1961,18 @@ public class Emat implements Serializable {
 	}
 
 	//KER: Similar to addRotamers except that we are updating the rotamers to a known position
-	public void updateRotamer(Molecule m,Index3 mutRotamer, ArrayList<Rotamer> rotToUpdate, boolean intraOnly){
+	public void updateRotamer(Molecule m,Index3 mutRotamer, ArrayList<ResidueConformation> rotToUpdate, boolean intraOnly){
 
 		ArrayList<Residue> resForPos1 = new ArrayList<Residue>();
 		int ctr=0;
-		for(Rotamer r : rotToUpdate){
+		for(ResidueConformation r : rotToUpdate){
 			resForPos1.add(m.residue[resByPos.get(mutRotamer.pos).get(ctr)]);
 			ctr++;
 		}
 
 		int[] rotArrayToAdd = new int[rotToUpdate.size()];
 		for(int i=0; i<rotArrayToAdd.length;i++)
-			rotArrayToAdd[i] = rotToUpdate.get(i).rlIndex;
+			rotArrayToAdd[i] = rotToUpdate.get(i).id;
 
 		//Run through every pair and then update rotamer
 
@@ -2018,34 +2011,30 @@ public class Emat implements Serializable {
 	}
 
 
-	public ArrayList<Index3> addRotamers(Molecule m,int mutPos, ArrayList<ArrayList<Rotamer>> rotsToAdd, boolean intraOnly){
+	public ArrayList<Index3> addRotamers(Molecule m,int mutPos, ArrayList<ArrayList<ResidueConformation>> rotsToAdd, boolean intraOnly){
 
 		ArrayList<Index3> returnTuples = new ArrayList<Index3>();
 
 
 		//KER: Loop through each rotamer adding the correct dimensions
-		for(ArrayList<Rotamer> rotsForPos:rotsToAdd){
+		for(ArrayList<ResidueConformation> rotsForPos:rotsToAdd){
 
 			ArrayList<Residue> resForPos1 = new ArrayList<Residue>();
 			int ctr=0;
-			for(Rotamer r : rotsForPos){
+			for(ResidueConformation r : rotsForPos){
 				resForPos1.add(m.residue[resByPos.get(mutPos).get(ctr)]);
 				ctr++;
 			}
 
 			int[] rot2Array = new int[rotsForPos.size()];
 			for(int i=0; i<rot2Array.length;i++)
-				rot2Array[i] = rotsForPos.get(i).rlIndex;
+				rot2Array[i] = rotsForPos.get(i).id;
 
 			//First just going to add the rotamer to the 6th dimension
 			for(int p1=0; p1<pairs.E.length;p1++){
 				if(p1 != mutPos && areNeighbors(p1, mutPos, m)){
 					for(int a1=0; a1<pairs.E[p1].length;a1++){
 						for(int r1=0; r1<pairs.E[p1][a1].length;r1++){
-
-							//							int[] rot1Array = new int[singles.supRot[p1][a1][r1].length];
-							//							for(int i=0; i<rot1Array.length;i++)
-							//								rot1Array[i] = singles.supRot[p1][a1][r1][i];
 
 							int p2 = mutPos;
 							boolean addedRot = false;
@@ -2058,9 +2047,9 @@ public class Emat implements Serializable {
 								int a2ctr=0;
 								for(Residue res1 : resForPos1){
 
-									AARotamerType aaType2 = res1.rl.getRot(rotInd2[a2ctr]).aaType; 
+									AARotamerType aaType2 = m.strand[res1.strandNumber].rcl.getRC(rotInd2[a2ctr]).rot.aaType; 
 
-									if(!aaType2.name.equalsIgnoreCase(rotsForPos.get(a2ctr).aaType.name)){
+									if(!aaType2.name.equalsIgnoreCase(rotsForPos.get(a2ctr).rot.aaType.name)){
 										correctAA = false;
 									}	
 									a2ctr++;
@@ -2090,7 +2079,7 @@ public class Emat implements Serializable {
 
 			int[] rot1Array = new int[rotsForPos.size()];
 			for(int i=0; i<rot1Array.length;i++)
-				rot1Array[i] = rotsForPos.get(i).rlIndex;
+				rot1Array[i] = rotsForPos.get(i).id;
 
 			int p1 = mutPos;
 			for(int a1=0;a1<pairs.E[p1].length;a1++){
@@ -2100,9 +2089,9 @@ public class Emat implements Serializable {
 				int[] rotInd1 = singles.supRot[p1][a1][0]; //Just want to extract the AA type (and all rotamers have same type so just grab first one)
 				int a1ctr=0;
 				for(Residue res1 : resForPos1){
-					AARotamerType aaType1 = res1.rl.getRot(rotInd1[a1ctr]).aaType;
+					AARotamerType aaType1 = m.strand[res1.strandNumber].rcl.getRC(rotInd1[a1ctr]).rot.aaType;
 					//AARotamerType aaType1 = res1.allowedAATypes.get(a1);
-					if(!aaType1.name.equalsIgnoreCase(rotsForPos.get(a1ctr).aaType.name)){
+					if(!aaType1.name.equalsIgnoreCase(rotsForPos.get(a1ctr).rot.aaType.name)){
 						correctAA = false;
 					}	
 					a1ctr++;
@@ -2699,12 +2688,211 @@ public class Emat implements Serializable {
 		return aaTypes;
 	}
 	
-	
+	/**
+	 * Goes through all pairs of mutable spots and finds the ones with the least number of pairs
+	 */
+	public int[] findPositionsToContractLeastPairs() {
+
+		int bestPos1 = -1;
+		int bestPos2 = -1;
+		double minPairs = Double.MAX_VALUE;
+
+		for(int p1 = 0; p1<numMutPos();p1++){
+			for(int p2 = p1+1; p2<numMutPos();p2++){
+				//loop through splitFlags to find all pairs for two positions that have been pruned
+
+				//KER: since we now remove rotamers from the energy matrix the base pruning is
+				//the number of rotamers still left in the eliminatedRotAtRes array
+				int pairs = 0;
+				//int totalNumPairs = 0;
+				Iterator<EMatrixEntryWIndex> iter = pairsIterator(p1, p2);
+				while(iter.hasNext()){
+					EMatrixEntryWIndex eme = iter.next();
+					int[] index1 = {eme.index[0],eme.index[1],eme.index[2]};
+					int[] index2 = {eme.index[3],eme.index[4],eme.index[5]};
+					if(!getSinglePruned(index1) && !getSinglePruned(index2) && !eme.eme.isPruned()){
+						pairs++;
+					}
+					
+				}
+				if(pairs < minPairs){
+					bestPos1 = p1;
+					bestPos2 = p2;
+					minPairs = pairs;
+				}
+			}
+		}
+
+		int[] pos = {bestPos1,bestPos2};
+		return pos;
+	}
+
+	/**
+	 * Given the residue find the residue with the closest CB atom to its CB atom
+	 * This approach is hoping that things close should minimize together.
+	 * @param res
+	 * @return
+	 */
+	public int[] findPositionsToContractClosestRes(int pos, Molecule m) {
+
+		Atom[] CBs = new Atom[resByPos.get(pos).size()];
+		for(int i=0; i<CBs.length;i++)
+			for(Atom a: m.residue[resByPos.get(pos).get(i)].atom)
+				if(a.name.equalsIgnoreCase("CB"))
+					CBs[i] = a;
+
+		int closestPos = -1;
+		double minDist = Double.POSITIVE_INFINITY;
+		int ctr = 0;
+		Iterator<ArrayList<Integer>> iter1 = resByPos.iterator();
+		while(iter1.hasNext()){
+			Iterator<Integer> iter2 = iter1.next().iterator();
+			if(ctr != pos){
+				while(iter2.hasNext()){
+					Integer curRes = iter2.next();
+					Atom curCB = null;
+					for(Atom a: m.residue[curRes].atom)
+						if(a.name.equalsIgnoreCase("CB"))
+							curCB = a;
+
+					for(int i=0; i<CBs.length;i++){
+						if(CBs[i] != null && curCB != null && CBs[i].distance(curCB) < minDist){
+							minDist = CBs[i].distance(curCB);
+							closestPos = ctr;
+						}
+					}
+				}
+			}
+			ctr++;
+		}
+
+		int[] posToMut = new int[2];
+		if(closestPos < pos){
+			posToMut[0] = closestPos;
+			posToMut[1] = pos;
+		}
+		else{
+			posToMut[0] = pos;
+			posToMut[1] = closestPos;
+		}
+
+		return posToMut;
+	}
+
+	/**
+	 * Goes through all pairs of mutable spots and finds the ones with the largest fraction
+	 * of pairs pruned
+	 */
+	public int[] findPositionsToContract() {
+
+		int bestPos1 = -1;
+		int bestPos2 = -1;
+		double maxPercent = 0;
+
+		for(int p1 = 0; p1<numMutPos();p1++){
+			for(int p2 = p1+1; p2<numMutPos();p2++){
+				//loop through splitFlags to find all pairs for two positions that have been pruned
+
+				//KER: since we now remove rotamers from the energy matrix the base pruning is
+				//the number of rotamers still left in the eliminatedRotAtRes array
+				int pairsPruned = 0;
+				int totalNumPairs = 0;
+				Iterator<EMatrixEntryWIndex> iter = pairsIterator(p1, p2);
+				while(iter.hasNext()){
+					EMatrixEntryWIndex eme = iter.next();
+					int[] index1 = {eme.index[0],eme.index[1],eme.index[2]};
+					int[] index2 = {eme.index[3],eme.index[4],eme.index[5]};
+					if(getSinglePruned(index1) || getSinglePruned(index2) || eme.eme.isPruned()){
+						pairsPruned++;
+					}
+					totalNumPairs++;
+				}
+				double fractionPruned = (double)pairsPruned/(double)totalNumPairs;
+				if(fractionPruned > maxPercent){
+					bestPos1 = p1;
+					bestPos2 = p2;
+					maxPercent = fractionPruned;
+				}
+				//KER: BYPASS PERCENT SELECTION IF totalNumPairs == 1
+				if(totalNumPairs == 1){
+					bestPos1 = p1;
+					bestPos2 = p2;
+					maxPercent = 100;
+				}
+				//System.out.println(p1+" "+p2+" "+totalNumPairs +" "+pairsPruned+" "+fractionPruned);
+			}
+		}
+
+		//contractMutSpots(bestPos1, bestPos2);
+		int[] pos = {bestPos1,bestPos2};
+		return pos;
+	}
+
+	/**
+	 * Goes through all pairs of mutable spots and finds the ones with the largest fraction
+	 * of pairs pruned
+	 */
+	public int[] findPositionsToContractPercentLeast() {
 
 
+		int[] bestPos1 = new int[5];
+		int[] bestPos2 = new int[5];
+		int[] pairs = new int[5];
+		double[] maxPercent = new double[5];
 
+		for(int i=0; i<maxPercent.length;i++){
+			maxPercent[i] = 0.0;
+			bestPos1[i] = -1;
+			bestPos2[i] = -1;
+		}
 
+		System.out.println("Begin Find Contract Positions");
+		for(int p1 = 0; p1<numMutPos();p1++){
+			for(int p2 = p1+1; p2<numMutPos();p2++){
+				if(areNeighbors(p1, p2)){
+					//loop through splitFlags to find all pairs for two positions that have been pruned
 
+					//KER: since we now remove rotamers from the energy matrix the base pruning is
+					//the number of rotamers still left in the eliminatedRotAtRes array
+					int pairsPruned = 0;
+					int totalNumPairs = 0;
+					Iterator<EMatrixEntryWIndex> iter = pairsIterator(p1, p2);
+					while(iter.hasNext()){
+						EMatrixEntryWIndex eme = iter.next();
+						int[] index1 = {eme.index[0],eme.index[1],eme.index[2]};
+						int[] index2 = {eme.index[3],eme.index[4],eme.index[5]};
+						if(getSinglePruned(index1) || getSinglePruned(index2) || eme.eme.isPruned()){
+							pairsPruned++;
+						}
+						totalNumPairs++;
+					}
+					double fractionPruned = (double)pairsPruned/(double)totalNumPairs;
+					String fp = String.format("%.2f",fractionPruned );
+					System.out.print(fp+" ");
+					double[] minAndIndex = Util.indexOfMin(maxPercent);
+					int index = (int) minAndIndex[1];
+					if(fractionPruned > minAndIndex[0]){
+						bestPos1[index] = p1;
+						bestPos2[index] = p2;
+						maxPercent[index] = fractionPruned;
+						pairs[index] = totalNumPairs - pairsPruned;
+					}
+					//KER: BYPASS PERCENT SELECTION IF totalNumPairs == 1
+					if(totalNumPairs == 1){
+						int[] pos = {p1,p2};
+						return pos;	
+					}
+					//System.out.println(p1+" "+p2+" "+totalNumPairs +" "+pairsPruned+" "+fractionPruned);
+				}
+			}System.out.println("");
+		}
+		int[] minAndIndex = Util.indexOfMin(pairs);
+		int index = (int) minAndIndex[1];
+
+		//contractMutSpots(bestPos1, bestPos2);
+		int[] pos = {bestPos1[index],bestPos2[index]};
+		return pos;
+	}
 
 
 }

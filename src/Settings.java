@@ -12,6 +12,10 @@ public class Settings {
 		ORIG,PGREORDER,ASGUROBI,MIN,LPGUROBI,ASMPLP,BYSEQ,WCSP,BYSUBROT,ASWCSP,ASGUROBIREORDER,ASWCSPREORDER, BYSEQREORDER
 	}
 	
+	public enum CONTRACTMETHOD {
+		LEASTPAIRS, PERCENTPRUNED, CLOSESTRES, LARGESTDIFF, PERCENTLEAST
+	}
+	
 	public static String getRunName(ParamSet sParams){
 		return ((String)sParams.getValue("RUNNAME"));
 	}
@@ -322,5 +326,32 @@ public class Settings {
 		
 	}
 	
+	public class ImprovedBounds{
 	
+		boolean superRotamers;
+		boolean subRotamers;
+		boolean doTuples;
+		boolean readTuples;
+		String tupleFile;
+		boolean keepAStree;
+		boolean addTuplesByDistance;
+		
+		CONTRACTMETHOD contractMethod;
+//		EnvironmentVars.setContractMethod(contractMethod);
+		
+		public ImprovedBounds(ParamSet sParams) {
+		
+			superRotamers = (new Boolean((String)sParams.getValue("SUPERROTAMERS", "false"))).booleanValue();
+			subRotamers = (new Boolean((String)sParams.getValue("SUBROTAMERS", "false"))).booleanValue();
+			doTuples = (new Boolean((String)sParams.getValue("tuples", "false"))).booleanValue();
+			readTuples = (new Boolean((String)sParams.getValue("readtuples", "false"))).booleanValue();
+			tupleFile = "";
+			if(readTuples)
+				tupleFile = sParams.getValue("tupleFile");
+			keepAStree = (new Boolean((String)sParams.getValue("keepAStree", "false"))).booleanValue();
+			addTuplesByDistance = new Boolean(sParams.getValue("ADDTUPLESBYDISTANCE","false"));
+			String contractMethodStr = sParams.getValue("CONTRACTMETHOD","LEASTPAIRS");
+			contractMethod = CONTRACTMETHOD.valueOf(contractMethodStr);
+		}
+	}
 }

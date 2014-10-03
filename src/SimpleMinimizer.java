@@ -199,6 +199,7 @@ public class SimpleMinimizer implements Serializable {
 	double strDihedWeight[][] = new double[0][0];
 	int strDihedLocalNum[][] = new int[0][0];
 	int strDihedNumTerms[] = new int[0];
+	double lMaxMovement[][] = new double[0][0];
 	
 	/*int sDihedPN[] = new int[0];
 	double sDihedWeight[] = new double[0];
@@ -276,6 +277,7 @@ public class SimpleMinimizer implements Serializable {
 		strNumAtomsDistal = new int[numberOfStrands][];
 		strDihedToFlexNum  = new int[numberOfStrands][];
 		strDihedToResNum  = new int[numberOfStrands][];
+		lMaxMovement = new double[numberOfStrands][];
 		
 		for(int i=0;i<numberOfStrands;i++){
 			strDihedralAtNums[i] = new int[numStrDihedrals[i]][4];
@@ -283,6 +285,7 @@ public class SimpleMinimizer implements Serializable {
 			strNumAtomsDistal[i] = new int[numStrDihedrals[i]];
 			strDihedToFlexNum[i]  = new int[numStrDihedrals[i]];
 			strDihedToResNum[i]  = new int[numStrDihedrals[i]];
+			lMaxMovement[i] =      new double[numStrDihedrals[i]];
 		}		
 		
 		/*sysDihedralAtNums = new int[numSysDihedrals][4];
@@ -350,6 +353,7 @@ public class SimpleMinimizer implements Serializable {
 					for(int j=0;j<curRotamer.aaType.numDihedrals();j++){
 						strDihedToFlexNum[str][numDihed] = curNumFlex;
 						strDihedToResNum[str][numDihed] = localRes.moleculeResidueNumber;
+						lMaxMovement[str][numDihed] = curRotamer.minimizationWidth[j];
 						atoms = strandRot[str].rl.getDihedralInfo(m,str,i,j);
 					// note: atoms are residue relative numbering
 						strDihedralAtNums[str][numDihed][0] = localRes.atom[atoms[0]].moleculeAtomNumber;
@@ -1208,12 +1212,12 @@ public class SimpleMinimizer implements Serializable {
 	// This function updates the total amount (degrees) in which the given dihedral
 	// has moved. It limits this movement to be within +/- lmaxMovement
 	protected void updateCumulative(double cumulativeDihedStep[], double newDihedDiff[], int index,
-		double lmaxMovement){
+			double[] lmaxMovement){
 		
-		if ((cumulativeDihedStep[index] + newDihedDiff[index]) > lmaxMovement)
-			newDihedDiff[index] = lmaxMovement - cumulativeDihedStep[index];
-		if ((cumulativeDihedStep[index] + newDihedDiff[index]) < -lmaxMovement)
-			newDihedDiff[index] = -lmaxMovement - cumulativeDihedStep[index];
+		if ((cumulativeDihedStep[index] + newDihedDiff[index]) > lmaxMovement[index])
+			newDihedDiff[index] = lmaxMovement[index] - cumulativeDihedStep[index];
+		if ((cumulativeDihedStep[index] + newDihedDiff[index]) < -lmaxMovement[index])
+			newDihedDiff[index] = -lmaxMovement[index] - cumulativeDihedStep[index];
 		cumulativeDihedStep[index] += newDihedDiff[index];		
 	}
 	
@@ -1240,19 +1244,17 @@ public class SimpleMinimizer implements Serializable {
 	//		the system residues are fixed
 	public void minimize(int numSteps){
 	
-		/*if ((ligandOnly)&&(ligStrNum == -1)){
-			return;
-		}*/
+		//KER: Initialize how much each dihedral can move
+		//KER: only need to do this when a rotamer has been changed, but just do it here for now
+		updateMaxMovement();
 	
 		double step = initialAngleStepSize;
-		double lmaxMovement = maxMovement;
-			// maximum degrees by which a torsion can
-			//  cumulatively change
+
 		double strRotStep = RotStep;
 			// step size for the rigid rotation
 			//  of the ligand
 		double strTransStep = TransStep;
-			// step size in � for the rigid ligand
+			// step size in Ang for the rigid ligand
 			//  translation
 		double strMaxTrans = MaxTrans;
 			// the maximum ligand translation allowed
@@ -1330,22 +1332,12 @@ public class SimpleMinimizer implements Serializable {
 				for(int j=0;j<numStrDihedrals[str];j++) {
 					strDihedDiff[str][j] = computeDihedDiff(strDihedralAtNums[str][j],strDihedralDistal[str][j],
 						strNumAtomsDistal[str][j],strDihedToFlexNum[str][j], step, str, j);
-					updateCumulative(strCumulativeDihedStep[str],strDihedDiff[str],j,lmaxMovement);
+					updateCumulative(strCumulativeDihedStep[str],strDihedDiff[str],j,lMaxMovement[str]);
 					applyDihedStep(strDihedralAtNums[str][j],strDihedralDistal[str][j],strNumAtomsDistal[str][j],strDihedDiff[str][j]);
 				}
 			}
 				
-			/*for(int j=0;j<numLigDihedrals;j++) {
-				ligDihedDiff[j] = computeDihedDiff(ligDihedralAtNums[j],ligDihedralDistal[j],
-					ligNumAtomsDistal[j],ligResNumber,step,true,j);
-				updateCumulative(ligCumulativeDihedStep,ligDihedDiff,j,lmaxMovement);
-				applyDihedStep(ligDihedralAtNums[j],ligDihedralDistal[j],ligNumAtomsDistal[j],ligDihedDiff[j]);
-			}*/
-
 			//Translate and rotate the ligand
-			/*if(ligStrNum != -1)				
-				doLigTransRot(ligTorque, ligTrans, lligRotStep, lligTransStep, lligMaxTrans);*/
-
 			for(int str=0;str<numberOfStrands;str++){
 				if(m.strand[str].rotTrans){
 					doStrTransRot(str, strTorque, strTrans, strRotStep, strTransStep, strMaxTrans);
@@ -1387,6 +1379,34 @@ public class SimpleMinimizer implements Serializable {
 //	 End of Minmization Section
 ////////////////////////////////////////////////////////////////////////////////
 	
+	/**
+	 * Update the maxMovement array for the currently assigned rotamers
+	 * Different rotamers have different max movements, so this needs
+	 * to be run every time a rotamer is changed.
+	 * 
+	 */
+	protected void updateMaxMovement() {
+		for(int str=0; str<numberOfStrands;str++){
+			int numDihed = 0;
+			Residue localRes = null;
+			for(int i=0;i<m.strand[str].numberOfResidues;i++){
+				localRes = m.strand[str].residue[i];
+				if(localRes.flexible){
+					Rotamer curRotamer = localRes.curRC.rot;
+					for(int j=0;j<localRes.rl.getNumDihedrals(localRes.name);j++){
+						try{
+						lMaxMovement[str][numDihed] = curRotamer.minimizationWidth[j];
+						numDihed++;
+						}catch(Exception E){
+							E.printStackTrace();}
+					}
+				}
+			}
+		}
+		
+	}
+
+
 	//Backup the actual ligand coordinates (assumes there is only 1 residue in the ligand strand)
 	private double [] backupStrCoord(int strNumber){
 		int index=0;

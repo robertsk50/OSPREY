@@ -158,6 +158,24 @@ public abstract class AStar {
 		return comboTuples;
 	}
 	
+	protected void initialize2Dto3D(Emat emat, int numNodesForLevel[]) {
+		twoDTo3D = new Index3[numTreeLevels][];
+		SinglesIterator iter = emat.singlesIterator();
+		int ctr=0;
+		while(iter.hasNext()){
+			EMatrixEntryWIndex emeWI = iter.next();
+			if(twoDTo3D[emeWI.pos1()] == null){
+				twoDTo3D[emeWI.pos1()] = new Index3[numNodesForLevel[emeWI.pos1()]];
+				ctr=0;
+			}
+			
+			if(!emeWI.eme.isPruned()){
+				twoDTo3D[emeWI.pos1()][ctr] = new Index3(emeWI.rot1index());
+				ctr++;
+			}
+		}
+	}
+	
 	//KER: Return largest(longest) tuple, or if there is a tie, the tuple with the largest energy contribution
 	private ArrayList<EnergyTuple> allTuples(EnergyTuple parent, ArrayList<EnergyTuple> retTuples, Index3[] curConf, boolean[] excludeLevel,PGQueueNode node) {
 

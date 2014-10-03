@@ -136,7 +136,7 @@ public class CommucObj implements Serializable
 	boolean[] strandPresent = null;
 	String[][] strandLimits = null;
 	int strandsPresent = 0;
-	int mutableSpots = 0;
+//	int mutableSpots = 0;
 	//String ligType = null;
 	//boolean ligPresent = false;
 	int numMutations = 0;

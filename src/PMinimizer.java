@@ -3,21 +3,21 @@
 
 	OSPREY Protein Redesign Software Version 2.1 beta
 	Copyright (C) 2001-2012 Bruce Donald Lab, Duke University
-	
+
 	OSPREY is free software: you can redistribute it and/or modify
 	it under the terms of the GNU Lesser General Public License as 
 	published by the Free Software Foundation, either version 3 of 
 	the License, or (at your option) any later version.
-	
+
 	OSPREY is distributed in the hope that it will be useful,
 	but WITHOUT ANY WARRANTY; without even the implied warranty of
 	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 	GNU Lesser General Public License for more details.
-	
+
 	You should have received a copy of the GNU Lesser General Public
 	License along with this library; if not, see:
 	      <http://www.gnu.org/licenses/>.
-		
+
 	There are additional restrictions imposed on the use and distribution
 	of this open-source code, including: (A) this header must be included
 	in any modification or extension of the code; (B) you are required to
@@ -25,7 +25,7 @@
 	for the various different modules of our software, together with a
 	complete list of requirements and restrictions are found in the
 	document license.pdf enclosed with this distribution.
-	
+
 	Contact Info:
 			Bruce Donald
 			Duke University
@@ -35,10 +35,10 @@
 			NC 27708-0129 
 			USA
 			e-mail:   www.cs.duke.edu/brd/
-	
+
 	<signature of Bruce Donald>, Mar 1, 2012
 	Bruce Donald, Professor of Computer Science
-*/
+ */
 
 ///////////////////////////////////////////////////////////////////////////////////////////////
 //	PMinimizer.java
@@ -66,136 +66,136 @@ public class PMinimizer extends SimpleMinimizer {
 	// If the debug flag is set to true then additional debug statements are
 	//  printed to standard out.
 
-        boolean minimizePerturbations;//If true, minimize perturbations in addition to the usual sidechain dihedrals
-        //The energies of the residues whose energy calculation flags will be minimized
-        //with respect to the dihedrals of the flexible residues, plus the perturbations affecting them
+	boolean minimizePerturbations;//If true, minimize perturbations in addition to the usual sidechain dihedrals
+	//The energies of the residues whose energy calculation flags will be minimized
+	//with respect to the dihedrals of the flexible residues, plus the perturbations affecting them
 
 
 	//sysRH and ligRH need to be StrandRCs objects
 
 
-        int numPerturbations = 0;//number of perturbations; also the size of the next 5 arrays
+	int numPerturbations = 0;//number of perturbations; also the size of the next 5 arrays
 
-        int pertList[];//List of perturbations (indices in m.perts)
-        double pertParamValues[];//Current parameter values for the perturbations
+	int pertList[];//List of perturbations (indices in m.perts)
+	double pertParamValues[];//Current parameter values for the perturbations
 
-        double pertStepSize[];//Step sizes for each perturbation
-        double pertParamMax[];//Maxima for each perturbation's parameter
-        double pertParamMin[];//Minima for each perturbation's parameter
-
-
-        int flexResMap[];//Map from molecule residue number to index among flexible 
-        //residues (and thus in the partial arrays for energy calculations)
-        //(needed because perturbations' resDirectlyAffected arrays contain molecule residue numbers)
+	double pertStepSize[];//Step sizes for each perturbation
+	double pertParamMax[];//Maxima for each perturbation's parameter
+	double pertParamMin[];//Minima for each perturbation's parameter
 
 
-        boolean checkMonotonic = false;//This activates an alternate stopping condition that detects when the minimization stops improving
-        double energyTol = 0.01;//This is about the roundoff energy in many cases...when we are getting energy changes less than this
-        //and the energy has stopped monotonically decreasing, we are as close to the minimum as we are likely to get, so we can stop
+	int flexResMap[];//Map from molecule residue number to index among flexible 
+	//residues (and thus in the partial arrays for energy calculations)
+	//(needed because perturbations' resDirectlyAffected arrays contain molecule residue numbers)
+
+
+	boolean checkMonotonic = false;//This activates an alternate stopping condition that detects when the minimization stops improving
+	double energyTol = 0.01;//This is about the roundoff energy in many cases...when we are getting energy changes less than this
+	//and the energy has stopped monotonically decreasing, we are as close to the minimum as we are likely to get, so we can stop
 
 	PMinimizer(boolean minPerts){
 		minimizePerturbations = minPerts;
 	}
-	
 
 
-    @Override
+
+	@Override
 	public void initialize(Molecule theM, int numStrands, Amber96ext theA96ff,
-		StrandRotamers strandRotamers[], boolean doDihedral){
+			StrandRotamers strandRotamers[], boolean doDihedral){
 
-                super.initialize(theM, numStrands, theA96ff, strandRotamers, doDihedral);//Call the SimpleMinimizer no-ligand initialize() function
+		super.initialize(theM, numStrands, theA96ff, strandRotamers, doDihedral);//Call the SimpleMinimizer no-ligand initialize() function
 
-                if(minimizePerturbations){
-                    flexResMap = new int[m.residue.length];
-                    setupPerturbations();
-                }
+		if(minimizePerturbations){
+			flexResMap = new int[m.residue.length];
+			setupPerturbations();
+		}
 	}	
 
 
 
 
-        public void setupPerturbations(){//Set up perturbation information
+	public void setupPerturbations(){//Set up perturbation information
 
-                HashSet<Integer> pertSet=new HashSet<Integer>();
+		HashSet<Integer> pertSet=new HashSet<Integer>();
 
-                int flexResCount = 0;
-                numPerturbations = 0;
+		int flexResCount = 0;
+		numPerturbations = 0;
 
 
-                //Find the perturbations affecting flexible residues
-                for(int i=0;i<numberOfStrands;i++){
+		//Find the perturbations affecting flexible residues
+		for(int i=0;i<numberOfStrands;i++){
 			for(int j=0;j<m.strand[i].numberOfResidues;j++){
 
-                                Residue localResidue = m.strand[i].residue[j];
+				Residue localResidue = m.strand[i].residue[j];
 
-                                if(localResidue.flexible){
-                                    for(int a=0;a<localResidue.perts.length;a++){//Add this residue's perturbations to the perturbation set, if they're not already in it
+				if(localResidue.flexible){
+					for(int a=0;a<localResidue.perts.length;a++){//Add this residue's perturbations to the perturbation set, if they're not already in it
 
-                                        if( !pertSet.contains(localResidue.perts[a]) ){
-                                            pertSet.add(localResidue.perts[a]);
-                                            numPerturbations++;
-                                        }
-                                    }
+						if( !pertSet.contains(localResidue.perts[a]) ){
+							pertSet.add(localResidue.perts[a]);
+							numPerturbations++;
+						}
+					}
 
-                                    flexResMap[localResidue.moleculeResidueNumber] = flexResCount++;
-                                }
+					flexResMap[localResidue.moleculeResidueNumber] = flexResCount++;
+				}
 			}
 		}
 
 
-                //Finish preparing perturbation info
-                pertList=new int[numPerturbations];
-                pertParamValues=new double[numPerturbations];
-                pertStepSize=new double[numPerturbations];
-                pertParamMax=new double[numPerturbations];
-                pertParamMin=new double[numPerturbations];
+		//Finish preparing perturbation info
+		pertList=new int[numPerturbations];
+		pertParamValues=new double[numPerturbations];
+		pertStepSize=new double[numPerturbations];
+		pertParamMax=new double[numPerturbations];
+		pertParamMin=new double[numPerturbations];
 
-                int a=0;
-                for(Integer pertNum : pertSet){
-                    pertList[a++]=pertNum.intValue();
-                }
+		int a=0;
+		for(Integer pertNum : pertSet){
+			pertList[a++]=pertNum.intValue();
+		}
 
-                for(int b=0;b<numPerturbations;b++)
-                    pertStepSize[b]=m.perts[pertList[b]].getStepSizeForMinimizer();
-        }
-
-
-        public void setupPertStates(){//Once the molecule is in the right RC,
-            //this function will set up information for the perturbation states
-            //within which the PMinimizer will minimize
-
-            for(int b=0;b<numPerturbations;b++){
-                    Perturbation pert=m.perts[pertList[b]];
-                    int paramValueNum=pert.curState;//Which stored parameter state we are starting at
-                    pertParamMax[b]=pert.maxParams[paramValueNum];
-                    pertParamMin[b]=pert.minParams[paramValueNum];
-                    pertParamValues[b]=pert.curParam;//This should be (pertParamMax[b] + pertParamMin[b])/2f if we're in the RC specified by curState
-            }
-
-        }
-	
-	
-////////////////////////////////////////////////////////////////////////////////
-//  Minimization Section
-////////////////////////////////////////////////////////////////////////////////
+		for(int b=0;b<numPerturbations;b++)
+			pertStepSize[b]=m.perts[pertList[b]].getStepSizeForMinimizer();
+	}
 
 
+	public void setupPertStates(){//Once the molecule is in the right RC,
+		//this function will set up information for the perturbation states
+		//within which the PMinimizer will minimize
 
-        private void doPerturbationStep (int pertNum, double stepSize){//Calculates and applies the next perturbation parameter value in the steepest-descent minimization
-            
-                double initialEnergy, secondEnergy, thirdEnergy;
-                Perturbation pert = m.perts[pertList[pertNum]];
+		for(int b=0;b<numPerturbations;b++){
+			Perturbation pert=m.perts[pertList[b]];
+			int paramValueNum=pert.curState;//Which stored parameter state we are starting at
+			pertParamMax[b]=pert.maxParams[paramValueNum];
+			pertParamMin[b]=pert.minParams[paramValueNum];
+			pertParamValues[b]=pert.curParam;//This should be (pertParamMax[b] + pertParamMin[b])/2f if we're in the RC specified by curState
+		}
 
-                initialEnergy = getMultiResidueEnergy(pert.resDirectlyAffected);//Just need energy for the units affected by the perturbation with
-                //energy calculation flags set to true
+	}
+
+
+	////////////////////////////////////////////////////////////////////////////////
+	//  Minimization Section
+	////////////////////////////////////////////////////////////////////////////////
+
+
+
+	private void doPerturbationStep (int pertNum, double stepSize){//Calculates and applies the next perturbation parameter value in the steepest-descent minimization
+
+		double initialEnergy, secondEnergy, thirdEnergy;
+		Perturbation pert = m.perts[pertList[pertNum]];
+
+		initialEnergy = getMultiResidueEnergy(pert.resDirectlyAffected);//Just need energy for the units affected by the perturbation with
+		//energy calculation flags set to true
 
 		// Apply the perturbation with positive step, then negative step, and compute energies
-                pert.changePerturbationParameter(pertParamValues[pertNum]+stepSize);
+		pert.changePerturbationParameter(pertParamValues[pertNum]+stepSize);
 		secondEnergy = getMultiResidueEnergy(pert.resDirectlyAffected);
-                pert.changePerturbationParameter(pertParamValues[pertNum]-stepSize);
+		pert.changePerturbationParameter(pertParamValues[pertNum]-stepSize);
 		thirdEnergy = getMultiResidueEnergy(pert.resDirectlyAffected);
 
-                //Now compute the change in the perturbation parameter, change pertParamValues appropriately
+		//Now compute the change in the perturbation parameter, change pertParamValues appropriately
 		if ((initialEnergy > secondEnergy)&&(initialEnergy > thirdEnergy)){
 			if (secondEnergy < thirdEnergy)
 				pertParamValues[pertNum]+=stepSize;
@@ -206,27 +206,27 @@ public class PMinimizer extends SimpleMinimizer {
 			pertParamValues[pertNum]+=stepSize;//Perhaps the difference in energies could be used to compute & return a more accurate estimate
 		else if(initialEnergy > thirdEnergy)
 			pertParamValues[pertNum]-=stepSize;
-                //else leave pertParamValues[pertNum] unchanged: energy is at a local minimum with respect to this parameter
+		//else leave pertParamValues[pertNum] unchanged: energy is at a local minimum with respect to this parameter
 
 
-               checkCumulativePerturbation(pertNum);//Makes sure pertParamValues[pertNum] is within the allowed bounds, fix it if it isn't
+		checkCumulativePerturbation(pertNum);//Makes sure pertParamValues[pertNum] is within the allowed bounds, fix it if it isn't
 
-               //Now re-apply the perturbation with the new parameter value
-               pert.changePerturbationParameter(pertParamValues[pertNum]);
+		//Now re-apply the perturbation with the new parameter value
+		pert.changePerturbationParameter(pertParamValues[pertNum]);
 
-        }
+	}
 
 
-        private void checkCumulativePerturbation(int pertNum){//,double maxPertParam,double minPertParam
-            //Keep the parameter for the indicated perturbation within the allowed bounds
+	private void checkCumulativePerturbation(int pertNum){//,double maxPertParam,double minPertParam
+		//Keep the parameter for the indicated perturbation within the allowed bounds
 
-            if(pertParamValues[pertNum] > pertParamMax[pertNum])
-                pertParamValues[pertNum] = pertParamMax[pertNum];
-            else if(pertParamValues[pertNum] < pertParamMin[pertNum])
-                pertParamValues[pertNum] =  pertParamMin [pertNum];
+		if(pertParamValues[pertNum] > pertParamMax[pertNum])
+			pertParamValues[pertNum] = pertParamMax[pertNum];
+		else if(pertParamValues[pertNum] < pertParamMin[pertNum])
+			pertParamValues[pertNum] =  pertParamMin [pertNum];
 
-        }
-        
+	}
+
 
 
 	// Performs a simple steepest descent minimization
@@ -241,33 +241,37 @@ public class PMinimizer extends SimpleMinimizer {
 	//  run faster)
 	// If ligandOnly is true, then only the ligand is allowed to minimize, while
 	//		the system units are fixed
-    @Override
-        public void minimize(int numSteps){
+	@Override
+	public void minimize(int numSteps){
 
-                setupPertStates();//Make sure the correct perturbation states are assigned to each residue
+		//KER: Initialize how much each dihedral can move
+		//KER: only need to do this when a rotamer has been changed, but just do it here for now
+		updateMaxMovement();
 
-                double tempPertStep[] = new double[numPerturbations];//Temporary step sizes, which will start at the pertStepSize values
-                //and then will be reduced over the course of minimization
-                double deltaPertStepSize[] = new double[numPerturbations];
-                if(minimizePerturbations){
-                    System.arraycopy(pertStepSize, 0, tempPertStep, 0, numPerturbations);
-                    for(int a=0;a<numPerturbations;a++)
-                       deltaPertStepSize[a] = tempPertStep[a] / numSteps;
-                }
+		setupPertStates();//Make sure the correct perturbation states are assigned to each residue
 
-                
+		double tempPertStep[] = new double[numPerturbations];//Temporary step sizes, which will start at the pertStepSize values
+		//and then will be reduced over the course of minimization
+		double deltaPertStepSize[] = new double[numPerturbations];
+		if(minimizePerturbations){
+			System.arraycopy(pertStepSize, 0, tempPertStep, 0, numPerturbations);
+			for(int a=0;a<numPerturbations;a++)
+				deltaPertStepSize[a] = tempPertStep[a] / numSteps;
+		}
+
+
 		double step = initialAngleStepSize;
-		double lmaxMovement = maxMovement;
-			// maximum degrees by which a torsion can
-			//  cumulatively change
+		//		double lmaxMovement = maxMovement;
+		// maximum degrees by which a torsion can
+		//  cumulatively change
 		double strRotStep = RotStep;
-			// step size for the rigid rotation
-			//  of the ligand
+		// step size for the rigid rotation
+		//  of the ligand
 		double strTransStep = TransStep;
-			// step size in � for the rigid ligand
-			//  translation
+		// step size in � for the rigid ligand
+		//  translation
 		double strMaxTrans = MaxTrans;
-			// the maximum ligand translation allowed
+		// the maximum ligand translation allowed
 
 		int i=0;
 		boolean done = false;
@@ -328,46 +332,36 @@ public class PMinimizer extends SimpleMinimizer {
 		double deltaRotStep = strRotStep / numSteps;
 		double deltaTransStep = strTransStep / numSteps;
 
-			// numFlexRes, flexResAtomList, and flexResListSize include the ligand if one exists
-			/*if(ligStrNum != -1)
+		// numFlexRes, flexResAtomList, and flexResListSize include the ligand if one exists
+		/*if(ligStrNum != -1)
 				a96ff.setupPartialArrays(numFlexRes+2,MAX_NUM_ATOMS_DISTAL,flexResAtomList,
 					flexResListSize);
 			else*/
 		a96ff.setupPartialArrays(totalFlexRes+totalTransRotStrands,MAX_NUM_ATOMS_DISTAL,flexResAtomList,
-					flexResListSize);
+				flexResListSize);
 
-               //Prepare for checkMonotonic stopping condition
-               double bestEnergy = a96ff.calculateTotalEnergy(m.actualCoordinates,-1)[0];
-               if(doDihedEnergy)
-                   bestEnergy += computeDihedEnergy();
-               boolean monotonic = true;//Indicates that energy is still descending monotonically; near convergence this might
-               //stop happening (e.g. because we try to take a step to a lower energy but are blocked by the bounds on a parameter, ending up in a slightly higher-energy state)
+		//Prepare for checkMonotonic stopping condition
+		double bestEnergy = a96ff.calculateTotalEnergy(m.actualCoordinates,-1)[0];
+		if(doDihedEnergy)
+			bestEnergy += computeDihedEnergy();
+		boolean monotonic = true;//Indicates that energy is still descending monotonically; near convergence this might
+		//stop happening (e.g. because we try to take a step to a lower energy but are blocked by the bounds on a parameter, ending up in a slightly higher-energy state)
 
-               while(!done){
+		while(!done){
 
-                    //If(minimizePerturbations), at the beginning of the loop, we are at the unperturbed starting conformation
-                   //Else we're in the RC (perturbations are applied and rotamers are set)
+			//If(minimizePerturbations), at the beginning of the loop, we are at the unperturbed starting conformation
+			//Else we're in the RC (perturbations are applied and rotamers are set)
 
 			for(int str=0; str<numberOfStrands;str++){
 				for(int j=0;j<numStrDihedrals[str];j++) {
 					strDihedDiff[str][j] = computeDihedDiff(strDihedralAtNums[str][j],strDihedralDistal[str][j],
-						strNumAtomsDistal[str][j],strDihedToFlexNum[str][j], step, str, j);
-					updateCumulative(strCumulativeDihedStep[str],strDihedDiff[str],j,lmaxMovement);
+							strNumAtomsDistal[str][j],strDihedToFlexNum[str][j], step, str, j);
+					updateCumulative(strCumulativeDihedStep[str],strDihedDiff[str],j,lMaxMovement[str]);
 					applyDihedStep(strDihedralAtNums[str][j],strDihedralDistal[str][j],strNumAtomsDistal[str][j],strDihedDiff[str][j]);
 				}
 			}
 
-			/*for(int j=0;j<numLigDihedrals;j++) {
-				ligDihedDiff[j] = computeDihedDiff(ligDihedralAtNums[j],ligDihedralDistal[j],
-					ligNumAtomsDistal[j],ligResNumber,step,true,j);
-				updateCumulative(ligCumulativeDihedStep,ligDihedDiff,j,lmaxMovement);
-				applyDihedStep(ligDihedralAtNums[j],ligDihedralDistal[j],ligNumAtomsDistal[j],ligDihedDiff[j]);
-			}*/
-
 			//Translate and rotate the ligand
-			/*if(ligStrNum != -1)
-				doLigTransRot(ligTorque, ligTrans, lligRotStep, lligTransStep, lligMaxTrans);*/
-
 			for(int str=0;str<numberOfStrands;str++){
 				if(m.strand[str].rotTrans){
 					doStrTransRot(str, strTorque, strTrans, strRotStep, strTransStep, strMaxTrans);
@@ -375,16 +369,16 @@ public class PMinimizer extends SimpleMinimizer {
 			}
 
 
-                        if(minimizePerturbations){
+			if(minimizePerturbations){
 
-                            for(int j=0;j<numPerturbations;j++){
-                                if(pertParamMax[j] > pertParamMin[j])//There is an interval of parameter values for this perturbation that we can minimize within
-                                    doPerturbationStep(j, tempPertStep[j]);//Computes, checks, and applies step
-                            }
+				for(int j=0;j<numPerturbations;j++){
+					if(pertParamMax[j] > pertParamMin[j])//There is an interval of parameter values for this perturbation that we can minimize within
+						doPerturbationStep(j, tempPertStep[j]);//Computes, checks, and applies step
+				}
 
-                            for(int a=0;a<numPerturbations;a++)
-                                tempPertStep[a] -= deltaPertStepSize[a];
-                        }
+				for(int a=0;a<numPerturbations;a++)
+					tempPertStep[a] -= deltaPertStepSize[a];
+			}
 
 
 			/*if(debug){
@@ -403,19 +397,19 @@ public class PMinimizer extends SimpleMinimizer {
 			strTransStep -= deltaTransStep;
 
 
-                        if(checkMonotonic){
-                            double newEnergy = a96ff.calculateTotalEnergy(m.actualCoordinates,-1)[0];
-                            if(doDihedEnergy)
-                                newEnergy += computeDihedEnergy();
+			if(checkMonotonic){
+				double newEnergy = a96ff.calculateTotalEnergy(m.actualCoordinates,-1)[0];
+				if(doDihedEnergy)
+					newEnergy += computeDihedEnergy();
 
-                            if( (!monotonic) && ( Math.abs(newEnergy - bestEnergy) < energyTol ) )//In this situation we're as close to convergence as we'll get
-                                done = true;
+				if( (!monotonic) && ( Math.abs(newEnergy - bestEnergy) < energyTol ) )//In this situation we're as close to convergence as we'll get
+				done = true;
 
-                            if(newEnergy > bestEnergy)
-                                monotonic = false;
-                            else
-                                bestEnergy = newEnergy;
-                        }
+				if(newEnergy > bestEnergy)
+					monotonic = false;
+				else
+					bestEnergy = newEnergy;
+			}
 		}
 
 		clearMolGradient(); //after minimization is done, clear the molecule gradient
@@ -434,45 +428,45 @@ public class PMinimizer extends SimpleMinimizer {
 		}
 	}
 
-	
-////////////////////////////////////////////////////////////////////////////////
-//	 End of Minmization Section
-////////////////////////////////////////////////////////////////////////////////
 
-        private double getMultiResidueEnergy(int molResNum[]){
-            //Given a set of residues with specified molecule residue numbers,
-            //calculates the energy of those with energy calculation flags set to true,
-            //using partial arrays if this subset is just one residue
-            //(THIS MAY BE TOO INEFFICIENT--IF SO THE PARTIAL ARRAYS NEED TO BE REORGANIZED)
-            double totEnergy[];
+	////////////////////////////////////////////////////////////////////////////////
+	//	 End of Minmization Section
+	////////////////////////////////////////////////////////////////////////////////
 
-            if(!m.validBB)
-                return Double.POSITIVE_INFINITY;
+	private double getMultiResidueEnergy(int molResNum[]){
+		//Given a set of residues with specified molecule residue numbers,
+		//calculates the energy of those with energy calculation flags set to true,
+		//using partial arrays if this subset is just one residue
+		//(THIS MAY BE TOO INEFFICIENT--IF SO THE PARTIAL ARRAYS NEED TO BE REORGANIZED)
+		double totEnergy[];
 
-            int calcRes = -1;
-            for(int a=0; a<molResNum.length; a++){
+		if(!m.validBB)
+			return Double.POSITIVE_INFINITY;
 
-                if( ! m.residue[molResNum[a]].validConf )//If the perturbation change whose energy we're getting caused an invalid conformation, we apply an infinite energy penalty
-                        return Double.POSITIVE_INFINITY;
+		int calcRes = -1;
+		for(int a=0; a<molResNum.length; a++){
 
-                boolean needEnergy = m.residue[molResNum[a]].getEnergyEvalBB() || m.residue[molResNum[a]].getEnergyEvalSC();//Do we need the energy for this residue?
-                if(needEnergy){
-                    if(calcRes == -1)
-                        calcRes = flexResMap[molResNum[a]];
-                    else{//Need energy for more than one residue
-                        totEnergy = a96ff.calculateTotalEnergy(m.actualCoordinates,-1);
-                        return totEnergy[0];
-                    }
-                }
-            }
+			if( ! m.residue[molResNum[a]].validConf )//If the perturbation change whose energy we're getting caused an invalid conformation, we apply an infinite energy penalty
+				return Double.POSITIVE_INFINITY;
 
-            if(calcRes == -1)//Don't need the energy for any of the residues so return zero
-                return 0;
-            else{
-                totEnergy = a96ff.calculateTotalEnergy(m.actualCoordinates, calcRes);
-                return totEnergy[0];
-            }
-        }
+			boolean needEnergy = m.residue[molResNum[a]].getEnergyEvalBB() || m.residue[molResNum[a]].getEnergyEvalSC();//Do we need the energy for this residue?
+			if(needEnergy){
+				if(calcRes == -1)
+					calcRes = flexResMap[molResNum[a]];
+				else{//Need energy for more than one residue
+					totEnergy = a96ff.calculateTotalEnergy(m.actualCoordinates,-1);
+					return totEnergy[0];
+				}
+			}
+		}
+
+		if(calcRes == -1)//Don't need the energy for any of the residues so return zero
+			return 0;
+		else{
+			totEnergy = a96ff.calculateTotalEnergy(m.actualCoordinates, calcRes);
+			return totEnergy[0];
+		}
+	}
 
 
 }

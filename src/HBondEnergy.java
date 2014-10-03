@@ -1328,6 +1328,13 @@ public class HBondEnergy {
 			}
 	}
 
+	/**
+	 * Calculates the hydrogen bond energy of the molecule.
+	 * @param coordinates
+	 * @param curIndex
+	 * @param energyTerms
+	 * @param m
+	 */
 	void calculateHBondEnergy(double[] coordinates, int curIndex,
 			double[] energyTerms, Molecule m) {
 
@@ -1597,10 +1604,17 @@ public class HBondEnergy {
 
 	}
 
-	
-	//Copy of previous function, except we add to the AmberPairs terms
-	void calculateHBondEnergyUpd(ArrayList<HbondPair> hbonds,float[] coordinates, int curIndex,
-			double[] energyTerms, Molecule m,double hbondScale, Amber96ext amb96ff ) {
+	/**
+	 * Same as the function calculateHBondEnergy except that the energy terms
+	 * per mutable residue are stored.
+	 * @param coordinates
+	 * @param curIndex
+	 * @param energyTerms
+	 * @param m
+	 * @param amb96ff
+	 */
+	void calculateHBondEnergyUpdTerms(double[] coordinates, int curIndex,
+			double[] energyTerms, Molecule m, Amber96ext amb96ff ) {
 
 
 
@@ -1623,23 +1637,10 @@ public class HBondEnergy {
 
 
 
-		Iterator<HbondPair> iter = hbonds.iterator();
+		Iterator<HbondPair> iter = hbondTerms.iterator();
 
 		while(iter.hasNext()){
 			HbondPair hbp = iter.next();
-
-			/*if(hbp.donor.isBBatom || hbp.accept.isBBatom)
-				continue;
-
-			if(hbp.donor.strandNumber == hbp.accept.strandNumber)
-				continue;*/
-
-			//determine donor acceptor type
-			//donorType = getHybridization(hbp.donor.forceFieldType);
-			//acceptType = getHybridization(hbp.accept.forceFieldType);
-
-			//donorSS = m.residue[hbp.donor.moleculeResidueNumber].SStype;
-			//acceptSS = m.residue[hbp.accept.moleculeResidueNumber].SStype;
 
 			HBEvalType hbe = hbp.hbe;
 			atomi = hbp.donor.moleculeAtomNumber;
@@ -1664,21 +1665,6 @@ public class HBondEnergy {
 			if(dmag < 1.4 || dmag > 3.0){
 				continue; //Only calculate if 1.4<= R <= 3.0 angstroms
 			}
-
-			//OH shouldn't be an acceptor unless the lone pair is pointing toward the donor H.
-//			boolean badPair = false;
-//			if(hbp.accept.elementType.equals("O")){ 
-//				for(int i1 = 0; i1<hbp.accept.bond.length;i1++){
-//					if((m.atom[hbp.accept.bond[i1]].elementType).equals("H")){
-//						//Bad if donor is closer to H than to acceptor
-//						if(hbp.donor.distance(m.atom[hbp.accept.bond[i1]]) < hbp.donor.distance(hbp.accept)){
-//							badPair = true;
-//						}
-//					}
-//				}
-//			}
-//			if(badPair)
-//				continue;
 
 			double Edelta = 0.0;
 

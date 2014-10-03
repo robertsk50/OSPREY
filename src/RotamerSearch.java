@@ -89,6 +89,7 @@ import java.io.ObjectOutputStream;
 import java.io.PrintWriter;
 import java.io.Serializable;
 import java.util.*;
+import java.util.Map.Entry;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.math.*;
@@ -299,7 +300,7 @@ public class RotamerSearch implements Serializable
 	double templateSt = 30; 
 
 	HBondSettings hbonds;
-
+	
 
 	EPICSettings es = new EPICSettings();//turn off EPIC by default 
 	boolean compCETM = false;//Indicates we are currently computing EPIC fits
@@ -309,6 +310,16 @@ public class RotamerSearch implements Serializable
 	//  messy as a result of changing the algorithms multiple times. They
 	//  could be rewritten to be much tighter and more elegant.
 
+	//Variables for Improved Bounds algorithms (tuples and partitioned rotamers)
+	HashMap<ArrayList<Index3>,EnergyTuple> energyTuples; //HashMap of all the tuples (3 or more rotamers) that have been calculated so far
+	ArrayList<GlobalRCConf> generatedConfs; //Keep track of the conformations generated and their energies per residue
+	ArrayList<ArrayList<Index3wVal>> worstRots; //Keep track of the worst rotamers from the generated conformations;
+	int contractPos = -1;
+	int contractPos2 = -1;
+	boolean partitionedRotamers;
+	boolean tuples;
+	boolean superRotamers;
+	boolean improvedBounds;
 	// the constructor if you also have a ligand
 	RotamerSearch(Molecule theMolec, int numMut,int strandsPresent, boolean hE, 
 			boolean hV, boolean hS, boolean addH, boolean conRes, double eps, 
@@ -458,6 +469,20 @@ public class RotamerSearch implements Serializable
 		double energyTerms[] = a96ff.calculateTotalEnergy(m.actualCoordinates,-1); //compute the energy
 
 		return (double)energyTerms[0]; //the total energy is in energyTerms[0]
+	}
+	
+	/**
+	 * This function computer the energy of the molecule. An additional array is added
+	 * that contains all of the mutable residues. The energy function stores the single
+	 * and pairwise energies associated with each mutable residue 
+	 * @param mutRes
+	 * @return
+	 */
+	private double calcTotalSnapshotEnergy(ArrayList<Integer> mutRes){
+
+		double energyTerms[] = a96ff.calculateTotalEnergy(m.actualCoordinates,-1,mutRes); //compute the energy
+		
+		return energyTerms[0]; //the total energy is in energyTerms[0]
 	}
 
 	//// BEGIN CHECK_STERICS CODE SECTION
@@ -3158,7 +3183,7 @@ public class RotamerSearch implements Serializable
 			for(int i=0;i<treeLevels;i++)System.out.print(conf[i]+" ");System.out.println();
 
 			//Check the energy of the conformation and compute the score if necessary
-			minELowerBound = computeBestRotEnergyBound(curAANums,curRotNums);/*numTotalRotamers,rotamerIndexOffset*///));
+			minELowerBound = computeBestRotEnergyBound(curAANums,curRotNums,null);/*numTotalRotamers,rotamerIndexOffset*///));
 
 			if(run1){
 				lowestBound = minELowerBound;
@@ -3323,8 +3348,10 @@ public class RotamerSearch implements Serializable
 	// Computes the best energy (lower bound) using the arpMatrix
 	// This energy is rotamer based, that is it computes the best energy
 	//  for the current rotamer assignment of each amino-acid	
-	public double computeBestRotEnergyBound(int[] AAnums, int[] ROTnums) {
+	public double computeBestRotEnergyBound(int[] AAnums, int[] ROTnums, Index3wVal[] boundPerPos) {
 
+		Index3wVal pos1Index=null;
+		
 		double bestE = arpMatrix.getTemplMinE(); // Add shell-shell energy
 
 		for (int i=0; i< AAnums.length; i++){ //compute using the formula
@@ -3333,12 +3360,18 @@ public class RotamerSearch implements Serializable
 //			System.out.println("s_"+i+"_"+AAnums[i]+"_"+ROTnums[i]+" "+tmpSingleE);
 			bestE += tmpSingleE;
 
+			if(improvedBounds)
+				pos1Index = updateBoundPerPos(i,tmpSingleE,boundPerPos);
+			
 			for(int j=i+1;j<AAnums.length;j++){
 				if(!arpMatrix.areNeighbors(i, j))
 					continue;
 				double tmpPairE = arpMatrix.getPairwiseE(i,AAnums[i],ROTnums[i],j,AAnums[j],ROTnums[j]);
 				bestE += tmpPairE;
 //				System.out.println("p_"+i+"_"+AAnums[i]+"_"+ROTnums[i]+"_"+j+"_"+AAnums[j]+"_"+ROTnums[j]+" "+tmpPairE);
+				
+				if(improvedBounds)
+					updateBoundPerPosPair(pos1Index,j,tmpPairE,boundPerPos);
 			}
 
 
@@ -3348,8 +3381,36 @@ public class RotamerSearch implements Serializable
 
 	}
 
+	private Index3wVal updateBoundPerPos(int pos, double E, Index3wVal[] boundPerPos){
+		Index3wVal iVal = null;
+		if(superRotamers){
+			iVal = boundPerPos[pos];
+			iVal.val += E;
+		}
+		else if(tuples || partitionedRotamers){
+			for(Index3wVal i3wV:boundPerPos)
+				if(i3wV.containsPos(pos)){
+					iVal = i3wV;
+					iVal.val += E;
+				}
+		}
+		return iVal;
+	}
 
-
+	private void updateBoundPerPosPair(Index3wVal pos1Index, int pos2, double E, Index3wVal[] boundPerPos){
+		
+			if(superRotamers){
+				boundPerPos[pos2].val += E/2;
+				pos1Index.val += E/2;
+			}
+			else if(tuples || partitionedRotamers){
+				pos1Index.val += E/2;
+				for(Index3wVal i3wV:boundPerPos)
+					if(i3wV.containsPos(pos2))
+						i3wV.val += E/2;
+			}
+		
+	}
 
 	public double[] KSenergy(boolean minimizeBB, boolean doBackrubs, boolean storeEnergyPerRes, boolean useCCD){
 
@@ -4325,9 +4386,9 @@ public class RotamerSearch implements Serializable
 			case BYSEQREORDER:
 				MSAStarSearch = new PGgurobiAStarBySeq(treeLevels,numRotForResNonPruned,arpMatrix,bestScore+Ew,true);
 				break;
-				//			case BYSUBROT:
-				//				MSAStarSearch = new PGgurobiAStarBySubRot(treeLevels,numRotForResNonPruned,arpMatrix,bestScore+Ew,m);
-				//				break;
+			case BYSUBROT:
+				MSAStarSearch = new PGgurobiAStarBySubRot(treeLevels,numRotForResNonPruned,arpMatrix,bestScore+Ew,m);
+				break;
 			case WCSP:
 				MSAStarSearch = new WCSPSearch(treeLevels,numRotForResNonPruned,arpMatrix,Ew);
 				break;
@@ -4342,11 +4403,16 @@ public class RotamerSearch implements Serializable
 			run1 = true;
 		}
 
-		EMatrixEntryWIndex conf[] = new EMatrixEntryWIndex[treeLevels];//the rotamer sequence			
+		EMatrixEntryWIndex conf[] = new EMatrixEntryWIndex[treeLevels];//the rotamer sequence
+		EMatrixEntryWIndex parentConf[] = null;//the parent rotamer sequence
 		int numConfsOutput = 0;//num confs output to file
 		double lowestBound = stericE;
 		double minELowerBound = stericE;
 
+		if(partitionedRotamers || superRotamers || tuples){
+			generatedConfs = new ArrayList<GlobalRCConf>();
+			worstRots = new ArrayList<ArrayList<Index3wVal>>();
+		}
 
 		if(es.useEPIC){
 			if(es.gettingLowestBound)//need to run non-EPIC A*
@@ -4369,6 +4435,8 @@ public class RotamerSearch implements Serializable
 		//this records data on the polynomial fits for use in analysis
 		//if we are running checkEPIC
 
+		improvedBounds = tuples || partitionedRotamers || superRotamers;
+		double minIval = Double.POSITIVE_INFINITY;
 		PGQueueNode curNode = new PGQueueNode(1, new int[1], 0.0, 0, 0);
 		while (true){
 
@@ -4386,15 +4454,7 @@ public class RotamerSearch implements Serializable
 				/*cObj.EL_searchNumConfsEvaluated = numConfsEvaluated.intValue();*/
 			}
 
-
-
 			curNode = MSAStarSearch.doAStar(run1); //the current rotamer sequence); //the current rotamer sequence
-			//			curConf = MSAStarSearch.doAStar(run1, numMut, AAdefault, eliminatedRotAtPosRed, strandRot, strandDefault, numRotForRes, strandMut, false); //the current rotamer sequence
-			//			System.out.println( MSAStarSearch.getNumNodes() + " A* tree nodes");
-
-			//			System.out.print("curConf: ");for(int i=0;i<treeLevels;i++)System.out.print(curConf[i]+" ");System.out.println();
-			//			System.out.println("Partial Tuples Used: ");
-
 
 			//check if the conformation is valid
 			if (curNode == null || curNode.actualConf == null){ // no valid conformations remaining
@@ -4415,9 +4475,14 @@ public class RotamerSearch implements Serializable
 				//					return new AStarResults(getBestE(),lowestBound,numConfsEvaluated.longValue(),minELowerBound);
 				return new AStarResults(getBestE(),lowestBound,numConfsEvaluated.longValue(),minELowerBound);
 			}
+			
+			
+			
 			conf = curNode.actualConf;
-
-
+			
+			parentConf = createParentConf(conf);
+			
+			
 			System.out.println("confNum: "+(numConfsEvaluated.add(BigInteger.ONE)));
 
 			//As the rotamers given to A* are only the non-pruned ones, there is a difference between the
@@ -4444,75 +4509,16 @@ public class RotamerSearch implements Serializable
 				//KER: only apply mutation if we actually need to calcualate an energy
 				if(doMinimization){
 					conf[i].eme.applyMutation(m, arpMatrix.resByPos, addHydrogens,connectResidues );
-					//					if(MSAStarSearch instanceof PGgurobiAStarBySubRot || subRotamers){
-					//						parentConf[i].eme.applyRotamer(arpMatrix.resByPos, m);
-					//						System.out.print(parentConf[i].eme.printRes(m,arpMatrix.resByPos));
-					//					}else{
-					System.out.print(conf[i].eme.printRes(m,arpMatrix.resByPos));
-					conf[i].eme.applyRC(arpMatrix.resByPos, m);
-					//					}
+					if(parentConf != null){ //Will only be null if we want to compute it
+						parentConf[i].eme.applyRC(arpMatrix.resByPos, m);
+						System.out.print(parentConf[i].eme.printRes(m,arpMatrix.resByPos));
+					}else{
+						System.out.print(conf[i].eme.printRes(m,arpMatrix.resByPos));
+						conf[i].eme.applyRC(arpMatrix.resByPos, m);
+					}
 				}
 
 			}
-
-
-
-
-			//Extract and apply the rotamers of the current conformation
-
-			//			int curRot = 0;
-			//			for(int curAS=0;curAS<strandMut.allMut.length;curAS++){
-			//					//if (curResToASMap[curLevel]!=-1){//make a change only to the AS residues: use the native type for the other residues
-			//					int str = strandMut.resStrand[curAS];
-			//					int strResNum = strandMut.resStrandNum[curAS];
-			//					int molResNum = strandMut.allMut[curAS];
-			//
-			//					if(doPerturbations){
-			//						curRot = conf[curAS] - getRotSum(conf[curAS],curAS,strandDefault,strandMut);
-			//						//For DEEPer curRot is the the current RC
-			//						//Since A* counts all RCs together for all AA types, subtract out the previous AA types' RCs
-			//						boolean validRC = ((StrandRCs)strandRot[str]).applyRC(m, strResNum, curRot);
-			//						if(!validRC)
-			//							System.err.println("Error: invalid RC " + curRot + " at residue " + strResNum +
-			//									" of strand " + str );
-			//
-			//						curStrRotNum[curAS] = curRot;
-			//					}
-			//					else if (strandRot[str].rl.getNumRotForAAtype(curAANum[molResNum])!=0){//not GLY or ALA
-			//						curRot = conf[curAS] - getRotSum(conf[curAS],curAS,strandDefault,strandMut);
-			//						strandRot[str].applyRotamer(m, strResNum, curRot);
-			//						curStrRotNum[curAS] = curRot;
-			//					}
-			//					else { //GLY or ALA
-			//						curStrRotNum[curAS] = 0;
-			//					}
-			//				
-			//			}		
-
-			//			if(doPerturbations){
-			//				//Output the RC numbers (stored in curStrRotNum) first
-			//				System.out.print("curRC: ");
-			//				for(int i=0;i<numMutable;i++)
-			//					System.out.print(curStrRotNum[i]+" ");//System.out.println(curLigRotNum);
-			//
-			//
-			//				//Now output the corresponding sidechain rotamers
-			////				System.out.println("curSCRot: ");
-			////				for(int i=0;i<numMutable;i++){
-			////					int str = strandMut.resStrand[i];
-			////					int strResNum = strandMut.resStrandNum[i];
-			////					System.out.print( ((StrandRCs)strandRot[str]).RCRots[strResNum][ASAANums[i]][curStrRotNum[i]] + " " );
-			////				}
-			////			}
-			////			else{
-			////				System.out.print("curRot: ");
-			////				for(int i=0;i<numMutable;i++)
-			////					System.out.print(curStrRotNum[i]+" ");//System.out.println(curLigRotNum);
-			//			}
-
-			//debugPS.print("curRot: ");for(int i=0;i<numInAS;i++)debugPS.print(curASRotNum[i]+" ");debugPS.println(curLigRotNum);debugPS.flush();
-
-
 
 			// After minimization do a m.updateCoordinates() to
 			//  resync the actualCoordinates which were changed
@@ -4522,8 +4528,19 @@ public class RotamerSearch implements Serializable
 			// Energy computation
 			double unMinE = 0.0f;
 			double minE = 0.0f;
+			
+			LinkedList<EnergyTuple> curTuples;
+			Index3wVal[] boundPerPos = null;
+			Index3wVal[] energyPerPos = null;
+			if(partitionedRotamers || tuples){
+				curTuples = curNode.curTuples;
+				EnergiesPerPos epp = initializeBoundAndEnergyPerPos(curAANums, curRotNums, curTuples);
+				boundPerPos = epp.boundPerPos;
+				energyPerPos = epp.energyPerPos;
+			}
 
-			minELowerBound = computeBestRotEnergyBound(curAANums, curRotNums);///*numTotalRotamers,rotamerIndexOffset*/);
+			
+			minELowerBound = computeBestRotEnergyBound(curAANums, curRotNums,boundPerPos);///*numTotalRotamers,rotamerIndexOffset*/);
 
 			double minTime = 0;
 			double minTimeEPIC = 0;
@@ -4725,7 +4742,10 @@ public class RotamerSearch implements Serializable
 							}
 							else{
 								simpMin.minimize(numMinSteps);
-								minE = calcTotalSnapshotEnergy();
+								if(tuples || partitionedRotamers)
+									minE = calcTotalSnapshotEnergy(arpMatrix.allMutRes());
+								else
+									minE = calcTotalSnapshotEnergy();
 								if (doDihedE) //add dihedral energies
 									minE += simpMin.computeDihedEnergy();
 							}
@@ -4745,9 +4765,9 @@ public class RotamerSearch implements Serializable
 						double totEref = 0.0f;
 						double totEntropy = 0.0f;
 						if (useEref)
-							totEref = getTotSeqEref(arpMatrix.eRef,conf);
+							totEref = getTotSeqEref(arpMatrix.eRef,conf,energyPerPos);
 						if (EnvironmentVars.useEntropy)
-							totEntropy = getTotSeqEntropy(strandMut);
+							totEntropy = getTotSeqEntropy(strandMut,energyPerPos);
 						unMinE += totEntropy - totEref;
 						minE += totEntropy - totEref;
 
@@ -4770,10 +4790,19 @@ public class RotamerSearch implements Serializable
 						System.out.println("Full energy function evaluated at EPIC minimum: "+checkminE);
 				}
 
+				//If using partitioned rotamers store the conformation information
+				if(doMinimization){
+					computeEnergyPerPos(energyPerPos);
+					minIval = storeGeneratedConformation(useEref, curAANums, curRotNums,
+							boundPerPos, energyPerPos, arpMatrix.resByPos,minIval);
+				}
+				
 
 				updateBestE(minE); //for the halting condition
 				////////////////////////////////////////////////////////////////////////////////////////////
 
+				
+				
 				System.out.println(minELowerBound+" "+minE+" "+getBestE());				
 
 				//Since we only need to save the information for conformations whose energy is within Ew of
@@ -4790,47 +4819,19 @@ public class RotamerSearch implements Serializable
 
 						numConfsOutput++;
 						logPS.print(numConfsOutput+" ");
-						//						for (int i=0; i<treeLevels; i++){
-						//							int str = strandMut.resStrand[i];
-						//							int strResNum = strandMut.resStrandNum[i];
-						//							int molResNum = strandMut.allMut[i];
-						//							/*if ((ligPresent)&&(i==(treeLevels-1)))
-						//								logPS.print(grl.getAAName(curLigAANum)+" ");
-						//								else*/
-						//							logPS.print(strandRot[str].rl.getAAName(curAANum[molResNum])+" ");
-						//						}
 						for (int i=0; i<treeLevels; i++){
-							//							if(MSAStarSearch instanceof PGgurobiAStarBySubRot || subRotamers)
-							//								logPS.print(parentConf[i].eme.printRes(m,arpMatrix.resByPos));
-							//							else
-							logPS.print(conf[i].eme.printRes(m,arpMatrix.resByPos));	
+							if(parentConf != null) //will only not be null when using subRot or partitioned rotamers
+								logPS.print(parentConf[i].eme.printRes(m,arpMatrix.resByPos));
+							else
+								logPS.print(conf[i].eme.printRes(m,arpMatrix.resByPos));	
 						}
 
-
-						//						if(doPerturbations){
-						//							//Output the sidechain rotamers in DEEPer
-						//							//(we just outputted the RCs if running DEEPer)
-						//							logPS.print("SC rotamers: ");
-						//
-						////							for (int i=0; i<treeLevels; i++){
-						////								int str = strandMut.resStrand[i];
-						////								int strResNum = strandMut.resStrandNum[i];
-						////								int molResNum = strandMut.allMut[i];
-						////
-						////								logPS.print( ((StrandRCs)strandRot[str]).RCRots[strResNum][curAANum[molResNum]][curStrRotNum[i]] + " " );
-						////							}
-						//						}
-
-
-
-						//logPS.println();
 						logPS.print("unMinE: "+unMinE+" ");
 						logPS.print("minE: "+minE+" ");
 						if (doMinimization)
 							logPS.print("minBound: "+minELowerBound+" ");
 						logPS.print("bestE: "+getBestE());
 						logPS.println();
-						//if (numConfsOutput%100==0) //flush only every 100 confs, since output is relatively *very* computationally expensive
 						logPS.flush();
 					}
 				}
@@ -4843,19 +4844,237 @@ public class RotamerSearch implements Serializable
 	}
 
 
-	private double getTotSeqEref(HashMap<String, double[]> eRef, EMatrixEntryWIndex[] conf) {
+	private double storeGeneratedConformation(boolean useEref, int[] curAANums,
+			int[] curRotNums, Index3wVal[] boundPerPos,
+			Index3wVal[] energyPerPos,ArrayList<ArrayList<Integer>> resByPos, double minIval) {
+		if(tuples || partitionedRotamers || superRotamers){
+
+			//KER: Also, generate Global Confs to be returned
+			int numMutRes = arpMatrix.numMutRes();
+			int[] globalRots = new int[numMutRes];
+			int[] resNum = new int[numMutRes];
+			double[] EforRes = new double[numMutRes];
+
+			int resCtr = 0;
+			int indexCtr = 0;
+//					System.out.println("EforRes: ");
+			for(ArrayList<Integer> resAtPos: resByPos){
+				int AA = curAANums[resCtr];
+				int ROT = curRotNums[resCtr];
+				int[] rotIndex = {resCtr,AA,ROT};	
+				int[] rotamers = arpMatrix.singles.getRot(rotIndex);
+				for(int j=0; j<resAtPos.size();j++){
+					resNum[indexCtr] = resAtPos.get(j);
+					globalRots[indexCtr] = rotamers[j];
+
+					EforRes[indexCtr] += a96ff.singleE.get(resNum[indexCtr]);
+					
+					if(useEref || EnvironmentVars.useEntropy){
+						Residue r = m.residue[resNum[indexCtr]];
+						String pdbNum = r.getResNumberString();
+						Strand s = m.strand[r.strandNumber];
+						ResidueConformation rc = s.rcl.getRC(globalRots[indexCtr]);
+						if(useEref)
+							EforRes[indexCtr] -= arpMatrix.eRef.get(pdbNum)[rc.rot.aaType.index];
+						if(EnvironmentVars.useEntropy)
+							EforRes[indexCtr] += rc.rot.aaType.entropy;
+					}
+					
+					for(Entry<Amber96ext.Pair, Double> entry: a96ff.pairsE.entrySet()){
+						if(entry.getKey().pos1 == resNum[indexCtr])
+							EforRes[indexCtr] += entry.getValue()/2;
+					}
+
+					indexCtr++;
+				}
+				resCtr++;
+			}
+			generatedConfs.add(new GlobalRCConf(globalRots,resNum,EforRes));
+
+			ArrayList<Index3wVal> badRots = new ArrayList<Index3wVal>();
+
+			System.out.print("Diffs: " );
+			double diffTotal = 0;
+			for(int i=0; i<energyPerPos.length;i++){
+				double diff = energyPerPos[i].val - boundPerPos[i].val;
+				System.out.print(diff+" ");
+				diffTotal += diff;
+				badRots.add(new Index3wVal(boundPerPos[i].i3s, diff,i));
+			}
+			System.out.println("Total: "+diffTotal);
+
+
+			Collections.sort(badRots);
+			if(diffTotal < minIval){
+				minIval = diffTotal;
+				contractPos = badRots.get(0).pos;
+				if(badRots.size() > 1)
+					contractPos2 = badRots.get(1).pos;
+				else
+					contractPos2 = -1;
+			}
+			worstRots.add(badRots);
+
+		}
+		
+		return minIval;
+	}
+
+
+	private EMatrixEntryWIndex[] createParentConf(EMatrixEntryWIndex[] conf) {
+		EMatrixEntryWIndex[] parentConf = null;
+		if(MSAStarSearch instanceof PGgurobiAStarBySubRot) {
+			parentConf = ((PGgurobiAStarBySubRot)MSAStarSearch).parentConf;
+		}
+		else if(MSAStarSearch instanceof WCSPSearch){
+			if(conf == null)
+				return null;
+			if(partitionedRotamers){ //Build Parent Conf
+				parentConf = new EMatrixEntryWIndex[conf.length];
+				for(int i=0; i<parentConf.length;i++){
+					EMatrixEntryWIndex curRot = conf[i];
+					Strand s = m.strand[m.residue[arpMatrix.resByPos.get(curRot.pos1()).get(0)].strandNumber];
+					int parentGlobalID = s.rcl.getRC(arpMatrix.singles.getRot(curRot.index)[0]).parent; //0 index assumes no superrotamers
+					SuperRotamer r = new SuperRotamer(parentGlobalID);
+					RotamerEntry rE = new RotamerEntry(curRot.pos1(),r);
+					EMatrixEntryWIndex emeWI = new EMatrixEntryWIndex(rE, curRot.index);
+					parentConf[i] = emeWI;
+				}
+			}
+		}
+		return parentConf;
+	}
+
+
+	private void computeEnergyPerPos(Index3wVal[] energyPerPos) {
+		//KER: if superRotamer we have to walk through resByPos
+		//KER: but if tuples we have to walk though energyPerPos
+//					if(superRotamers){
+//						for(int p1=0; p1<resByPos.size();p1++){
+//
+//							for(int molResNum: resByPos.get(p1)){
+//
+//								energyPerPos[p1].val += a96ff.singleE.get(molResNum);
+//								//System.out.println(p1+" "+p1+" "+(a96ff.singleE.get(j)));
+//								for(int p2 = p1+1; p2<resByPos.size();p2++){
+//									for(int molResNum2: resByPos.get(p2)){
+//
+//										Amber96ext.Pair p = a96ff.new Pair(molResNum,molResNum2); 
+//										energyPerPos[p1].val += a96ff.pairsE.get(p)/2;
+//										energyPerPos[p2].val += a96ff.pairsE.get(p)/2;
+//										//System.out.println(p1+" "+p2+" "+a96ff.pairsE.get(p));
+//									}
+//
+//
+//								}
+//							}
+//						}
+//					}
+		if(tuples || partitionedRotamers){
+			ArrayList<Integer> mutRes = arpMatrix.allMutRes();
+			double eFunctMinE = 0.0;
+			for(double e: a96ff.pairsE.values()){
+				eFunctMinE += e;
+			}
+			//KER: Divide by two because pairs are listed twice
+			eFunctMinE /= 2;
+
+			for(double e: a96ff.singleE.values()){
+				eFunctMinE += e;
+			}
+
+			//System.out.println("Printing Energies: ");
+			for(int p1=0; p1<mutRes.size();p1++){
+				Index3wVal iVal = null;
+				for(Index3wVal i3wV: energyPerPos)
+					if(i3wV.containsPos(p1))
+						iVal = i3wV;
+
+				iVal.val += a96ff.singleE.get(mutRes.get(p1));
+				//System.out.println(p1+" "+p1+" "+(a96ff.singleE.get(mutRes.get(p1))));
+				for(int p2 = p1+1; p2<mutRes.size();p2++){
+					Index3wVal p2Val = null;
+					for(Index3wVal i3wV_2: energyPerPos)
+						if(i3wV_2.containsPos(p2))
+							p2Val = i3wV_2;
+
+					Amber96ext.Pair p = a96ff.new Pair(mutRes.get(p1),mutRes.get(p2)); 
+					iVal.val += a96ff.pairsE.get(p)/2;
+					p2Val.val += a96ff.pairsE.get(p)/2;
+					//System.out.println(p1+" "+p2+" "+a96ff.pairsE.get(p));
+				}
+
+
+			}
+		}
+	}
+
+
+	private EnergiesPerPos initializeBoundAndEnergyPerPos(int[] curAANums,
+			int[] curRotNums, LinkedList<EnergyTuple> curTuples) {
+		
+		EnergiesPerPos epp = new EnergiesPerPos();
+		
+		int numPos = arpMatrix.numMutPos();
+		
+		//If there are tuples we need to subtract the number of mut pos
+		if(curTuples != null){
+			for(EnergyTuple tup: curTuples){
+				numPos -= tup.rots.length-1;
+			}
+		}
+		
+		Index3wVal[] boundPerPos = new Index3wVal[numPos];
+		Index3wVal[] energyPerPos = new Index3wVal[numPos];
+		//Add the tuples first
+		int ctr=0;
+		boolean[] alreadyVisited = new boolean[arpMatrix.numMutPos()];
+		if(curTuples != null){
+			for(EnergyTuple tup: curTuples){
+				boundPerPos[ctr] = new Index3wVal(tup.rots,0);
+				energyPerPos[ctr] = new Index3wVal(tup.rots,0);
+				ctr++;
+				for(int q=0; q<tup.rots.length;q++)
+					alreadyVisited[tup.rots[q].pos] = true;
+			}
+		}
+
+		//Add the remaining residues
+		for(int i=0; i<alreadyVisited.length;i++){
+			if(!alreadyVisited[i]){
+				Index3[] rots = {new Index3(i,curAANums[i],curRotNums[i])};
+				boundPerPos[ctr] = new Index3wVal(rots,0);
+				energyPerPos[ctr] = new Index3wVal(rots,0);
+				ctr++;
+			}
+
+		}
+		
+		epp.boundPerPos = boundPerPos;
+		epp.energyPerPos = energyPerPos;
+		
+		return epp;
+	}
+
+
+	private double getTotSeqEref(HashMap<String, double[]> eRef, EMatrixEntryWIndex[] conf,Index3wVal[] energyPerPos) {
 		double totEref = 0;
 		for(EMatrixEntryWIndex emeWI: conf){
 			double tmpE = ((RotamerEntry)emeWI.eme).getEref(eRef, m, arpMatrix.resByPos);
-			//System.out.println("Eref: "+tmpE);
 			totEref += tmpE;
+//			if(superRotamers)
+//				energyPerPos[emeWI.pos1()].val -= tmpE;
+			if(tuples || partitionedRotamers)
+				for(Index3wVal i3wV: energyPerPos)
+					if(i3wV.containsPos(emeWI.pos1()))
+						i3wV.val -= tmpE;
 		}
 		return totEref;
 	}
 
 
 	//Returns the reference energy for the current amino acid sequence assignment (for the mutatable positions only)
-	public double getTotSeqEntropy(MutableResParams strandMut){
+	public double getTotSeqEntropy(MutableResParams strandMut,Index3wVal[] energyPerPos){
 
 		double totEref = 0.0f;
 
@@ -4864,7 +5083,24 @@ public class RotamerSearch implements Serializable
 			if(m.strand[str].isProtein){
 				int strResNum = strandMut.resStrandNum[i];
 				String resName = m.strand[str].residue[strResNum].name;
-				totEref += EnvironmentVars.getEntropyTerm(resName);
+				double tmpE = EnvironmentVars.getEntropyTerm(resName); 
+				totEref += tmpE;
+//				if(superRotamers)
+//					energyPerPos[emeWI.pos1()].val += tmpE;
+				if(tuples || partitionedRotamers){
+					//Find position in matrix
+					int molResNum = strandMut.allMut[i];
+					int pos1 = 0;
+					for(int curPos=0; curPos<arpMatrix.resByPos.size();curPos++){
+						for(int res: arpMatrix.resByPos.get(curPos))
+							if(res == molResNum)
+								pos1 = i;
+						
+					}
+					for(Index3wVal i3wV: energyPerPos)
+						if(i3wV.containsPos(pos1))
+							i3wV.val += tmpE;
+				}
 			}
 		}
 
@@ -5620,6 +5856,11 @@ public class RotamerSearch implements Serializable
 
 			}
 		}
+	}
+	
+	private class EnergiesPerPos{
+		Index3wVal[] boundPerPos;
+		Index3wVal[] energyPerPos;
 	}
 
 }//end of RotamerSearch class

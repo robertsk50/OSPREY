@@ -28,6 +28,13 @@ public class ResidueConformationLibrary implements Serializable{
 		
 		return rc;
 	}
+	
+	public ResidueConformation addSubResidueConformation(Rotamer rot, int pertState, int res, ResidueConformation parent){
+		ResidueConformation rc = ResidueConformation.newSubRC(allRCs.size(), rot, pertState, res, parent);
+		allRCs.add(rc);
+		
+		return rc;
+	}
 
 	/**
 	 * Return all residue conformations for a given pdb number and given amino acid 

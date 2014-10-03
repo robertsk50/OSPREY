@@ -78,6 +78,7 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Hashtable;
@@ -305,6 +306,8 @@ public class KSParser
 
 		else if (firstToken.equalsIgnoreCase("doDEE"))
 			handleDoDEE(s);
+		else if (firstToken.equalsIgnoreCase("doIMINDEE"))
+			handlePartitionedDEE(s);
 		else if (firstToken.equalsIgnoreCase("doExpandedDEE"))
 			handleExpandedIMinDEE(s,true);
 		else if (firstToken.equalsIgnoreCase("doExpandedMatrix"))
@@ -1024,11 +1027,12 @@ public class KSParser
 
 		// Generate all combinations (include (n choose m), (n choose m-1), ... , (n choose 1), and (n choose 0) )
 		int numCombAll = 0;
-		for (int i=kstarSettings.numMutations; i>=0; i--)
+		int numMutations = Math.min(kstarSettings.numMutations, numberMutable);
+		for (int i=numMutations; i>=0; i--)
 			numCombAll += factorial(numberMutable).divide(factorial(numberMutable-i).multiply(factorial(i))).intValue();
 		int residueMutatableAll[][] = new int[numCombAll][numberMutable];
 		int curInd = 0;
-		for (int i=kstarSettings.numMutations; i>=0; i--){
+		for (int i=numMutations; i>=0; i--){
 			int numCombCur = factorial(numberMutable).divide(factorial(numberMutable-i).multiply(factorial(i))).intValue();
 			int residueMutatableCur[][] = new int[numCombCur][numberMutable];
 			generateCombinations(residueMutatableCur,numberMutable,i);
@@ -1217,10 +1221,8 @@ public class KSParser
 		mutMan.setStrandPresent(strandPresent);
 		mutMan.setStrandsPresent(strandsPresent);
 		mutMan.setStrandLimits(strandLimits);
-		mutMan.setMutableSpots(numberMutable);
-		//mutMan.setLigPresent(ligPresent);
 		mutMan.setAddOrigRots(ematSettings.addOrigRots);
-		mutMan.setNumMutations(kstarSettings.numMutations);
+		mutMan.setNumMutations(numMutations);
 		mutMan.setarpFilenameMin(ematSettings.runNameEMatrixMin+".dat");
 		mutMan.setDoMinimization(minSettings.doMinimize);
 		mutMan.setMinimizeBB(minSettings.minimizeBB);
@@ -1827,7 +1829,7 @@ public class KSParser
 		}
 
 		System.out.print("## CurMut: "+cObj.curMut+" Starting Sequence: ");
-		for(int i=0;i<cObj.mutableSpots;i++)
+		for(int i=0;i<cObj.currentMutation.length;i++)
 			System.out.print(" "+cObj.currentMutation[i]);
 		System.out.println(" &&");
 
@@ -2154,7 +2156,7 @@ public class KSParser
 		} // end for(runNum)
 
 		System.out.print("## CurMut: "+cObj.curMut+" Finished Sequence: ");
-		for(int i=0;i<cObj.mutableSpots;i++)
+		for(int i=0;i<cObj.currentMutation.length;i++)
 			System.out.print(" "+cObj.currentMutation[i]);
 		System.out.println(" &&");
 
@@ -2551,7 +2553,7 @@ public class KSParser
 			mutMan.setStrandsPresent(strandsPresent);
 			mutMan.setAddOrigRots(addOrigRots);
 			mutMan.setTypeDep(typeDep);
-			mutMan.setMutableSpots(numberMutable);
+//			mutMan.setMutableSpots(numberMutable);
 			mutMan.setarpFilenameMin(minEMatrixName);
 			mutMan.setPairEMatrixMin(singlesEmat);
 			//mutMan.setErefMatrix(eRef);
@@ -2624,7 +2626,7 @@ public class KSParser
 		mutMan.setStrandsPresent(strandsPresent);
 		mutMan.setAddOrigRots(addOrigRots);
 		mutMan.setTypeDep(typeDep);
-		mutMan.setMutableSpots(numberMutable);
+//		mutMan.setMutableSpots(numberMutable);
 		mutMan.setarpFilenameMin(minEMatrixName);
 		mutMan.setPairEMatrixMin(pairsEmat);
 		mutMan.setErefMatrix(eRef);
@@ -2835,7 +2837,7 @@ public class KSParser
 		mutMan.setStrandsPresent(strandsPresent);
 		mutMan.setAddOrigRots(addOrigRots);
 		mutMan.setTypeDep(typeDep);
-		mutMan.setMutableSpots(numberMutable);
+//		mutMan.setMutableSpots(numberMutable);
 		mutMan.setarpFilenameMin(minEMatrixName);
 		mutMan.setPairEMatrixMin(emat);
 		mutMan.setParams(sParams);
@@ -3081,8 +3083,8 @@ public class KSParser
 
 		MolParameters mp = loadMolecule(cObj.params, cObj.curStrForMatrix, cObj.m);
 
-		RotamerSearch rs = new RotamerSearch(mp.m,cObj.mutableSpots, cObj.strandsPresent, hElect, hVDW, hSteric, true,
-				true, cObj.epsilon, cObj.stericThresh, cObj.softStericThresh, cObj.distDepDielect, cObj.dielectConst, 
+		RotamerSearch rs = new RotamerSearch(mp.m,cObj.strandMut.allMut.length, cObj.strandsPresent, hElect, hVDW, hSteric, true,
+				true, 0.0f, cObj.stericThresh, cObj.softStericThresh, cObj.distDepDielect, cObj.dielectConst, 
 				cObj.doDihedE,cObj.doSolvationE,cObj.solvScale,cObj.vdwMult,
 				cObj.doPerturbations,cObj.pertFile,cObj.minimizePerts,false,false,cObj.es,hbonds,cObj.strandMut);
 
@@ -3154,7 +3156,7 @@ public class KSParser
 
 
 		//Compute the corresponding matrix entries
-		rs.simplePairwiseMutationAllRotamerSearch(cObj.strandMut,cObj.mutableSpots,cObj.doMinimization,shellRun,intraRun,
+		rs.simplePairwiseMutationAllRotamerSearch(cObj.strandMut,cObj.strandMut.allMut.length,cObj.doMinimization,shellRun,intraRun,
 				cObj.resMut,cObj.minimizeBB,cObj.doBackrubs,
 				templateOnly,cObj.backrubFile, cObj.minScheme, cObj.runParams, cObj.compCETM);
 
@@ -5101,7 +5103,7 @@ public class KSParser
 		}
 		public void run(){
 			//Perform DACS
-			doDACS(cObj.mutableSpots, rs, cObj.strandMut,
+			doDACS(cObj.strandMut.allMut.length, rs, cObj.strandMut,
 					cObj.emat, cObj.prunedRot, cObj.algOption, cObj.useSF, cObj.initEw, cObj.pruningE,
 					cObj.initDepth, 0, logPS, cObj.msp, cObj.numInitUnprunedConf,
 					cObj.diffFact, outputConfInfo, cObj.minRatioDiff, cObj.doMinimization, null, 
@@ -5338,13 +5340,12 @@ public class KSParser
 		mutMan.setStrandPresent(strandPresent);
 		mutMan.setStrandLimits(strandLimits);
 		mutMan.setStrandsPresent(strandsPresent);
-		mutMan.setMutableSpots(numMutable);
+//		mutMan.setMutableSpots(numMutable);
 		mutMan.setarpFilenameMin(minPEM);
 		mutMan.setParams(sParams);
 		mutMan.setStericThresh(stericThresh);
 		mutMan.setSoftStericThresh(softStericThresh);
-		mutMan.setMutableSpots(numMutable);
-		//mutMan.setnumLigRotamers(numLigRotamers);
+//		mutMan.setMutableSpots(numMutable);
 		mutMan.setComputeEVEnergy(true);
 		mutMan.setDoMinimization(doMinimize);
 		mutMan.setMinimizeBB(minimizeBB);
@@ -5354,7 +5355,6 @@ public class KSParser
 		mutMan.setNumMutations(numMaxMut);
 		mutMan.setInitEw(initEw);
 		mutMan.setPruningE(pruningE);
-		//mutMan.setLigPresent(ligPresent);
 		mutMan.setUseSF(useFlags);
 		mutMan.setDistrDACS(true);
 		mutMan.setDistrDEE(false);
@@ -5702,7 +5702,7 @@ public class KSParser
 		mutMan.setParams(sParams);
 		mutMan.setStericThresh(stericThresh);
 		mutMan.setSoftStericThresh(softStericThresh);
-		mutMan.setMutableSpots(totalNumRes);
+//		mutMan.setMutableSpots(totalNumRes);
 		//mutMan.setnumLigRotamers(numLigRotamers);
 		mutMan.setarpFilenameMin(runNameEMatrixMin);
 		mutMan.setComputeEVEnergy(true);
@@ -5752,7 +5752,7 @@ public class KSParser
 		Emat emat = cObj.emat;
 
 
-		int totalNumRes = cObj.mutableSpots;
+		int totalNumRes = emat.numMutPos();
 
 
 		//determine the two residues in the pair (for pairs DE) or the one residue (split-DEE)
@@ -7188,7 +7188,7 @@ public class KSParser
 		mutMan.setStericThresh(stericThresh);
 		mutMan.setSoftStericThresh(softStericThresh);
 		mutMan.setRotamerLibrary(rotLib);
-		mutMan.setMutableSpots(numMutable);
+//		mutMan.setMutableSpots(numMutable);
 		mutMan.setComputeEVEnergy(true);
 		mutMan.setDoMinimization(doMinimize);
 		mutMan.setMinimizeBB(minimizeBB);
@@ -7274,17 +7274,16 @@ public class KSParser
 		}
 		else { //AS-AS or INTRA energy computation
 
-			int numMutable = cObj.mutableSpots;
-
-			int resMut[] = new int[numMutable];
-			MutableResParams strandMut = new MutableResParams(numMutable, 0);
-			//strandMut.allMut = new int[numMutable];
-
 			boolean shellRun = false; boolean ligPresent = false; boolean intraRun = false; boolean templateOnly = false;
-
+			MutableResParams strandMut = null;
+			int resMut[] = null;
 			if (cObj.flagMutType.compareTo("AS-AS")==0){ //AS-AS run
 
-				for (int i=0; i<cObj.mutableSpots; i++)
+				int numMutable = 2;
+				resMut = new int[numMutable];
+				strandMut = new MutableResParams(numMutable, 1);
+					
+				for (int i=0; i<numMutable; i++)
 					resMut[i] = 1;
 
 				m = getASASMolEntropy(m,cObj.strandMut.allMut);
@@ -7296,6 +7295,10 @@ public class KSParser
 
 			else if (cObj.flagMutType.compareTo("INTRA")==0){
 
+				int numMutable = 1;
+				resMut = new int[numMutable];
+				strandMut = new MutableResParams(numMutable, 1);
+				
 				intraRun = true;
 
 				m = getASASMolEntropy(m,cObj.strandMut.allMut);
@@ -7315,12 +7318,12 @@ public class KSParser
 			//KER: there will only be one strand with the remade molecule
 			int strandsPresent = 1;
 
-			RotamerSearch rs = new RotamerSearch(m, cObj.mutableSpots, strandsPresent, hElect, hVDW, hSteric, true,
+			RotamerSearch rs = new RotamerSearch(m, strandMut.allMut.length, strandsPresent, hElect, hVDW, hSteric, true,
 					true, cObj.epsilon, cObj.stericThresh, cObj.softStericThresh, cObj.distDepDielect, 
 					cObj.dielectConst, cObj.doDihedE,cObj.doSolvationE,cObj.solvScale,cObj.vdwMult, 
 					false, null, false, false, false, new EPICSettings(),hbonds,strandMut);
 
-			for(int j=0; j<cObj.mutableSpots; j++) {
+			for(int j=0; j<strandMut.allMut.length; j++) {
 				for(int q=0;q<rs.strandRot[0].rl.getAAtypesAllowed().length;q++)
 					rs.setAllowable(strandMut.allMut[j],rs.strandRot[0].rl.getAAtypesAllowed()[q].name,0);
 			}
@@ -7331,7 +7334,7 @@ public class KSParser
 //			PairwiseEnergyMatrix minEmatrix = new PairwiseEnergyMatrix(numMutable,resMut,strandMut,rs,shellRun,intraRun,false);
 //			PairwiseEnergyMatrix maxEmatrix = minEmatrix.copy();
 
-			rs.simplePairwiseMutationAllRotamerSearch(strandMut,numMutable,cObj.doMinimization,shellRun,intraRun,
+			rs.simplePairwiseMutationAllRotamerSearch(strandMut,strandMut.allMut.length,cObj.doMinimization,shellRun,intraRun,
 					resMut,cObj.minimizeBB,cObj.doBackrubs,templateOnly,cObj.backrubFile, RotamerSearch.MINIMIZATIONSCHEME.PAIRWISE, cObj.runParams, false);
 
 			long stopTime = System.currentTimeMillis();
@@ -8470,7 +8473,8 @@ public class KSParser
 
 //			startEmat = System.currentTimeMillis();
 			emat = recalculateAllEnergies(emat, -1,sParams,mp.m,deeSettings.stericE,minSettings.minimizeBB,minSettings.doBackrubs,
-					minSettings.minScheme, mp.strandMut);
+					minSettings.minScheme, mp.strandMut, mp.strandsPresent, es,
+					minSettings.doPerturbations, minSettings.pertFile, minSettings.minimizePerts);
 //			endEmat = System.currentTimeMillis();
 //			metrics.EmatTime += (endEmat - startEmat);
 			emat.save(ematSettings.runNameEMatrixMin+"_expanded_COM.dat",mp.m);
@@ -8636,7 +8640,8 @@ public class KSParser
 	 * 
 	 */
 	private Emat recalculateAllEnergies(Emat emat, int curStrForMatrix,ParamSet params, Molecule m, double stericE,
-			boolean minimizeBB, boolean doMinimize, RotamerSearch.MINIMIZATIONSCHEME minScheme, MutableResParams strandMut) {
+			boolean minimizeBB, boolean doMinimize, RotamerSearch.MINIMIZATIONSCHEME minScheme, MutableResParams strandMut,
+			int strandsPresent, EPICSettings es, boolean doPerturbations, String pertFile, boolean minimizePerts) {
 		//Emat ematToSend = new Emat(emat, mutPos);
 		//KER: split this into several small runs for each AA vs. Pos
 
@@ -8659,7 +8664,11 @@ public class KSParser
 		mutMan.setDoSolvationE(doSolvationE);
 		mutMan.setSolvScale(solvScale);
 		mutMan.setVdwMult(softvdwMultiplier);
-		
+		mutMan.setStrandsPresent(strandsPresent);
+		mutMan.setES(es);
+		mutMan.setDoPerturbations(doPerturbations);
+		mutMan.setPertFile(pertFile);
+		mutMan.setMinimizePerts(minimizePerts);
 
 		try {
 			handleDoMPIMaster(mutMan, singleMutArray.length);
@@ -8714,7 +8723,12 @@ public class KSParser
 		mutMan.setDoSolvationE(doSolvationE);
 		mutMan.setSolvScale(solvScale);
 		mutMan.setVdwMult(softvdwMultiplier);
-
+		mutMan.setStrandsPresent(strandsPresent);
+		mutMan.setES(es);
+		mutMan.setDoPerturbations(doPerturbations);
+		mutMan.setPertFile(pertFile);
+		mutMan.setMinimizePerts(minimizePerts);
+		
 		try {
 			handleDoMPIMaster(mutMan, pairMutArray.length);
 		} catch (Exception e) {
@@ -8728,6 +8742,1191 @@ public class KSParser
 		return emat;
 
 	}
+	
+	
+	/**
+	 * Performs a partitioned rotamer DEE with enumeration,
+	 * the only parameter 's' (String) includes the command-line arguments specifying the filenames of the two input configuration files.
+	 * 
+	 */
+	public void handlePartitionedDEE(String s) {
 
+		// Takes the following parameters
+		// 1: System parameter filename (string)
+		// 2: DEE config filename (string)
+
+		System.out.println("Performing DEE");
+
+		ParamSet sParams = new ParamSet();
+		sParams.addParamsFromFile(getToken(s,2)); //read system parameters
+		sParams.addParamsFromFile(getToken(s,3)); //read mutation search parameters
+
+		Settings settings = new Settings();
+		
+		// Pull search parameters
+		String runName = Settings.getRunName(sParams);
+		
+		//DEE Settings
+		Settings.DEE deeSettings = settings.new DEE(sParams);
+		
+		//Minimization Settings
+		Settings.Minimization minSettings = settings.new Minimization(sParams);
+		
+		
+		//EPICSettings
+		EPICSettings es = new EPICSettings(sParams);
+		if(deeSettings.Ival+deeSettings.initEw>es.EPICThresh2){
+			System.out.println("EPICThresh2 must be at least Ival+Ew: raising to Ival="+(deeSettings.Ival+deeSettings.initEw));
+			es.EPICThresh2 = deeSettings.Ival+deeSettings.initEw;
+		}
+		
+		//Enumeration Settings
+		Settings.Enum enumSettings = settings.new Enum(sParams);
+		
+		//Emat Settings
+		Settings.Emat ematSettings = settings.new Emat(sParams, runName, minSettings.doPerturbations);
+		
+		//InteractionGraph Settings
+		Settings.InteractionGraph graphSettings = settings.new InteractionGraph(sParams);
+		
+		//Output Settings
+		Settings.Output outputSettings = settings.new Output(sParams, runName);
+				
+		//Unclassified Settings
+		int curStrForMatrix = (new Integer((String)sParams.getValue("ONLYSINGLESTRAND","-1"))).intValue();
+		
+		Settings.ImprovedBounds ibSettings = settings.new ImprovedBounds(sParams);
+		
+		
+		// 2010: Use energy window MinDEE method.  If this is set to true,
+		//   MinDEE will use traditional DEE with an energy window (initEw) 
+		//   for pruning.  Max terms will be ignored and only the min terms for pruning and 
+		//boolean useMinDEEPruningEw = (new Boolean((String)sParams.getValue("imindee", "false"))).booleanValue();
+		double initIval = 0.0;
+		double interval = 0;
+		if(minSettings.doMinimize && !minSettings.minimizeBB)
+			initIval = deeSettings.Ival;
+		double difference = 0;
+
+		if ((!mpiRun)&&((deeSettings.distrDACS)||deeSettings.distrDEE)){
+			System.out.println("ERROR: Distributed computation requires MPI");
+			System.exit(1);
+		}
+
+		if (!minSettings.doMinimize) //no minimization
+			minSettings.minimizeBB = false;
+		if (!minSettings.minimizeBB) //not backbone minimization
+			minSettings.doBackrubs = false;
+
+		if (graphSettings.genInteractionGraph) //DACS is not performed when generating the interaction graph
+			deeSettings.doDACS = false;
+
+		//Setup the molecule system
+		MolParameters mp = loadMolecule(sParams,curStrForMatrix,graphSettings.neighborList,graphSettings.distCutoff,true);
+
+		boolean reload = false;
+		if(minSettings.selectPerturbations){//Need to run the automatic perturbation selection
+			//This only needs to be done once though: after that the perturbations can be read from pertFile
+			selectPerturbations(mp, minSettings.doPerturbations, minSettings.pertFile, minSettings.minimizePerts, ematSettings.addWTRot, sParams);
+			reload = true;
+		}
+
+
+		// 2010: If useMinDEEPruningEw is set to false, this cycle never repeats itself.
+		//  If it is set to true, it can repeat at most once: if none of the rotamer vectors
+		//  between the conformation of lowest energy (i.e. lowestBound) 
+		//  and lowestBound+InitEw can minimize to a lower energy than lowestBound+InitEw, 
+		//   then let minimumEnergy be the minimum nergy found among the enumerated conformations,
+		//   we set a new Ew equal to minimumEnergy - lowestBount and repeat this cycle.  We
+		//   only have to do it at most twice.  
+		long start;
+		long totalEtime = 0;
+		start = System.currentTimeMillis();	
+		long totalConfsEvaluated = 0;
+
+		RotamerSearch rs = new RotamerSearch(mp.m,mp.strandMut.numMutPos(), mp.strandsPresent, hElect, hVDW, hSteric, true,
+				true, 0.0f, stericThresh, softStericThresh, distDepDielect, dielectConst, doDihedE, doSolvationE, solvScale, softvdwMultiplier, 
+				minSettings.doPerturbations, minSettings.pertFile, minSettings.minimizePerts, deeSettings.useTriples, enumSettings.useFlagsAStar, es,hbonds, mp.strandMut);
+
+		rs.useCCD = minSettings.useCCD;
+		rs.partitionedRotamers = ibSettings.subRotamers;
+//		rs.superRotamers = superRotamers;
+//		rs.tuples = doTuples || readTuples;
+//		rs.subRotamers = subRotamers;
+
+		//Set the allowable AAs for each AS residue
+		boolean addWT = (new Boolean((String)sParams.getValue("ADDWT", "true"))).booleanValue();
+		if(!addWT)
+			mp.strandMut.checkWT(mp.strandPresent, sParams);
+		int molStrand = 0;
+		for(int resID:mp.strandMut.allMut){
+			setAllowablesHelper(sParams, addWT, mp.m.residue[resID]);
+		}
+		
+		if((!minSettings.selectPerturbations || reload) && !mp.loadedFromCache)
+			rs.setupRCs(minSettings.doPerturbations);
+		
+		int numSplits = 0;
+
+		//Load Energy Matrix
+		long startEmat = System.currentTimeMillis();
+		System.out.print("Loading precomputed energy matrix...");
+		Emat emat = loadPairwiseEnergyMatrices(sParams,ematSettings.runNameEMatrixMin,minSettings.doMinimize,curStrForMatrix,es,mp.m,false);
+		rs.setMinMatrix(emat);
+		System.out.println("done");
+		long endEmat = System.currentTimeMillis();
+//		metrics.EmatTime += (endEmat-startEmat);
+
+		
+		int ctr=0;
+
+		
+		HashMap<ArrayList<Index3>,EnergyTuple> energyTuples=null;
+		if(ibSettings.doTuples){
+			Object o = loadObject("energyTuples.dat");
+			if(o != null)
+				energyTuples = (HashMap<ArrayList<Index3>,EnergyTuple>)o;
+			else
+				energyTuples = new HashMap<ArrayList<Index3>,EnergyTuple>();
+			rs.energyTuples = energyTuples;
+		}
+		
+		double bestE = enumSettings.bestE;
+		int loopNum = 0;
+		AStarResults asr;
+
+		//KER: load lowest energy conformation found so far
+		if(ibSettings.doTuples){
+			ArrayList<FullConf> confs = new ArrayList<FullConf>();
+			readRotResFile(outputSettings.outputConfInfo, confs, emat.allMutRes().size());
+
+			for(FullConf conf : confs){
+				if(conf.minE < bestE)
+					bestE = conf.minE;
+			}
+			rs.bestEMin = bestE;
+		}
+
+
+		double lowestPairBound = Double.NEGATIVE_INFINITY;
+		double actualLowestBound = Double.POSITIVE_INFINITY;
+		//double Ival = initIval;
+		double DEEIval = initIval;
+		double ENUMIval = initIval;
+		int numToEnumerate = 5;
+		boolean runDEE = true;
+		if(ibSettings.doTuples)
+			runDEE = false;
+		if(ibSettings.subRotamers)
+			numToEnumerate=1;
+		ArrayList<Index3> permanentlyPrune = new ArrayList<Index3>();
+//		GurobiOptimization gurobiOpt = null; 
+
+
+
+//		metrics.setLoopStart();
+		while(true){
+			
+			loopNum++;
+
+			if(ibSettings.superRotamers)
+				DEEIval = initIval;
+			
+
+			int[] numRotForRes = compNumRotForRes(emat);
+			int totalNumRot = 0;
+			for(int q:numRotForRes){
+				totalNumRot+=q;
+				System.out.print(q+" ");
+			};System.out.println("");
+
+			if(ibSettings.subRotamers && loopNum >= 2){
+				emat.unPrune();
+			}
+
+			int[] unprunedRotForRes = emat.remainingRot();
+			for(int q:unprunedRotForRes){System.out.print(q+" ");}System.out.println();
+
+			boolean localUseMinDEEPruningEw = minSettings.doMinimize && !minSettings.minimizeBB;
+			if(deeSettings.doDACS) //If we are doing dacs we don't want to prune stuff too early so turn off 
+				localUseMinDEEPruningEw = false;   //iMinDEE until the last depth is reached
+
+
+			addErefAndEntropy(ematSettings.useEref, rs, emat);
+
+			boolean deeDone = false;
+			boolean supRotDone = false;
+			double bestScore = Double.POSITIVE_INFINITY;
+
+			int[] tmpPruned;
+			int[] tmpPrunedPairs;
+
+			int runNum = 0;
+
+
+			/***runDEE*****/
+
+			int timesRunFullPairs = -1; //-1 means run as much as possible
+			int maxLoopNum = Integer.MAX_VALUE; //number of times to loop DEE
+			boolean removeRot = false;
+			if(ibSettings.superRotamers) //Don't spend that much time because we have to unprune anyway
+				timesRunFullPairs = 0;
+			else if(ibSettings.doTuples){ //Don't spend that much time because we have to unprune anyway
+				timesRunFullPairs = 0;
+				if(loopNum==1)
+					runDEE = true;
+			}
+			else if(ibSettings.subRotamers){ //This is heuristic right now. You don't need to prune everytime since it
+											 //just takes extra time. So only prune so often
+				timesRunFullPairs = 0;
+				maxLoopNum = 2;
+				removeRot = true;
+				//Every so often actually remove rotamers based on the current real Ival
+				if(loopNum % 5 == 0 || loopNum == 2)
+					runDEE(deeSettings.useFlags, minSettings.doMinimize, minSettings.minimizeBB, deeSettings.scaleInt,
+							deeSettings.initEw, deeSettings.maxIntScale, deeSettings.typeDep, DEEIval, 
+							emat, localUseMinDEEPruningEw, removeRot,deeSettings.stericE, sParams,
+							timesRunFullPairs,maxLoopNum,deeSettings.deeSettings,rs.strandRot,mp.strandMut,rs.m,rs.doPerturbations);
+
+				
+				runDEE = true;
+				removeRot = false;
+				if(DEEIval < 1.0 && loopNum > 1){
+					enumSettings.asMethod = Settings.ASTARMETHOD.BYSUBROT;
+					numToEnumerate = Integer.MAX_VALUE;
+					ENUMIval = Double.POSITIVE_INFINITY;
+				}
+				else
+					DEEIval = 0;
+				maxLoopNum = 1;
+				timesRunFullPairs = 0;
+			}
+
+
+
+			if(runDEE)
+				runDEE(deeSettings.useFlags, minSettings.doMinimize, minSettings.minimizeBB, deeSettings.scaleInt,
+						deeSettings.initEw, deeSettings.maxIntScale, deeSettings.typeDep, DEEIval, 
+						emat, localUseMinDEEPruningEw, removeRot,deeSettings.stericE, sParams,
+						timesRunFullPairs,maxLoopNum,deeSettings.deeSettings,rs.strandRot,mp.strandMut,rs.m,rs.doPerturbations);
+
+
+			//KER: If we are doing tuples we need to know what the lowest bound is without using tuples
+			if(ibSettings.doTuples && loopNum == 1){
+				rs.energyTuples = new HashMap<ArrayList<Index3>,EnergyTuple>();
+				asr = rs.doAStarGMEC(outputSettings.outputConfInfo,true,minSettings.doMinimize,
+						mp.strandMut.numMutPos(),mp.strandMut,0,
+						bestScore,null,enumSettings.approxMinGMEC,enumSettings.lambda,minSettings.minimizeBB,
+						ematSettings.useEref,minSettings.doBackrubs,minSettings.backrubFile,
+						localUseMinDEEPruningEw, 0,enumSettings.asMethod); //Ival and initEw set to 0 to only find the lowest conformation
+				totalConfsEvaluated += asr.numConfsEvaluated;
+				lowestPairBound = asr.lowestBound;
+				actualLowestBound = Math.min(asr.lowestBound, actualLowestBound);
+				rs.energyTuples = energyTuples; 
+			}
+
+
+
+
+
+//			if(asMethod == ASTARMETHOD.LPGUROBI && gurobiOpt == null){
+//				gurobiOpt = new GurobiOptimization(emat,true);
+//
+//				//Need to add the tuples in the right order so the parents will already
+//				//be around when the children are added
+//				//KER: This is super inefficient, but I just want something that works right now
+//				int length = 2;
+//				int numRotAtLength=0;
+//				while(length==2 || numRotAtLength > 0){
+//					numRotAtLength = 0;
+//					for(EnergyTuple tuple: energyTuples.values()){
+//						if(tuple.rots.length == length){
+//							//KER: also need to make sure that rotamer in tuple isn't pruned 
+//							//KER: this will happen if we are loading tuples from a previous run
+//							boolean validTuple = true;
+//							for(Index3  rot: tuple.rots){
+//								if(emat.getSinglePruned(rot))
+//									validTuple = false;
+//							}
+//							if(validTuple){
+//								gurobiOpt.addTuple(tuple,emat);
+//								numRotAtLength++;
+//							}
+//						}
+//					}
+//					length++;
+//				}
+//			}
+
+			//Run Enumeration
+			asr = rs.doAStarGMEC(outputSettings.outputConfInfo,true,minSettings.doMinimize,
+					mp.strandMut.numMutPos(),mp.strandMut,deeSettings.initEw,
+					bestScore,null,enumSettings.approxMinGMEC,enumSettings.lambda,minSettings.minimizeBB,
+					ematSettings.useEref,minSettings.doBackrubs,minSettings.backrubFile,
+					localUseMinDEEPruningEw, ENUMIval,enumSettings.asMethod);
+
+			actualLowestBound = Math.min(asr.lowestBound, actualLowestBound);
+			totalConfsEvaluated += asr.numConfsEvaluated;
+			bestE = Math.min(bestE,rs.getBestE());
+
+			if(ibSettings.superRotamers){
+				interval = bestE - asr.lowestBound;
+				difference = interval - DEEIval;
+			}
+			else if(ibSettings.doTuples){
+				interval = asr.lastBound - lowestPairBound;
+				difference = DEEIval-interval;
+			}
+			else if(ibSettings.subRotamers){
+				interval = bestE - asr.lowestBound;
+				difference = interval;
+			}
+			else{ //Normal run
+				System.out.println("DON'T KNOW WHAT TO DO!!");
+				System.out.println("Please run doDEE instead!!");
+				System.exit(0);
+			}
+
+			if(ibSettings.superRotamers){
+				DEEIval = interval;
+				ENUMIval = interval;
+			}
+			if(ibSettings.subRotamers){
+				DEEIval = interval;
+			}
+
+			System.out.println("Ival difference: "+difference);
+
+			if(difference < 0.2 || bestE - asr.lastBound < 0.001){
+				if(ibSettings.doTuples && DEEIval < bestE-lowestPairBound){
+					double diff = bestE-lowestPairBound; 
+					DEEIval = Math.min(diff, DEEIval*2);
+					if(DEEIval == 0)
+						DEEIval = 0.5;
+					System.out.println("New DEEIval: "+DEEIval);
+					System.out.println("CHANGING DEEIVAL");
+					emat.unPrune();
+					rs.MSAStarSearch = null;
+//					gurobiOpt = null;
+					runDEE = true;
+
+				}
+				else
+					break;
+			}else{
+				runDEE = false; //We haven't changed the DEEIval so don't prune any more 
+			}
+
+
+
+			/*****    Post processing and update for next DEE/Enumuration ****/
+			//If we're using superRotamers
+			if(ibSettings.superRotamers){
+				//Resetting the energy matrix
+				emat.unPrune();
+				//runDEE with Ival = I1
+
+				runDEE(deeSettings.useFlags, minSettings.doMinimize, minSettings.minimizeBB, deeSettings.scaleInt,
+						deeSettings.initEw, deeSettings.maxIntScale, deeSettings.typeDep, DEEIval, 
+						emat, localUseMinDEEPruningEw, true,deeSettings.stericE, sParams, 
+						-1,maxLoopNum,deeSettings.deeSettings,rs.strandRot,mp.strandMut,rs.m,rs.doPerturbations);
+
+				emat.removePrunedRotReducedMem(false);
+
+				//Save a temporary superrotamer emat 
+				emat.save(ematSettings.runNameEMatrixMin+"_COM.dat.tmp",mp.m);
+			
+
+				long energyStartTime = System.currentTimeMillis();
+				if(difference > 0.2){
+					//Contract Rotamers
+					unprunedRotForRes = emat.remainingRot();
+					for(int q:unprunedRotForRes){System.out.print(q+" ");}System.out.println();
+					//if(runNum>=1 && runNum <=7){
+					for(int i=0; i<1;i++){
+						int[] pos = new int[2];
+						switch(ibSettings.contractMethod){
+						case LEASTPAIRS:
+							pos = emat.findPositionsToContractLeastPairs();
+							break;
+						case PERCENTPRUNED:
+							pos = emat.findPositionsToContract();
+							break;
+//						case CLOSESTRES:
+//							pos = emat.findPositionsToContractClosestRes(rs.contractPos,mp.m);
+//							break;
+						case PERCENTLEAST: 
+							pos = emat.findPositionsToContractPercentLeast();
+							if((pos[1] == -1 || pos[0]== -1) && emat.resByPos.size() > 1){
+								pos[0] = 0;
+								pos[1] = 1;
+							}
+							break;
+//						case LARGESTDIFF:
+//							if(rs.contractPos < rs.contractPos2){
+//								pos[0] = rs.contractPos;
+//								pos[1] = rs.contractPos2;
+//							}else{
+//								pos[1] = rs.contractPos;
+//								pos[0] = rs.contractPos2;
+//							}
+//							break;
+						default:
+							pos[0] = -1;
+							pos[1] = -1;
+							break;
+						}
+	
+	
+						if(pos[0] != -1 && pos[1] != -1){
+							System.out.println("Combining Pos: "+pos[0]+", "+pos[1]);
+							supRotDone = false;
+							emat.combinePos(pos[0], pos[1]);
+							long startE = System.currentTimeMillis();
+							if(minSettings.doMinimize){
+								recalculateEnergies(emat, pos[0],curStrForMatrix,sParams,mp.m,
+										minSettings.doMinimize,minSettings.minScheme,mp.strandMut,mp.strandsPresent,es,
+										minSettings.doPerturbations, minSettings.pertFile, minSettings.minimizePerts);
+								if(ematSettings.useEref)
+									rs.addEref(emat.eRef, pos[0]);
+								if(EnvironmentVars.useEntropy)
+									rs.addEntropyTerm(pos[0]);
+	
+								emat.save(ematSettings.runNameEMatrixMin+"_COM.dat.tmp",mp.m);
+							}
+	
+						}
+						else{
+							System.out.println("Couldn't find any positions to combine.");
+						}
+					}
+				}
+			}
+			else if(ibSettings.doTuples &&  rs.worstRots != null){
+				System.out.println("Tuples not implemented yet.");
+				System.exit(0);;
+//				addTuples(sParams, curStrForMatrix, templateAlwaysOn, mp, rs,
+//						emat, useEref, energyTuples, bestE, asr, DEEIval,
+//						gurobiOpt,addTuplesByDistance);
+				
+			}//}
+			else if(ibSettings.subRotamers){ //Split only the worst rotamers
+				//KER: Now we can only rely on RotamerSearch storing the conformations it found
+				//Here we have to figure out the worst rotamers
+
+				numSplits = partitionRotamers(sParams, ematSettings.runNameEMatrixMin,
+						ematSettings.useEref, mp, rs, numSplits, emat,
+						bestE,curStrForMatrix,minSettings,mp.strandMut,es);
+			}
+			else if(ibSettings.readTuples){
+				System.out.println("Reading tuples is not currently implemented.");
+				System.exit(0);
+//				if(loopNum == 1){
+//					ArrayList<ArrayList<Index3>> tuples = readTuples(ibSettings.tupleFile, mp.m, emat);
+//
+//					//For each tuple calculate the EnergyTuple for it
+//					for(ArrayList<Index3> tuple: tuples){
+//
+//						//Make sure that there is a breadcrumb to the tuple
+//						Iterator<Index3> iter = tuple.iterator();
+//						ArrayList<Index3> curTuple = new ArrayList<Index3>();
+//						ArrayList<Index3> parent = new ArrayList<Index3>();
+//						Index3 i3 = iter.next();
+//						curTuple.add(i3);
+//						parent.add(i3);
+//						while(iter.hasNext()){
+//							i3 = iter.next();
+//							curTuple.add(i3);
+//							EnergyTuple child;
+//							if(!energyTuples.containsKey(curTuple)){
+//								ArrayList<Index3> computeTuple = new ArrayList<Index3>();
+//								for(Index3 i2:curTuple)
+//									computeTuple.add(i2);
+//								child = recalculateEnergyTuple(emat, computeTuple, curStrForMatrix, sParams,energyTuples,mp.m,useEref,templateAlwaysOn);
+//							}
+//							else{
+//								child = energyTuples.get(curTuple);
+//							}
+//							if(parent.size() >=2){
+//								EnergyTuple parentTuple = energyTuples.get(parent);
+//								parentTuple.children.add(child);
+//							}
+//
+//							parent.add(i3);
+//						}
+//
+//
+//					}
+//				}
+//
+//				//Save energyTuples
+//				outputObject(energyTuples,"energyTuples.dat");
+
+			}
+			else{
+				//Run A*
+				asr = rs.doAStarGMEC(outputSettings.outputConfInfo,true,minSettings.doMinimize,
+						mp.strandMut.numMutPos(),mp.strandMut,deeSettings.initEw,
+						bestScore,null,enumSettings.approxMinGMEC,enumSettings.lambda,minSettings.minimizeBB,
+						ematSettings.useEref,minSettings.doBackrubs,minSettings.backrubFile,
+						localUseMinDEEPruningEw, ENUMIval,enumSettings.asMethod);
+				totalConfsEvaluated += asr.numConfsEvaluated;
+
+				break;
+			}
+			long endEnergyTime = System.currentTimeMillis();
+//			metrics.Etime += (endEnergyTime - energyStartTime);
+
+			ctr++;
+		}
+
+
+//		metrics.setEndTime();
+
+		if(ibSettings.doTuples){
+			System.out.println("NUMTUPLES: "+ energyTuples.size());
+			for(ArrayList<Index3> tuples:rs.energyTuples.keySet()){
+				for(Index3 index: tuples){
+					System.out.print("("+index.pos+","+index.aa+","+index.rot+"), ");
+				}
+				System.out.println("");
+			}
+		}
+		
+//		metrics.trueIval = bestE - actualLowestBound;
+//		metrics.print();
+
+		//		System.out.println("EmatTime: "+EmatTime);
+		//		System.out.println("DEETime: "+DEETime);
+		//		System.out.println("ASTime: "+ASTime);
+		//		System.out.println("ENERGYtime: "+EnergyTime);
+		//		System.out.println("TotalTime: "+time);
+
+
+		
+
+		//		System.out.println("TOTALNUMCONFS: "+totalConfsEvaluated);
+
+	}
+
+	private void recalculateEnergies(Emat emat, int mutPos,int curStrForMatrix,ParamSet params,
+			Molecule m, boolean doMinimize, RotamerSearch.MINIMIZATIONSCHEME minScheme, MutableResParams strandMut,
+			int strandsPresent, EPICSettings es, boolean doPerturbations, String pertFile, boolean minimizePerts) {
+		//Emat ematToSend = new Emat(emat, mutPos);
+		//KER: split this into several small runs for each AA vs. Pos
+
+
+		//KER: plus 1 is for the SHL-AS
+		OneMutation[] mutArray = new OneMutation[(emat.singles.E[mutPos].length)*(emat.singles.E.length-1) + 1];
+		int ctr=0;
+		//Loop through mutPosAAs
+		for(int i=0; i<emat.singles.E.length;i++){
+			if(i==mutPos){
+				mutArray[ctr] = new OneMutation();
+				mutArray[ctr].mutNum = mutPos;
+				mutArray[ctr].resMut = new int[emat.singles.E.length];
+				for(int j=0; j<mutArray[ctr].resMut.length;j++)
+					mutArray[ctr].resMut[j] = 0;
+
+				mutArray[ctr].resMut[mutPos] = 1;
+				mutArray[ctr].runParams = new EmatCalcParams(mutPos, -1);
+
+				mutArray[ctr].flagMutType = "SHL-AS";
+				ctr++;
+			}
+			else{
+				TreeSet<Integer> tmpAA2 = new TreeSet<Integer>();
+				for(int aa=0; aa<emat.singles.E[i].length;aa++){
+					tmpAA2.add(aa);
+				}
+				for(int aa=0; aa<emat.singles.E[mutPos].length;aa++){
+					mutArray[ctr] = new OneMutation();
+					mutArray[ctr].mutNum = mutPos;
+					mutArray[ctr].resMut = new int[emat.singles.E.length];
+					for(int j=0; j<mutArray[ctr].resMut.length;j++)
+						mutArray[ctr].resMut[j] = 0;
+
+					mutArray[ctr].resMut[mutPos] = 1;
+
+					mutArray[ctr].flagMutType = "AS-AS";
+					mutArray[ctr].resMut[i] = 1;
+
+					TreeSet<Integer> tmpAA1 = new TreeSet<Integer>();
+					tmpAA1.add(aa);
+
+					mutArray[ctr].runParams = new EmatCalcParams(mutPos, i, tmpAA1, tmpAA2);
+
+					ctr++;
+				}
+			}
+
+		}
+
+		MutationManager mutMan = new MutationManager(null, mutArray, true);
+		mutMan.setPairEMatrixMin(emat);
+		mutMan.setcurStrForMatrix(curStrForMatrix);
+		mutMan.setParams(params);
+		mutMan.setMolecule(m);
+		mutMan.setDoMinimization(doMinimize);
+		mutMan.setMinScheme(minScheme);
+		mutMan.setStrandMut(strandMut);
+		mutMan.setStericThresh(stericThresh);
+		mutMan.setSoftStericThresh(softStericThresh);
+		mutMan.setDistDepDielect(distDepDielect);
+		mutMan.setDielectConst(dielectConst);
+		mutMan.setDoDihedE(doDihedE);
+		mutMan.setDoSolvationE(doSolvationE);
+		mutMan.setSolvScale(solvScale);
+		mutMan.setVdwMult(softvdwMultiplier);
+		mutMan.setStrandsPresent(strandsPresent);
+		mutMan.setES(es);
+		mutMan.setDoPerturbations(doPerturbations);
+		mutMan.setPertFile(pertFile);
+		mutMan.setMinimizePerts(minimizePerts);
+
+		try {
+			handleDoMPIMaster(mutMan, mutArray.length);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+
+
+	}
+	
+
+	private int partitionRotamers(ParamSet sParams, String runNameEMatrixMin,
+			boolean useEref, MolParameters mp,
+			RotamerSearch rs, int numSplits, Emat emat, double bestE, int curStrForMatrix,
+			Settings.Minimization minSettings,MutableResParams strandMut, EPICSettings es) {
+		
+		ArrayList<Index3> rotWasSplit = new ArrayList<Index3>();
+		ArrayList<ArrayList<Index3>> rotWasSplitTo = new ArrayList<ArrayList<Index3>>();
+		//For each conformation we found check rotamers to split	
+		ArrayList<Index3> rotsAddedThisRound = new ArrayList<Index3>();
+		for(GlobalRCConf conformation: rs.generatedConfs){
+			ArrayList<Index3> rotToRemove = new ArrayList<Index3>();
+
+			//KER: For this conformation setup the differences between the bound and actual energy
+			Index3[] rotamers = new Index3[conformation.resNum.length];
+			ArrayList<ArrayList<Index3>> rotsPerPos = new ArrayList<ArrayList<Index3>>();
+			
+			//KER: First we must find the corresponding rotamer for each conformation rotamer
+			//KER: Note that if we split a rotamer we will no longer be able to find it cause it'll be gone
+			for(int i=0; i<rotamers.length;i++){
+				rotamers[i] = emat.getGlobalRot(conformation.resNum[i],conformation.globalRCs[i]);
+				ArrayList<Index3> tmpRot = new ArrayList<Index3>();
+				tmpRot.add(rotamers[i]);
+				rotsPerPos.add(tmpRot);
+			}
+
+			//KER: Now we must find the bound and then the differences
+			double[] bound = new double[conformation.EforRes.length]; 
+			double diff[] = new double[conformation.EforRes.length];
+			
+			for(int i=0; i<bound.length;i++){
+				bound[i] += emat.getSingleMinE(rotamers[i]);
+				for(int j=i+1; j<bound.length;j++){
+					if(emat.areNeighbors(i, j)){
+						try{
+						double energy = emat.getPairMinE(rotamers[i], rotamers[j]);
+						bound[i] += energy/2;
+						bound[j] += energy/2;
+						}catch(Exception E){
+							E.printStackTrace();
+						}
+					}
+				}
+			}
+			//KER: calculate the differences
+			double oldDiff = 0;
+			double totalE = emat.templ_E;
+			for(int i=0; i<diff.length;i++){
+				diff[i] = conformation.EforRes[i] - bound[i];
+				oldDiff += diff[i];
+				totalE += conformation.EforRes[i];
+			}
+
+			//KER: sort the max indices that we are going to split
+			ArrayIndexComparator comparator = new ArrayIndexComparator(diff);
+			Integer[] maxIndexes = comparator.createIndexArray();
+			Arrays.sort(maxIndexes,comparator);
+			
+			double cumulativeDiff = 0;
+			for(int pos=0; pos<rotamers.length;pos++){
+				cumulativeDiff += diff[maxIndexes[pos]];
+				Index3 rot = rotamers[maxIndexes[pos]];
+				if(!rotsAddedThisRound.contains(rot)){
+					rotsAddedThisRound.add(rot);
+
+					ArrayList<ArrayList<ResidueConformation>> rotsToAdd = new ArrayList<ArrayList<ResidueConformation>>();
+					ArrayList<ArrayList<ResidueConformation>> rotsToUpdate = new ArrayList<ArrayList<ResidueConformation>>();
+					//KER: Assuming only one rotamer per position for now
+					ArrayList<ResidueConformation> curRCs = emat.getRCs(mp.m, rot);
+					//KER: For each rotamer make several sub-rotamers in Chi1
+					int resID = emat.resByPos.get(rot.pos).get(0);
+					String pdbNum = mp.m.residue[resID].getResNumberString();
+					ResidueConformation curRC = curRCs.get(0);
+					if(curRC.rot.values == null || curRC.rot.values.length == 0)
+						continue;
+
+					//Just split the rotamers in half for now
+					//Could actually do more sophisticated splits in the future
+					int dihedDepth = 0;
+					for(int i=0; i<curRC.rot.minimizationWidth.length-1;i++)
+						if(curRC.rot.minimizationWidth[i+1] > curRC.rot.minimizationWidth[i]){
+							dihedDepth = i+1;
+						}
+
+					double rotInterval = curRC.rot.minimizationWidth[dihedDepth]/2;
+					for(int i=0;i<2;i++){
+						double[] dihedVals = new double[curRC.rot.values.length];
+						double[] minimizationWidth = new double[curRC.rot.minimizationWidth.length];
+						for(int q=0; q<dihedVals.length;q++){
+							dihedVals[q] = curRC.rot.values[q];
+							minimizationWidth[q] = curRC.rot.minimizationWidth[q];
+						}
+						int dir = i*2-1;
+						dihedVals[dihedDepth] += dir*rotInterval;
+						minimizationWidth[dihedDepth] = rotInterval;
+						Rotamer newSubRot = null;
+						ResidueConformation newSubResConf = null;
+						ArrayList<ResidueConformation> rotToAdd = new ArrayList<ResidueConformation>();
+						ArrayList<ResidueConformation> rotToUpdate = new ArrayList<ResidueConformation>();
+						if(i != 0){ //Update (don't add) orig rot 
+							newSubRot = mp.m.residue[resID].rl.addSubRotamer(curRC.rot.aaType.name, pdbNum,dihedVals,minimizationWidth,curRC.rot);
+							newSubResConf = mp.m.strand[mp.m.residue[resID].strandNumber].rcl.addSubResidueConformation(newSubRot, curRC.pertState, curRC.res, curRC);
+							rotToAdd.add(newSubResConf);
+							rotsToAdd.add(rotToAdd);
+						}
+						else{
+							//KER: need to create a new rotamer because allowed minimization will be different
+							newSubRot = mp.m.residue[resID].rl.addSubRotamer(curRC.rot.aaType.name, pdbNum,dihedVals,minimizationWidth,curRC.rot);
+							newSubResConf = mp.m.strand[mp.m.residue[resID].strandNumber].rcl.addSubResidueConformation(newSubRot, curRC.pertState, curRC.res, curRC);
+							rotToUpdate.add(newSubResConf);
+							emat.updateRotamer(mp.m,rot,rotToUpdate,false);
+						}
+
+					}
+
+
+					ArrayList<Index3> rotamerIndices = emat.addRotamers(mp.m,rot.pos,rotsToAdd,false);
+					rotamerIndices.add(rot);
+					calculateRotamerEnergies(emat, sParams, rotamerIndices, rot.pos, mp.m,useEref,curStrForMatrix,
+							minSettings.minimizeBB, minSettings.doMinimize,minSettings.minScheme,strandMut,
+							mp.strandsPresent, es, minSettings.doPerturbations,minSettings.pertFile,minSettings.minimizePerts);
+					numSplits++;
+					
+					rotWasSplit.add(rot);
+					rotWasSplitTo.add(rotamerIndices);
+					
+					
+					//Check the new energy for the new structures
+					rotsPerPos.set(rot.pos, rotamerIndices);
+					
+					
+					double bestNewE = getBestNewE(-1, new Index3[rotsPerPos.size()],rotsPerPos,Double.POSITIVE_INFINITY,rs);
+					
+					
+					double newDiff = totalE - bestNewE;
+					
+					if((cumulativeDiff/oldDiff) > .75 || ((oldDiff-newDiff)/oldDiff)>0.3 || bestNewE > bestE )
+						break;
+					
+				}
+				
+			}
+
+		}
+
+		return numSplits;
+	}
+
+
+	private void calculateRotamerEnergies(Emat emat, ParamSet sParams, ArrayList<Index3> rotamers, int mutPos,
+			Molecule m, boolean useEref, int curStrForMatrix,
+			boolean minimizeBB, boolean doMinimize, RotamerSearch.MINIMIZATIONSCHEME minScheme, MutableResParams strandMut,
+			int strandsPresent, EPICSettings es, boolean doPerturbations, String pertFile, boolean minimizePerts) {
+
+		//KER: plus 1 is for the SHL-AS
+		OneMutation[] mutArray = new OneMutation[emat.singles.E.length];
+		int ctr=0;
+		//Loop through mutPosAAs
+		for(int i=0; i<emat.singles.E.length;i++){
+			if(i==mutPos){
+				mutArray[ctr] = new OneMutation();
+				mutArray[ctr].mutNum = mutPos;
+				mutArray[ctr].resMut = new int[emat.singles.E.length];
+				for(int j=0; j<mutArray[ctr].resMut.length;j++)
+					mutArray[ctr].resMut[j] = 0;
+
+				mutArray[ctr].resMut[mutPos] = 1;
+				mutArray[ctr].runParams = new EmatCalcParams(mutPos, -1,rotamers);
+
+				mutArray[ctr].flagMutType = "SHL-AS";
+				ctr++;
+			}
+			else{
+				mutArray[ctr] = new OneMutation();
+				mutArray[ctr].mutNum = mutPos;
+				mutArray[ctr].resMut = new int[emat.singles.E.length];
+				for(int j=0; j<mutArray[ctr].resMut.length;j++)
+					mutArray[ctr].resMut[j] = 0;
+
+				mutArray[ctr].resMut[mutPos] = 1;
+
+				mutArray[ctr].flagMutType = "AS-AS";
+				mutArray[ctr].resMut[i] = 1;
+
+				mutArray[ctr].runParams = new EmatCalcParams(mutPos, i,rotamers);
+
+				ctr++;
+			}
+
+		}
+		
+		MutationManager mutMan = new MutationManager(null, mutArray, true);
+		mutMan.setPairEMatrixMin(emat);
+		mutMan.setcurStrForMatrix(curStrForMatrix);
+		mutMan.setParams(sParams);
+		mutMan.setMolecule(m);
+		mutMan.setDoMinimization(doMinimize);
+		mutMan.setMinScheme(minScheme);
+		mutMan.setStrandMut(strandMut);
+		mutMan.setStericThresh(stericThresh);
+		mutMan.setSoftStericThresh(softStericThresh);
+		mutMan.setDistDepDielect(distDepDielect);
+		mutMan.setDielectConst(dielectConst);
+		mutMan.setDoDihedE(doDihedE);
+		mutMan.setDoSolvationE(doSolvationE);
+		mutMan.setSolvScale(solvScale);
+		mutMan.setVdwMult(softvdwMultiplier);
+		mutMan.setStrandsPresent(strandsPresent);
+		mutMan.setES(es);
+		mutMan.setDoPerturbations(doPerturbations);
+		mutMan.setPertFile(pertFile);
+		mutMan.setMinimizePerts(minimizePerts);
+		
+		
+		
+		
+		try{
+			if(MPItoThread.Rank() == 0){
+			
+				try {
+					handleDoMPIMaster(mutMan, mutArray.length);
+				} catch (Exception e) {
+					e.printStackTrace();
+				}
+			
+			}else{ //If this is a slave, the slave has to do the work
+				for(int i=0; i<mutArray.length;i++){
+					CommucObj cObj = handleComputeAllPairwiseRotamerEnergiesSlave(mutMan.getNextComObj(i));
+					mutMan.processFinishedMutation(cObj);
+				}
+			}
+		}catch (Exception e){
+			System.out.println("Couldn't calculate partitioned rotamer energies");
+			e.printStackTrace();
+		}
+
+		//KER: make sure the eRef is set correctly
+		if(useEref){
+			RotamerSearch.addEref(emat, m, emat.eRef, mutPos,rotamers);
+		}
+		if(EnvironmentVars.useEntropy)
+			RotamerSearch.addEntropyTerm(emat, m, mutPos,rotamers);
+
+
+	}
+	
+	/**
+	 * Used for partitioned rotamer calculation
+	 * @param i
+	 * @param conf
+	 * @param rotsPerPos
+	 * @param bestE
+	 * @param rs
+	 * @return
+	 */
+	private double getBestNewE(int i, Index3[] conf, ArrayList<ArrayList<Index3>> rotsPerPos,
+			double bestE,RotamerSearch rs) {
+		i = i+1;
+		if(i == conf.length){
+			double curE = rs.computeBestRotEnergyBound(conf);
+				
+			if(curE < bestE)
+				bestE = curE;
+			return bestE;
+		}
+		
+		
+		for(Index3 rot:rotsPerPos.get(i)){
+			conf[i] = rot;
+			bestE = getBestNewE(i,conf,rotsPerPos,bestE,rs);
+		}
+		
+		return bestE;
+	}
+	
+	
+	/**
+	 * Compute new tuples and add them to the ones calculated so far
+	 * @param sParams
+	 * @param curStrForMatrix
+	 * @param templateAlwaysOn
+	 * @param mp
+	 * @param rs
+	 * @param emat
+	 * @param useEref
+	 * @param energyTuples
+	 * @param bestE
+	 * @param asr
+	 * @param DEEIval
+	 * @param gurobiOpt
+	 * @param useDistance
+	 * @return
+	 */
+//	private boolean addTuples(ParamSet sParams, int curStrForMatrix,
+//			boolean templateAlwaysOn, MolParameters mp, RotamerSearch rs,
+//			Emat emat, boolean useEref,
+//			HashMap<ArrayList<Index3>, EnergyTuple> energyTuples, double bestE,
+//			AStarResults asr, double DEEIval, GurobiOptimization gurobiOpt,boolean useDistance) {
+//		boolean addedTuple = false;
+//		boolean supRotDone;
+//		HashMap<ArrayList<Index3>,Boolean> tmpHash = new HashMap<ArrayList<Index3>,Boolean>();
+//		for(ArrayList<Index3wVal> rotList: rs.worstRots){
+//			LinkedList<Index3> tuple = new LinkedList<Index3>();
+//			Iterator<Index3wVal> iter = rotList.iterator();
+//
+//			int[] AAnums = new int[emat.allMutRes().size()];
+//			int[] ROTnums = new int[AAnums.length];
+//			//double[] boundPerPos = new double[mp.strandMut.allMut.length];
+//			for(Index3wVal i3wV: rotList){
+//				for(Index3 i3: i3wV.i3s){
+//					AAnums[i3.pos] = i3.aa;
+//					ROTnums[i3.pos] = i3.rot;
+//				}
+//			}
+//
+//			ArrayList<EnergyTuple> parents = new ArrayList<EnergyTuple>();
+//
+//			
+//			Index3wVal nextTuple = iter.next();
+//			if(rs.energyTuples.containsKey(nextTuple.i3s))
+//				parents.add(rs.energyTuples.get(nextTuple.i3s));
+//			tuple.addAll(nextTuple.i3s);
+//
+//			//KER: There's a problem with finding tuples when we combine tuples
+//			//KER: If we combine singles it's fine cause there is a breadcrumb to find the tuple
+//			//KER: My current fix is to just always break up the tuple we are combining and add each
+//			//KER: individually. 
+//			boolean done = false;
+//			boolean addNextRot = false;
+//			while((!done || addNextRot) && iter.hasNext()){
+//
+//				
+//				
+//				if(tuple.size() >= 2 && useDistance){
+//					//Mutate the residues and rotamers and then find which one is the closest
+//					//Would only need to do this once, but here for testing
+//					Index3 i3s[] =  new Index3[AAnums.length]; 
+//					for(Index3wVal i3wV: rotList){
+//						for(Index3 i3: i3wV.i3s){
+//							i3s[i3.pos] = i3;
+//							RotamerEntry re =  emat.singles.getTerm(i3);
+//							re.applyMutation(mp.m, emat.resByPos, true, true);
+//							re.applyRotamer(emat.resByPos, mp.m);
+//						}
+//					}
+//					
+//					double distance[] =  new double[AAnums.length];
+//					ArrayList<Integer> tupleRes = new ArrayList<Integer>();
+//					for(Index3 i3: tuple){
+//						distance[i3.pos] = Double.POSITIVE_INFINITY;
+//						tupleRes.addAll(emat.resByPos.get(i3.pos));
+//					}
+//					for(int i=0; i<distance.length;i++){
+//						if(distance[i] < Double.POSITIVE_INFINITY)
+//							distance[i] = mp.m.minAvgDist(tupleRes, emat.resByPos.get(i));
+//					}
+//					double minDist = Double.POSITIVE_INFINITY;
+//					int minIndex = -1;
+////					System.out.println("Distances: ");
+//					for(int i=0; i<distance.length;i++){
+////						System.out.print(distance[i]+" ");
+//						if(distance[i] < minDist){
+//							minDist = distance[i];
+//							minIndex = i;
+//						}
+//					}
+//				
+////					if(minIndex == -1){
+////						System.out.print("Tuple includes: ");
+////						for(Index3 i3: tuple){
+////							System.out.print(i3.pos+" ");
+////						}
+////						System.out.println("");
+////						mp.m.saveMolecule("brokenDistance.pdb", 0.0f);
+////						for(int i : emat.allMutRes()){
+////							System.out.print(mp.m.residue[i].name+" ");
+////						}
+////						System.out.println();
+////					}
+//					
+//					ArrayList<Index3> nextI3 = new ArrayList<Index3>();
+//					
+//					nextI3.add(i3s[minIndex]);
+//					
+//					nextTuple = new Index3wVal(nextI3,0.0);
+//					
+//				}else{
+//					nextTuple = iter.next();
+//				}
+//				double E = 0;
+//				if(rs.energyTuples.containsKey(nextTuple.i3s))
+//					parents.add(rs.energyTuples.get(nextTuple.i3s));
+//
+//				tuple.addAll(nextTuple.i3s);
+//				Collections.sort(tuple); //Sorting based on position
+//				addNextRot = false;
+//
+//
+//				ArrayList<LinkedList<EnergyTuple>> tupleOptions = findTupleOptions(energyTuples,AAnums,ROTnums);
+//				E = Double.NEGATIVE_INFINITY;
+//				if(tupleOptions.size() <= 0)
+//					E = rs.computeBestRotEnergyBoundWTuples(AAnums, ROTnums,null,null);
+//				else{
+//					for(LinkedList<EnergyTuple> tuples: tupleOptions){
+//						double tmpE = rs.computeBestRotEnergyBoundWTuples(AAnums, ROTnums,tuples,null);
+//						if(tmpE > E){
+//							E = tmpE;
+//						}
+//					}
+//				}
+//
+//				outPS.println("Old bound for conf: "+E);
+//
+//
+//				if(/*!tmpHash.containsKey(tuple) && */rs.energyTuples.containsKey(tuple)){
+//					//KER: If the child isn't the parents' child then set it
+//					EnergyTuple newChild = rs.energyTuples.get(tuple);
+//
+//					for(EnergyTuple parent : parents){
+//						boolean hasChild = false;
+//						for(EnergyTuple child: parent.children){
+//							if(child.equals(newChild)){
+//								hasChild = true;
+//								break;
+//							}
+//						}
+//						if(!hasChild)
+//							parent.children.add(newChild);
+//
+//					}
+//
+//					if(!tmpHash.containsKey(tuple) && tuple.size() < AAnums.length)
+//						addNextRot = true;
+//					
+//
+//					parents = new ArrayList<EnergyTuple>();
+//					parents.add(newChild);
+//				}
+//				else{
+//
+//					/*while(!tmpHash.containsKey(tuple) && rs.energyTuples.containsKey(tuple)){
+//								tuple.addAll(iter.next().i3s);
+//								Collections.sort(tuple);
+//								}*/
+//
+//					supRotDone = false;
+//
+//
+//
+//					//if(rs.worstRot1.pos < rs.worstRot2.pos)
+//					//	recalculateEnergyTuple(emat, rs.worstRot1, rs.worstRot2, curStrForMatrix, sParams,energyTuples);
+//					//else
+//
+//
+//
+//					if(!tmpHash.containsKey(tuple)){
+//
+//
+//						ArrayList<Index3> computeTuple = new ArrayList<Index3>();
+//						for(Index3 i2:tuple)
+//							computeTuple.add(i2);
+//
+//
+//						EnergyTuple child = recalculateEnergyTuple(emat, computeTuple, curStrForMatrix, sParams,energyTuples,mp.m,useEref,templateAlwaysOn);
+//						for(EnergyTuple parent : parents)
+//							parent.children.add(child);
+//
+//
+//						//KER: For Gurobi Optimization add constraints and variables for new tuple
+//						if(gurobiOpt != null){
+//							gurobiOpt.addTuple(child,emat);
+//						}
+//
+//						//Reset parents for next run
+//						parents = new ArrayList<EnergyTuple>();
+//						parents.add(child);
+//
+//						tmpHash.put(computeTuple, true);
+//						outPS.print("Adding tuple: ");
+//						for(Index3 i3:tuple){
+//							outPS.print("("+i3.pos+", "+i3.aa+", "+i3.rot+"), ");
+//						}
+//						outPS.println("");
+//						addedTuple = true;
+//
+//						tupleOptions = findTupleOptions(energyTuples,AAnums,ROTnums);
+//						E = Double.NEGATIVE_INFINITY;
+//						if(tupleOptions.size() <= 0)
+//							E = rs.computeBestRotEnergyBoundWTuples(AAnums, ROTnums,null,null);
+//						else{
+//							for(LinkedList<EnergyTuple> tuples: tupleOptions){
+//								double tmpE = rs.computeBestRotEnergyBoundWTuples(AAnums, ROTnums,tuples,null);
+//								if(tmpE > E){
+//									E = tmpE;
+//								}
+//							}
+//						}
+//						outPS.println("New bound for conf: "+E);
+//
+//
+//
+//
+//
+//
+//					}
+//				}
+//
+//				if((E < (asr.lastBound+DEEIval) && E<=bestE) && iter.hasNext() && tuple.size() < AAnums.length){
+//					//Add another residue if the bound is too low still
+//					//tuple.addAll(iter.next().i3s);
+//					//Collections.sort(tuple);
+//					done = false;
+//				}else if(!addNextRot){
+//					done = true;
+//				}
+//
+//			}
+//
+//		}
+//
+//		//Remake the A* tree instead of just getting rid of it
+//		//rs.MSAStarSearch.remakeTree(bestE);
+//
+//		//Save energyTuples
+//		try{
+//			if(MPItoThread.Rank() == 0)
+//				outputObject(energyTuples,"energyTuples.dat");	
+//		}catch(Exception E){
+//			System.out.println("Could not output energyTuples.dat");
+//			E.printStackTrace();
+//		}
+//		
+//		return addedTuple;
+//	}
+//	
 
 } // end of KSParser class

@@ -3398,6 +3398,10 @@ public class Molecule implements Serializable{
 		
 	}
 
+	public ResidueConformation getRC(int molResNum, int globalResidueConfID) {
+		return strand[residue[molResNum].strandNumber].rcl.getRC(globalResidueConfID);
+	}
+
 //	public void copyMutableInfo(Molecule mol) {
 //		aaRotLib = mol.aaRotLib;
 //		genRotLib = mol.genRotLib;

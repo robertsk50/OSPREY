@@ -121,7 +121,7 @@ public class MutationManager
 	double stericThresh = -10000.0f;
 	double softStericThresh = -10000.0f;
 	//int numInAS = 0;
-	int mutableSpots = 0;
+//	int mutableSpots = 0;
 	boolean computeEVEnergy = true;
 	boolean doMinimization = true;
 	boolean minimizeBB = false;
@@ -295,7 +295,7 @@ public class MutationManager
 		cObj.solvScale = solvScale;
 		cObj.vdwMult = vdwMult;
 		cObj.PEMcomp = PEMcomp;
-		cObj.mutableSpots = mutableSpots;
+//		cObj.mutableSpots = mutableSpots;
 		cObj.mutRes2Strand = mutRes2Strand;
 		cObj.mutRes2StrandMutIndex = mutRes2StrandMutIndex;
 		cObj.strandPresent = strandPresent;
@@ -368,7 +368,7 @@ public class MutationManager
 				cObj.entropyComp = entropyComp;
 				if (compASdist){ //AS-AS distance computation
 					cObj.compASdist = compASdist;
-					cObj.asDist = new boolean[mutableSpots];
+					cObj.asDist = new boolean[strandMut.allMut.length];
 					cObj.dist = dist;
 				}
 				else { //AS-AS or SHL-AS energy matrix computation
@@ -407,8 +407,8 @@ public class MutationManager
 				cObj.m = m;
 				cObj.deeSettings = deeSettings;
 
-				cObj.currentMutation = new int[mutableSpots];
-				for(int i=0;i<mutableSpots;i++) {
+				cObj.currentMutation = new int[strandMut.allMut.length];
+				for(int i=0;i<cObj.currentMutation.length;i++) {
 					cObj.currentMutation[i] = mutArray[curMutIndex].resTypes[i];
 				}
 
@@ -456,7 +456,7 @@ public class MutationManager
 					cObj.minRatioDiff = minRatioDiff;
 					cObj.msp = msp;
 					cObj.numInitUnprunedConf = numInitUnprunedConf;
-					cObj.currentMutation = new int[mutableSpots];
+					cObj.currentMutation = new int[strandMut.allMut.length];
 					cObj.outputPruneInfo = outputPruneInfo;
 					cObj.outputConfInfo = outputConfInfo;
 					cObj.partIndex = new Index3[initDepth];
@@ -1129,9 +1129,9 @@ public class MutationManager
 	public double [][] getMinEmatrixEntropy(){
 		return pairEMatrixMinEntropy;
 	}
-	public void setMutableSpots(int ms) {
-		mutableSpots = ms;
-	}
+//	public void setMutableSpots(int ms) {
+//		mutableSpots = ms;
+//	}
 
 	public void setTypeDep(boolean tD) {
 		// TODO Auto-generated method stub

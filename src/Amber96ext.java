@@ -1836,6 +1836,49 @@ public class Amber96ext implements ForceField, Serializable {
 
 		return energyTerms;
 	}
+	
+	/**
+	 * Same as calculateTotalEnergy except that this function keeps track of the energies pertaining
+	 * to the mutable residues
+	 * @param coordinates Molecule coordinates
+	 * @param curIndex index of the residue the energies should be calculated for (-1 for whole molecule)
+	 * @param mutRes ArrayList of mutable residues
+	 * @return array holding molecule energies (0 index is full energy)
+	 */
+	public double [] calculateTotalEnergy(double coordinates[], int curIndex,ArrayList<Integer> mutRes){
+
+		this.mutRes = mutRes;
+
+		pairsE = new HashMap<Pair,Double>();
+		singleE = new HashMap<Integer,Double>();
+		templE = 0.0;
+
+		//Initialize Hashes
+		for(int i: mutRes){
+			singleE.put(i, 0.0);
+			for( int j: mutRes){
+				pairsE.put(new Pair(i,j), 0.0);
+			}
+		}
+
+		double energyTerms[] = new double[5]; //total, electrostatics, vdW, solvation, h-bond
+		for (int i=0; i<energyTerms.length; i++)
+			energyTerms[i] = 0.0;
+
+		calculateEVEnergyUpdTerms(coordinates,curIndex,energyTerms); //compute electrostatic and vdW energies
+
+		if (doSolvationE) //compute solvation energies
+			calculateSolvationEnergyUpdTerms(coordinates,curIndex,energyTerms);
+
+		if (doHBondE) //compute H-bond energies
+			hbondPotential.calculateHBondEnergyUpdTerms(coordinates,curIndex,energyTerms,m,this);
+
+		//compute total energy (electrostatics + vdW + solvation+hbond)
+		for(int i=1; i<energyTerms.length;i++)
+			energyTerms[0] += energyTerms[i];
+
+		return energyTerms;
+	}
 
 	// This function calculates the electrostatic and vdw (EV) energy of a system
 	// Energy values are 'R'eturned in EenergyR and VenergyR
@@ -2075,11 +2118,271 @@ public class Amber96ext implements ForceField, Serializable {
 		energyTerms[2] = Venergy; //vdW
 	}
 
+	/**
+	 * This function is the same as calculateEVEnergy except that the energies are saved
+	 * for each mutable residue
+	 * @param coordinates
+	 * @param curIndex
+	 * @param energyTerms
+	 */
+	private void calculateEVEnergyUpdTerms(double coordinates[], int curIndex, double energyTerms[]){
+
+		int atomix3, atomjx3, atomi, atomj;
+		int ix5;
+		double rij, rij2, rij6, rij12, coulombTerm, vdwTerm;
+		double rijx, rijy, rijz;
+		double chargeij, Aij, Bij;
+		double coulombFactor;
+		double Eenergy, Venergy;
+		double Amult, Bmult;
+		int indI, indJ;
+		int res1, res2;
+		double dGi_free,V_i,lambda_i,vdWr_i; //Adding solvation calc here for pairs
+		double dGj_free,V_j,lambda_j,vdWr_j,coeff,Xij,Xji,tmpE;
+
+		int numHalfNBterms = 0; int numNBterms = 0;
+		double halfNBterms[] = null; double nbTerms[] = null;
+		int halfNBev[] = null; int nbEv[] = null;
+
+		if (curIndex==-1){ //full energy is computed
+			numHalfNBterms = numHalfNonBondedTerms;
+			halfNBterms = halfNonBondedTerms;
+			halfNBev = halfNBeval;
+			numNBterms = numberNonBonded;
+			nbTerms = nonBondedTerms;
+			nbEv = NBeval;
+		}
+		else { //partial energy is computed, based on flexible residue curIndex
+			numHalfNBterms = numPartHalfNonBonded[curIndex];
+			halfNBterms = partHalfNonBonded[curIndex];
+			halfNBev = partHalfNBeval[curIndex];
+			numNBterms = numPartNonBonded[curIndex];
+			nbTerms = partNonBonded[curIndex];
+			nbEv = partNBeval[curIndex];
+		}
+
+		Eenergy = 0.0;
+		Venergy = 0.0;
+
+
+		// Note: Bmult = vdwMultiplier^6 and Amult = vdwMultiplier^12
+		Bmult = vdwMultiplier * vdwMultiplier;
+		Bmult = Bmult*Bmult*Bmult;
+		Amult = Bmult*Bmult;
+
+		// half non-bonded terms
+		ix5 = -NBTOff;
+		// 1-4 electrostatic terms are scaled by 1/1.2
+		switch(EnvironmentVars.forcefld){
+		case AMBER:
+			coulombFactor = (constCoulomb/1.2) / (dielectric);
+			break;
+		case CHARMM19:
+		case CHARMM19NEUTRAL:
+			coulombFactor = (constCoulomb * 0.4) / (dielectric);
+			break;
+		default:
+			coulombFactor = 0;
+			System.out.println("FORCEFIELD NOT RECOGNIZED!!!");
+			System.exit(0);
+			break;
+		}
+
+		double tmpCoulFact;
+		for(int i=0; i<numHalfNBterms; i++) {
+			ix5 += NBTOff;
+			atomi = (int)halfNBterms[ix5];
+			atomj = (int)halfNBterms[ix5 + 1];
+			Aij = halfNBterms[ix5 + 2] * Amult;
+			Bij = halfNBterms[ix5 + 3] * Bmult;
+			chargeij = halfNBterms[ix5 + 4];
+			res1 = m.atom[atomi].moleculeResidueNumber;
+			res2 = m.atom[atomj].moleculeResidueNumber;
+			atomix3 = atomi * 3;
+			atomjx3 = atomj * 3;
+			rijx = coordinates[atomix3] - coordinates[atomjx3];
+			rijy = coordinates[atomix3 + 1] - coordinates[atomjx3 + 1];
+			rijz = coordinates[atomix3 + 2] - coordinates[atomjx3 + 2];
+
+			rij2 = rijx * rijx + rijy * rijy + rijz * rijz;
+			rij = Math.sqrt(rij2);
+			rij6 = rij2 * rij2 * rij2;
+			rij12 = rij6 * rij6;
+
+			//coulombFactor = (constCoulomb/1.2) / (dielectric);
+			tmpCoulFact = coulombFactor;
+			if (distDepDielect) //distance-dependent dielectric
+				tmpCoulFact /= rij;
+
+			coulombTerm = (chargeij * tmpCoulFact) / rij;
+			vdwTerm = Aij / rij12 - Bij / rij6;
+
+			// This is not the fastest way to do this, but based on the
+			//  halfNBeval array either the elect or vdw energies might
+			//  not be counted
+			if (halfNBev[i] == 2)
+				vdwTerm = 0.0;
+			else if (halfNBev[i] == 3)
+				coulombTerm = 0.0;
+			else if (halfNBev[i] == 0) {
+				vdwTerm = 0.0;
+				coulombTerm = 0.0;
+			}
+			Eenergy += coulombTerm;
+			Venergy += vdwTerm;
+			
+			//KER: For SupRot to get diff between bound and actual E
+			double tmpVal = (coulombTerm + vdwTerm);
+			updatePairTerms(tmpVal,res1,res2);
+			//END FOR SUP ROT
+			
+			if(debug)
+				System.out.println(m.atom[atomi].moleculeResidueNumber+"_"+m.atom[atomi].name+"_"+m.atom[atomj].moleculeResidueNumber+"_"+m.atom[atomj].name+" "+coulombTerm+" "+vdwTerm);
+			
+			if(doSolvationE){
+
+				indI = mapAtomToSolvTerm[atomi];
+				indJ = mapAtomToSolvTerm[atomj];
+
+				if(indI >= 0 && indJ >= 0 && rij < solvCutoff){
+					dGi_free = solvationTerms[indI+2]; //dGi(free)
+					V_i = solvationTerms[indI+3]; //Vi
+					lambda_i = solvationTerms[indI+4]; //lambdai
+					vdWr_i = solvationTerms[indI+5]; //vdWri
+
+					dGj_free = solvationTerms[indJ+2]; //dGi(free)
+					V_j = solvationTerms[indJ+3]; //Vi
+					lambda_j = solvationTerms[indJ+4]; //lambdai
+					vdWr_j = solvationTerms[indJ+5]; //vdWri
+
+					coeff = 1/(4*Math.PI*Math.sqrt(Math.PI));
+
+					Xij = (rij-vdWr_i)/lambda_i;
+					Xji = (rij-vdWr_j)/lambda_j;
+
+					tmpE = ( (2 * coeff * dGi_free * Math.exp(-Xij*Xij) * V_j) / (lambda_i * rij2)
+							+ (2 * coeff * dGj_free * Math.exp(-Xji*Xji) * V_i) / (lambda_j * rij2) );
+					energyTerms[3] -= tmpE;
+
+					updatePairTerms(-tmpE*solvScale,res1,res2);
+					
+					if(debug)
+						System.out.println(m.atom[atomi].moleculeResidueNumber+"_"+m.atom[atomi].name+"_"+m.atom[atomj].moleculeResidueNumber+"_"+m.atom[atomj].name+" "+-tmpE);
+				}
+			}
+
+		}
+
+		ix5 = -NBTOff;
+		// The full nonbonded electrostatic terms are NOT scaled down by 1/1.2
+		coulombFactor = constCoulomb / (dielectric);
+		for(int i=0; i<numNBterms; i++) {
+			ix5 += NBTOff;
+			atomi = (int)nbTerms[ ix5 ];
+			atomj = (int)nbTerms[ ix5 + 1 ];
+			Aij = nbTerms[ ix5 + 2 ] * Amult;
+			Bij = nbTerms[ ix5 + 3 ] * Bmult;
+			chargeij = nbTerms[ ix5 + 4 ];
+			res1 = m.atom[atomi].moleculeResidueNumber;
+			res2 = m.atom[atomj].moleculeResidueNumber;
+			atomix3 = atomi * 3;
+			atomjx3 = atomj * 3;
+			rijx = coordinates[ atomix3 ] - coordinates[ atomjx3 ];
+			rijy = coordinates[ atomix3 + 1 ] - coordinates[ atomjx3 + 1 ];
+			rijz = coordinates[ atomix3 + 2 ] - coordinates[ atomjx3 + 2 ];
+			rij2 = rijx * rijx + rijy * rijy + rijz * rijz;
+			rij = Math.sqrt( rij2 );
+			rij6 = rij2 * rij2 * rij2;
+			rij12 = rij6 * rij6;
+
+			//coulombFactor = constCoulomb / (dielectric);
+			tmpCoulFact = coulombFactor;
+			if (distDepDielect) //distance-dependent dielectric
+				tmpCoulFact /= rij;
+
+			coulombTerm = (chargeij * tmpCoulFact) / rij;
+			vdwTerm = Aij / rij12 - Bij / rij6;
+
+			// This is not the fastest way to do this, but based on the
+			//  NBeval array either the elect or vdw energies might
+			//  not be counted
+			if (nbEv[i] == 2)
+				vdwTerm = 0.0;
+			else if (nbEv[i] == 3)
+				coulombTerm = 0.0;
+			else if (nbEv[i] == 0) {
+				vdwTerm = 0.0;
+				coulombTerm = 0.0;
+			}
+			Eenergy += coulombTerm;
+			Venergy += vdwTerm;
+			
+			//Update pair energy terms
+			double tmpVal = (coulombTerm + vdwTerm);
+			updatePairTerms(tmpVal, res1, res2);
+			
+			if(debug)
+				System.out.println(m.atom[atomi].moleculeResidueNumber+"_"+m.atom[atomi].name+"_"+m.atom[atomj].moleculeResidueNumber+"_"+m.atom[atomj].name+" "+coulombTerm+" "+vdwTerm);
+			
+			if(doSolvationE){
+
+				indI = mapAtomToSolvTerm[atomi];
+				indJ = mapAtomToSolvTerm[atomj];
+
+				if(indI >= 0 && indJ >= 0 && rij < solvCutoff){
+					dGi_free = solvationTerms[indI+2]; //dGi(free)
+					V_i = solvationTerms[indI+3]; //Vi
+					lambda_i = solvationTerms[indI+4]; //lambdai
+					vdWr_i = solvationTerms[indI+5]; //vdWri
+
+					dGj_free = solvationTerms[indJ+2]; //dGi(free)
+					V_j = solvationTerms[indJ+3]; //Vi
+					lambda_j = solvationTerms[indJ+4]; //lambdai
+					vdWr_j = solvationTerms[indJ+5]; //vdWri
+
+					coeff = 1/(4*Math.PI*Math.sqrt(Math.PI));
+
+					Xij = (rij-vdWr_i)/lambda_i;
+					Xji = (rij-vdWr_j)/lambda_j;
+
+					tmpE = ( (2 * coeff * dGi_free * Math.exp(-Xij*Xij) * V_j) / (lambda_i * rij2)
+							+ (2 * coeff * dGj_free * Math.exp(-Xji*Xji) * V_i) / (lambda_j * rij2) );
+					energyTerms[3] -= tmpE;
+
+					updatePairTerms(-tmpE*solvScale,res1,res2);
+					
+					if(debug)
+						System.out.println(m.atom[atomi].moleculeResidueNumber+"_"+m.atom[atomi].name+"_"+m.atom[atomj].moleculeResidueNumber+"_"+m.atom[atomj].name+" "+-tmpE);
+				}
+			}
+		}
+
+		//store computed energies
+		energyTerms[1] = Eenergy; //electrostatics
+		energyTerms[2] = Venergy; //vdW
+	}
+
+	
 	//Calculates the solvation energies for the system with given coordinates[]
 	private void calculateSolvationEnergy(double coordinates[], int curIndex, double energyTerms[]){
 
 		if (curIndex==-1) //all residues included
 			calculateSolvationEnergyFull(coordinates,energyTerms);
+		else //only residue curIndex included (partial matrices used)
+			calculateSolvationEnergyPart(coordinates,curIndex,energyTerms);
+	}
+	
+	/**
+	 * Same as the function calculateSolvationEnergy except this stores the energy
+	 * terms per mutable residue
+	 * @param coordinates
+	 * @param curIndex
+	 * @param energyTerms
+	 */
+	private void calculateSolvationEnergyUpdTerms(double coordinates[], int curIndex, double energyTerms[]){
+
+		if (curIndex==-1) //all residues included
+			calculateSolvationEnergyFullUpdTerms(coordinates,energyTerms);
 		else //only residue curIndex included (partial matrices used)
 			calculateSolvationEnergyPart(coordinates,curIndex,energyTerms);
 	}
@@ -2116,6 +2419,47 @@ public class Amber96ext implements ForceField, Serializable {
 		energyTerms[3] += energy; //solvation
 		energyTerms[3] *=  solvScale;
 	}
+	
+	/**
+	 * Same as the function calculateSolvationEnergyFull except that this stores the 
+	 * energy terms per mutable residue
+	 * @param coordinates
+	 * @param energyTerms
+	 */
+		private void calculateSolvationEnergyFullUpdTerms(double coordinates[], double energyTerms[]){
+
+			double energy = 0.0;
+			int atomi, resi;
+			
+			int numSolvTerms = 0;
+			double solvTerms[] = null;
+
+			numSolvTerms = numSolvationTerms;
+			solvTerms = solvationTerms;
+			for ( int i = 0; i < numSolvTerms; i++ ){
+
+				atomi = (int)solvTerms[ i*SOLVOff ];
+				resi = m.atom[atomi].moleculeResidueNumber;
+
+				if((!onlySingle || m.residue[resi].flexible) &&
+						(!onlyPair)){
+					energy += solvTerms[i*SOLVOff+1]; //dGi(ref)
+					
+					//Update the pair terms
+					updatePairTerms((solvScale*solvTerms[i*SOLVOff+1]), resi, -1);
+					if(debug)
+						System.out.println(m.atom[atomi].moleculeResidueNumber+"_"+m.atom[atomi].name+" "+solvTerms[i*SOLVOff+1]);
+
+				}
+
+
+			}
+
+
+			//store computed energy
+			energyTerms[3] += energy; //solvation
+			energyTerms[3] *=  solvScale;
+		}
 
 	//Calculates the solvation energies for the system with given coordinates[]
 	private void calculateSolvationEnergyPart(double coordinates[], int curIndex, double energyTerms[]){
