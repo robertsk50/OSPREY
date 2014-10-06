@@ -1655,7 +1655,7 @@ public class KSParser
 				//mutList[resultNum] = new OneMutation();
 				tmp.mutNum = new Integer(getToken(str,1));
 				tmp.score = BigDecimal.ZERO;
-				//tmp.vol = new Float(getToken(str,2)).floatValue();
+				tmp.vol = new Double(getToken(str,2)).doubleValue();
 				tmp.resTypes = new int[numMutable];
 				for(int q=0;q<numMutable;q++) {
 					Residue r = mp.m.residue[mp.strandMut.allMut[q]];
@@ -1711,7 +1711,7 @@ public class KSParser
 			//for(int q=0;q<mutList.length;q++) {
 			OneMutation tmp = i.next();
 
-			printStream.print(tmp.score);
+			printStream.print(tmp.mutNum +" "+ tmp.vol);
 			for(int w=0;w<numInAS;w++) {
 				Residue r = mp.m.residue[mp.strandMut.allMut[w]];
 				printStream.print(" "+r.rl.getAAName(tmp.resTypes[w]));
