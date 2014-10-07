@@ -5700,16 +5700,12 @@ public class RotamerSearch implements Serializable
 			Arrays.sort(confPairs);
 			int ctr = 0;
 			PrintStream printStream = null;
-			String outName = ""+curMut;
+			String outName = ""+curMut+"_";
 
 			for(Residue r: m.residue){
 				if(r.isMutable)
 					outName += RotamerLibrary.getOneLet(r.name);
 			}
-			//				for (int str = 0; str<strandMut.length; str++)
-			//					for(int i=0; i<strandMut[str].length; i++){
-			//						outName += RotamerLibrary.getOneLet(m.strand[str].residue[strandMut[str][i]].name);
-			//					}
 
 			outName += "_"+runNum;
 			outName = outDir+"/"+outName;
@@ -5741,10 +5737,6 @@ public class RotamerSearch implements Serializable
 						if(r.isMutable)
 							printStream.print(r.name+" ");
 					}
-					//					for (int str = 0; str<strandMut.length; str++)
-					//						for(int j=0; j<strandMut[str].length; j++){
-					//							printStream.print(m.strand[str].residue[strandMut[str][j]].name+" ");
-					//						}
 					for (int j=0; j<confPairs[i].conf.length; j++){
 						printStream.print(confPairs[i].conf[j].eme.printRes(m,arpMatrix.resByPos));	
 					}
@@ -5766,10 +5758,13 @@ public class RotamerSearch implements Serializable
 			boolean minimizeBB, boolean doBackrubs) {
 		m.backupAtomCoord();
 		applyRCs(conf);
-		//TODO: Use CCD minimization if it is turned on
 		if(doMinimization){
-			if(!minimizeBB)
-				simpMin.minimize(numMinSteps);
+			if(!minimizeBB){
+				if(useCCD)
+					ccdMin.minimize();
+				else
+					simpMin.minimize(numMinSteps);
+			}
 			else{
 				if(!doBackrubs)
 					bbMin.minimizeFull(false);

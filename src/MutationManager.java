@@ -306,6 +306,7 @@ public class MutationManager
 		cObj.neighborList = neighborList;
 		cObj.distCutoff = distCutoff;
 		cObj.pdbOutDir = pdbOutDir;
+		cObj.seqNum = mutArray[curMutIndex].mutNum;
 
 		cObj.useFlagsAStar = useFlagsAStar;
 		cObj.useTriples = useTriples;

@@ -297,13 +297,6 @@ public class PMinimizer extends SimpleMinimizer {
 			strCurCOM[str][1] = strStartCOM[str][1];
 			strCurCOM[str][2] = strStartCOM[str][2];
 		}
-		/*if(ligStrNum != -1){
-			// get the staring COM
-			ligStartCOM = m.getStrandCOM(ligStrNum);
-			ligCurCOM[0] = ligStartCOM[0];
-			ligCurCOM[1] = ligStartCOM[1];
-			ligCurCOM[2] = ligStartCOM[2];
-		}*/
 
 		// Initialize the dihedral movement arrays
 		for(int str=0; str<numberOfStrands;str++){
@@ -312,15 +305,6 @@ public class PMinimizer extends SimpleMinimizer {
 				strCumulativeDihedStep[str][j] = 0.0;
 			}
 		}
-
-		/*for(int j=0;j<numSysDihedrals;j++){
-			sysDihedDiff[j] = 0.0;
-			sysCumulativeDihedStep[j] = 0.0;
-		}
-		for(int j=0;j<numLigDihedrals;j++){
-			ligDihedDiff[j] = 0.0;
-			ligCumulativeDihedStep[j] = 0.0;
-		}*/
 
 		// If computing dihedral energies initialize them
 		if (doDihedEnergy){
@@ -332,11 +316,6 @@ public class PMinimizer extends SimpleMinimizer {
 		double deltaRotStep = strRotStep / numSteps;
 		double deltaTransStep = strTransStep / numSteps;
 
-		// numFlexRes, flexResAtomList, and flexResListSize include the ligand if one exists
-		/*if(ligStrNum != -1)
-				a96ff.setupPartialArrays(numFlexRes+2,MAX_NUM_ATOMS_DISTAL,flexResAtomList,
-					flexResListSize);
-			else*/
 		a96ff.setupPartialArrays(totalFlexRes+totalTransRotStrands,MAX_NUM_ATOMS_DISTAL,flexResAtomList,
 				flexResListSize);
 

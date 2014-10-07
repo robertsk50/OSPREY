@@ -643,6 +643,7 @@ public class RotamerLibrary implements Serializable {
 		three2one = new HashMap<String,String>();
 		three2one.put("ALA","A");
 		three2one.put("CYS","C");
+		three2one.put("CYX","C");
 		three2one.put("ASP","D");
 		three2one.put("GLU","E");
 		three2one.put("PHE","F");
@@ -667,6 +668,9 @@ public class RotamerLibrary implements Serializable {
 	}
 	
 	public static String getOneLet(String aa3Name){
+		if(aa3Name.length() == 4 && aa3Name.startsWith("D"))
+			aa3Name = aa3Name.substring(1);
+		
 		String res = three2one.get(aa3Name);
 		if (res == null)
 			res = "X";
