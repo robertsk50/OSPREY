@@ -320,6 +320,9 @@ public class RotamerSearch implements Serializable
 	boolean tuples;
 	boolean superRotamers;
 	boolean improvedBounds;
+	
+	PrintStream outPS = System.out;
+	
 	// the constructor if you also have a ligand
 	RotamerSearch(Molecule theMolec, int numMut,int strandsPresent, boolean hE, 
 			boolean hV, boolean hS, boolean addH, boolean conRes, double eps, 
@@ -666,13 +669,9 @@ public class RotamerSearch implements Serializable
 		curConfNum = theCurConfNum;
 
 		AARotamerType curAAtypes[] = new AARotamerType[numMutable];
-		double rotamerVolumes[][][] = new double[strandRot.length][][];
-		//TODO: rl.getRotVol will fail for non-amino acid rotamers
-		for(int str=0;str<strandRot.length;str++)
-			rotamerVolumes[str] = strandRot[str].rl.getRotVol();
-
+		
 		masterMutationSearchHelper(0, numMutable, strandMut, mutArray, minVol, 
-				maxVol, curAAtypes, rotamerVolumes);
+				maxVol, curAAtypes);
 
 		return curConfNum;
 	}
@@ -682,8 +681,7 @@ public class RotamerSearch implements Serializable
 	//  decided not to so as to keep that function fast (ie. this way the
 	//  execution of a bunch of conditionals is saved in the normal search)
 	public void masterMutationSearchHelper(int depth, int maxDepth,
-			MutableResParams strandMut, Set<OneMutation> mutSet, double minVol, double maxVol, AARotamerType curAAtypes[], 
-			double rotamerVolumes[][][]) {
+			MutableResParams strandMut, Set<OneMutation> mutSet, double minVol, double maxVol, AARotamerType curAAtypes[]) {
 
 		if (depth >= maxDepth) {
 			// If we've arrived here then we're ready to
@@ -693,12 +691,7 @@ public class RotamerSearch implements Serializable
 			}
 			double curVolume = 0.0f;
 			for (int i=0; i<maxDepth; i++){
-				Residue r = m.residue[strandMut.allMut[i]];
-				int str = r.strandNumber;
-				if(rotamerVolumes[str] == null) //TODO: Fix rotamer volume calculation
-					curVolume += 0;
-				else
-					curVolume += rotamerVolumes[str][strandRot[str].rl.getAARotamerIndex(curAAtypes[i].name)][0]; //use the rotamer with index 0
+				curVolume += curAAtypes[i].volume;
 			}
 			if ((curVolume > minVol) && (curVolume < maxVol)) {
 				// Add mutation to mutation array
@@ -725,13 +718,10 @@ public class RotamerSearch implements Serializable
 
 		// Check with allowed AAs
 		Residue r = m.residue[strandMut.allMut[depth]];
-		int str = r.strandNumber;
-		int strResNum = r.strandResidueNumber;
-
 
 		for(AARotamerType aa: r.AATypesAllowed()) {
 			curAAtypes[depth] = aa;
-			masterMutationSearchHelper(depth+1,maxDepth,strandMut,mutSet,minVol,maxVol,curAAtypes,rotamerVolumes);
+			masterMutationSearchHelper(depth+1,maxDepth,strandMut,mutSet,minVol,maxVol,curAAtypes);
 		}
 	}
 	// Assigns elements of the ASAANums[] array
@@ -3055,9 +3045,9 @@ public class RotamerSearch implements Serializable
 			case BYSEQ:
 				System.out.println("AS Method BYSEQ isn't applicable for K* search");
 				break;
-//			case BYSUBROT:
-//				MSAStarSearch = new PGgurobiAStarBySubRot(treeLevels,numRotForResNonPruned,arpMatrix,bestEMin+Ew,m);
-//				break;
+			case BYSUBROT:
+				MSAStarSearch = new PGgurobiAStarBySubRot(treeLevels,numRotForResNonPruned,arpMatrix,bestEMin+Ival,m);
+				break;
 			case WCSP:
 				MSAStarSearch = new WCSPSearch(treeLevels,numRotForResNonPruned,arpMatrix,Ival);
 				break;
@@ -3067,21 +3057,6 @@ public class RotamerSearch implements Serializable
 				break;
 			}
 		}
-//		MSAStarSearch.outPS = outPS;
-		
-		//Set-up the A* search
-		//		StericCheck stericF = null;
-		//		if (!minimizeBB) {//do not do a steric check if backbone minimization
-		//			/*if (ligPresent)
-		//				stericF = new StericCheck(curAANum,curResToASMap,residueMap,eliminatedRotAtPosRed,numRotForRes,
-		//						m,softOverlapThresh,hSteric,numConfsLeft,numConfsAboveLevel,sysStrNum,sysLR,ligStrNum,ligROT,curLigAANum,rl,grl);
-		//			else*/
-		//			stericF = new StericCheck(curAANum,/*curResToASMap,*/strandMut,eliminatedRotAtPosRed,numRotForRes,
-		//					m,softOverlapThresh,hSteric,numConfsLeft,numConfsAboveLevel,numMutable,numberOfStrands,
-		//					strandRot,doPerturbations);
-		//		}
-
-
 
 		if(es.useEPIC){//set up fit series for A* search
 			if(es.gettingLowestBound)//run A* without EPIC
@@ -3102,11 +3077,10 @@ public class RotamerSearch implements Serializable
 		PGQueueNode curNode = new PGQueueNode(1, new int[1], 0.0, 0, 0);
 		while (numConfsLeft.compareTo(BigInteger.ZERO)==1){
 
-
-
-			curNode = MSAStarSearch.doAStar(run1); //the current rotamer sequence); //the current rotamer sequence
+			///Run A*
+			curNode = MSAStarSearch.doAStar(run1); //the current rotamer sequence
 			conf = curNode.actualConf;
-
+			parentConf = createParentConf(conf);
 
 			if (conf == null){ // no valid conformations remaining
 				if (partial_q.multiply(new BigDecimal(ro)).compareTo(pStar)<0){ //approximation accuracy not achieved
@@ -3132,8 +3106,6 @@ public class RotamerSearch implements Serializable
 			//			conf = getActualConf(curConf,arpMatrix,treeLevels,numRotForResNonPruned);
 
 			m.backupAtomCoord();
-			//			applyRotamers(strandMut, conf);
-
 
 			int[] curAANums = new int[treeLevels];
 			int[] curRotNums = new int[treeLevels];
@@ -3143,42 +3115,15 @@ public class RotamerSearch implements Serializable
 				curRotNums[i] = conf[i].index[2];
 
 				//TODO: allow all rotamer libraries the ability to mutate
-				//conf[i].eme.applyMutation(m, arpMatrix.resByPos, addHydrogens,connectResidues );
-				//				if(MSAStarSearch instanceof PGgurobiAStarBySubRot){
-				//					((PGgurobiAStarBySubRot) MSAStarSearch).parentConf[i].eme.applyRotamer(arpMatrix.resByPos, m);
-				//					outPS.print(((PGgurobiAStarBySubRot) MSAStarSearch).parentConf[i].eme.printRes(m,arpMatrix.resByPos));
-				//				}
-				//				else{
-				conf[i].eme.applyRC(arpMatrix.resByPos, m);
-				System.out.print(conf[i].eme.printRes(m,arpMatrix.resByPos));
-				//				}
-				//m.saveMolecule("mutPos_"+i+".pdb", 0.0f);
-				//}
+				if(parentConf != null){ //Will only not be null if we want to compute it 
+					parentConf[i].eme.applyRC(arpMatrix.resByPos, m);
+					outPS.print(parentConf[i].eme.printRes(m,arpMatrix.resByPos));
+				}
+				else{
+					conf[i].eme.applyRC(arpMatrix.resByPos, m);
+					outPS.print(conf[i].eme.printRes(m,arpMatrix.resByPos));
+				}
 			}
-
-			/***
-			 * for (int curLevel=0; curLevel<m.strand[sysStrNum].numberOfResidues; curLevel++){
-				if (curResToASMap[curLevel]!=-1){//make a change only to the AS residues: use the native type for the other residues
-
-					if (rl.getNumRotForAAtype(curAANum[residueMap[curAS]])!=0){//not GLY or ALA
-						sysLR.applyRotamer(m, curLevel, conf[curAS]);
-						curASRotNum[curResToASMap[curLevel]] = conf[curAS];
-					}
-					else { //GLY or ALA
-						curASRotNum[curResToASMap[curLevel]] = 0;
-					}
-					curAS++; //prepare the next AS residue
-				}
-			}		
-			if (ligPresent){ //apply the ligand rotamer
-				if (grl.getNumRotForAAtype(curLigAANum)!=0){//not GLY or ALA
-					ligROT.applyRotamer(m, 0, conf[treeLevels-1]);//the ligand level
-					curLigRotNum = conf[treeLevels-1];
-				}
-				else { //GLY or ALA
-					curLigRotNum = 0;
-				}
-			}***/
 
 			for(int i=0;i<treeLevels;i++)System.out.print(conf[i]+" ");System.out.println();
 
@@ -3191,8 +3136,6 @@ public class RotamerSearch implements Serializable
 					lowestOverallBound = lowestBound;
 				run1 = false;
 			}
-
-
 
 			if(es.useEPIC){
 
@@ -3237,6 +3180,7 @@ public class RotamerSearch implements Serializable
 					m.revertPertParamsToCurState();
 				}
 			}
+			
 			//double psi = Math.max(initial_q,partial_q);
 			BigDecimal psi = initial_q.max(partial_q.multiply(new BigDecimal(ro)));
 
@@ -3323,7 +3267,10 @@ public class RotamerSearch implements Serializable
 				m.updateCoordinates();
 				m.revertPertParamsToCurState();
 
-				updateAll(saveConfsParams, conf, myEnergy,minELowerBound);
+				if(parentConf != null) //If we have the parent conf we want to save it
+					updateAll(saveConfsParams, parentConf, myEnergy,minELowerBound);
+				else
+					updateAll(saveConfsParams, conf, myEnergy,minELowerBound);
 
 				System.out.println("energy: "+myEnergy[0]);
 			}
@@ -4236,8 +4183,6 @@ public class RotamerSearch implements Serializable
 		int numRotForResNonPruned[] = new int[treeLevels]; //the number of non-pruned (by MinDEE) rotamers for each flexible residue
 		int numTotalRotRed = 0;		//the total number of rotamers for the flexible residues only (during a mutation search)
 		int numTotalRotRedNonPruned = 0; //the total num of non-pruned rotamers for the flexible residues
-		//		boolean eliminatedRotAtPosRed[] = null; //reduced MinDEE matrix
-		//		EMatrixEntryWIndex arpMatrixRed[][] = null; //reduced min energy matrix
 
 		int numTotalConf = 1;
 		int curNumRot = 0;
@@ -4246,7 +4191,6 @@ public class RotamerSearch implements Serializable
 			for(int i=0; i<arpMatrix.singles.E[curLevel].length;i++){
 				curNumRot += arpMatrix.singles.E[curLevel][i].length; 
 			}
-			//}
 			numRotForRes[curLevel] = curNumRot;
 			numRotForResNonPruned[curLevel] = numRotForRes[curLevel];
 			numTotalRotRed += numRotForRes[curLevel];
@@ -4509,7 +4453,7 @@ public class RotamerSearch implements Serializable
 				//KER: only apply mutation if we actually need to calcualate an energy
 				if(doMinimization){
 					conf[i].eme.applyMutation(m, arpMatrix.resByPos, addHydrogens,connectResidues );
-					if(parentConf != null){ //Will only be null if we want to compute it
+					if(parentConf != null){ //Will only not be null if we want to compute it
 						parentConf[i].eme.applyRC(arpMatrix.resByPos, m);
 						System.out.print(parentConf[i].eme.printRes(m,arpMatrix.resByPos));
 					}else{

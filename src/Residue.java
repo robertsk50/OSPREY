@@ -702,7 +702,7 @@ public class Residue implements Serializable {
 			}
 		}
 
-		//}
+		lAmino = !lAmino; //We reflected the amino so it changes its chirality
 
 	}
 

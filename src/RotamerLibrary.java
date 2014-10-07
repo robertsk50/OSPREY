@@ -256,12 +256,13 @@ public class RotamerLibrary implements Serializable {
 			AARotamerType aaType = getAAType(getToken(curLine,1));
 			
 				
-			int numRotVol = aaType.numRotamers();
-			if (numRotVol==0)
-				numRotVol++;
+			//Now we only store one volume per amino acid type
+			int numRotVol = 1;//aaType.numRotamers();
+			//if (numRotVol==0)
+			//	numRotVol++;
 			
 			for (int j=0; j<numRotVol; j++)
-				aaType.rotamers.get(j).setVolume(new Float(getToken(curLine,j+2)).floatValue());
+				aaType.volume = (new Double(getToken(curLine,j+2)).doubleValue());
 		
 			curLine = bufread.readLine();
 			curResult++;
@@ -278,20 +279,22 @@ public class RotamerLibrary implements Serializable {
 	// Uses the VolModule class to calculate the volume of each rotamer of each amino acid
 	public void computeAAVolumes(String volFileName) {
 
-		Molecule m = new Molecule();
-
 		Amber96PolyPeptideResidue ppr = new Amber96PolyPeptideResidue();
-		//StrandRotamers LR = null;
-
-		Residue res = ppr.getResidue("ala");
-		//res.fullName = "ALA  "; 
+		
+		Molecule m = new Molecule();
+		Residue res = ppr.getResidue("ala"); 
 		m.addResidue(0,res);
-		
 		VolModule sm = new VolModule(m);
-		sm.setResidueTreatment(0,1);
-		
-		//LR = new StrandRotamers(rotFile,m.strand[0]);		
+		sm.setResidueTreatment(0,1);		
 
+		//Data Structures for d-amino acids
+		Molecule dm = new Molecule();
+		Residue dres = ppr.getResidue("dala"); 
+		dm.addResidue(0,dres);
+		VolModule dsm = new VolModule(dm);
+		dsm.setResidueTreatment(0,1);		
+		
+		
 		PrintStream printStream = setupOutputFile(volFileName);
 
 		AARotamerType aaTypes[] = getAAtypesAllowed();
@@ -300,23 +303,34 @@ public class RotamerLibrary implements Serializable {
 		Residue r = m.residue[0];
 		int molNum = r.moleculeResidueNumber;
 		
+		Molecule curM;
+		VolModule curVM;
+		Residue curRes;
 		for(int i=0;i<numAAs;i++){
+			//Since we don't yet allow mutations from l-d amino acids, we have to switch
+			//which molecule we are using for the different amino acids
+			if(aaTypes[i].name.length() == 4 && aaTypes[i].name.startsWith("D")) {
+				curM = dm;
+				curVM = dsm;
+			}else{
+				curM = m;
+				curVM = sm;
+			}
+			
 			if(canMutate)
-				MutUtils.changeResidueType(m,molNum,aaTypes[i].name,true);
+				MutUtils.changeResidueType(curM,molNum,aaTypes[i].name,true);
 			printStream.print(aaTypes[i].name + " ");
 			System.out.println(aaTypes[i].name + " ");
-			if(getNumRotamers(aaTypes[i].name)==0){		// ALA or GLY
-				double vol = sm.getMoleculeVolume(0.25,0.0);
-				printStream.print(vol + " ");
-				System.out.println(vol + " ");
-			}	
-			for(Rotamer rot: aaTypes[i].rotamers){
-			//for(int j=0;j<getNumRotamers(aaTypes[i].name);j++){
-				MutUtils.applyRotamer(m,rot,r);
-				double vol = sm.getMoleculeVolume(0.25,0.0);
-				printStream.print(vol + " ");
-				System.out.println(vol + " ");
-			}
+			//for(Rotamer rot: aaTypes[i].rotamers){ 
+			//All the volumes are very similar so just use the first rotamer
+			
+			Rotamer rot = aaTypes[i].rotamers.get(0); 
+			MutUtils.applyRotamer(curM,rot,curM.residue[0]);
+			double vol = curVM.getMoleculeVolume(0.25,0.0);
+			printStream.print(vol + " ");
+			System.out.println(vol + " ");
+			aaTypes[i].volume = vol;
+			//}
 			printStream.println();
 		}
 		printStream.close();		

@@ -214,8 +214,7 @@ public class MutUtils {
 		// Get the new residue from the templates
  		Amber96PolyPeptideResidue ppr = new Amber96PolyPeptideResidue();
 		Residue r = ppr.getResidue(newResType);
-		if(newDaa)
-			r.reflect();
+		
 				
 		// Residue r = ppr.getResidue("Lala");
 		Molecule m2 = new Molecule();
@@ -439,11 +438,7 @@ public class MutUtils {
 			localResidue.fullName = r.name.substring(0,3);
 		localResidue.numberOfAtoms = r.numberOfAtoms;
 		localResidue.atom = r.atom;
-		
-		if(newDaa)
-			localResidue.lAmino = false;
-		else
-			localResidue.lAmino = true;
+		localResidue.lAmino = r.lAmino;
 		
 		for(int j=0;j<localResidue.numberOfAtoms;j++){
 			localResidue.atom[j].moleculeResidueNumber = savedMoleculeResidueNumber;

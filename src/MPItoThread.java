@@ -65,17 +65,23 @@ import mpi.MPI;
 import mpi.MPIException;
 import mpi.Status;
 
-
+/**
+ * The MPItoThread class is used to allow OSPREY to seemlessly use either
+ * mpi nodes or cpu threads to run its parallel processing. This class is
+ * set up to mimic the mpi functionality so that one thread does not have access
+ * to another threads memory contents. Note that this can be inefficient if all
+ * the threads want to do is share a large energy matrix. However, by mimicking 
+ * mpi functionality, it is possible to debug mpi runs using threaded code. 
+ * @author kroberts
+ *
+ */
 public class MPItoThread {
 	static Hashtable<Thread,ThreadElement> threadEle = null;
 	static ThreadElement[] threadEleArray = null;
 	static ExecutorService exe = null;
-	//static Hashtable<Thread,KSParser> parsers = new Hashtable<Thread,KSParser>();
 	static boolean mpiRun = false;
 	static int numThreads;
 	static int numProc;
-	
-
 	
 	
 	public MPItoThread(boolean mpiRun, int numThreads) {
@@ -84,7 +90,13 @@ public class MPItoThread {
 		MPItoThread.numThreads = numThreads;
 		MPItoThread.numProc = numThreads+1;
 	}
-	
+
+	/**
+	 * Initializes the datastructures we will use to keep track of the many 
+	 * threads if we are running in threaded mode.
+	 * @param mpiRun boolean that is true if this is an mpi run.
+	 * @param numThreads number of threads that should be run in addition to the master thread
+	 */
 	public static void initialize(boolean mpiRun, int numThreads) {
 		MPItoThread.mpiRun = mpiRun;
 		MPItoThread.numThreads = numThreads;
@@ -100,33 +112,36 @@ public class MPItoThread {
 		return threadEleArray[i];
 	}
 
+	/**
+	 * Start the execution of the threads for this OSPREY run
+	 * @param mainKSP the master KSParser class that all slaves report to
+	 * @param mainThread the master thread that all slave threads report to
+	 */
 	public static void startThreads(KSParser mainKSP,Thread mainThread){
+		//If we haven't started the threads yet do it now
 		if(exe == null){
-			//numThreads =  1; //Runtime.getRuntime().availableProcessors();
-			//numProc = numThreads+1;
 			mainKSP.numProc = numProc;
 			exe = Executors.newFixedThreadPool(numThreads);
 			
 			KSthread[] kst = new KSthread[numThreads];
-			//KSParser[] ksp = new KSParser[numThreads+1];
-			//ksp[0] = mainKSP;
+			
 			MPItoThread.threadEleArray[0] = threadEle.get(mainThread);
 			for(int i=0; i<numThreads; i++){
 				threadEleArray[i+1] = new ThreadElement(i+1);
 				kst[i] = new KSthread(new KSParser(),i+1,threadEleArray[i+1]);
 				kst[i].ksp.cfgName = mainKSP.cfgName;
-				//ksp[i+1] = kst[i].ksp;
 			}
 			
-			//threadEle.kstarArray = ksp;
 			for(int i=0; i<numThreads;i++){
-				//kst[i].ksp.threadEle.kstarArray = ksp;
 				exe.execute(kst[i]);
 			}
 		}
 	}
 	
 	/******** Threaded Functions *********/
+	//These functions are wrappers of the MPI commands with similar
+	//names so that we can run in threaded mode if we like
+	
 	public static int Rank() throws MPIException{
 		if(mpiRun)
 			return MPI.COMM_WORLD.Rank();
@@ -224,8 +239,6 @@ public class MPItoThread {
 				System.exit(0);
 		}
 		return null;
-		
-		
 	}
 	
 	public static int getStatusTag(Object obj){

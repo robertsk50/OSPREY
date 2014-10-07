@@ -145,45 +145,28 @@ public class KSParser
 		ORIG,PGREORDER,ASGUROBI,MIN,LPGUROBI,ASMPLP,BYSEQ,WCSP,BYSUBROT,ASWCSP,ASGUROBIREORDER,ASWCSPREORDER, BYSEQREORDER
 	}
 
-	//the rotamer library files
-	//String rl; //KER: Moved rl to a static rotamer library in EnvironmentVars
-	//	RotamerLibrary[] grl;
-	//RotamerLibrary rl = null; //the standard rotamer library for the protein (the Aa library)
-	//RotamerLibrary[] grl = null; //the rotamer library for the ligand (could be the AA or non-AA library)
-
 	int numThreads = 1;
 
-	//int numAAallowed = -1; //number of allowed AA types
-	//String resAllowed[] = null; //the type of allowed AA
-	//int rotamerIndexOffset[] = null; //the rotamer index offset for each allowed AA
-	//int totalNumRotamers = -1; //the total number of rotamers for the Lovell rotamer library
-
-
+	//Tags that are passed to denote MPI status 
 	final static int regTag = 1; //regular tag for MPI messages
 	final static int updateTag = 2; //used in DACS for updating the best energy found for the different partitions
 	final static int doneTag = 3; //Used to tell the energy computation that we're done
+	
+	
 	static int numProc = 1; //number of processors for MPI
 
+	//Constant used when the whole protein complex is being computed
 	final static int COMPLEX = -1;
 
+	//Constant used to determine if a duplicate sequence has been found in K* calculations
 	static final int DUPFOUND = -100;
 	
 	static boolean mpiRun = false; //determines if this is an MPI run
 
-	//the algorithm options that define what pruning criteria will be applied
-	//	NOTE!!! These must be the same as in MutationManager.java
-	final int optSimple = 1;
-	final int optBounds = 2;
-	final int optSplit = 3;
-	final int optPairs = 4;
 
-	//the assigned protein, ligand, and cofactor strand numbers
-	//final int sysStrNum = 0; //the protein strand number is always 0
-	//int ligStrNum = -1;
-	//int cofStrNum = -1;
+	//The printstream where we write our output
 	PrintStream outPS = System.out;
-	//Molecule[] mols = new Molecule[3];
-	//RotamerLibrary[][] rotLibs = new RotamerLibrary[3][];
+	
 	Molecule[] mols = new Molecule[5];
 	RotamerLibrary[][] rotLibs = new RotamerLibrary[5][];
 	//make room to cache molecules and rotLibs for up to 5 configurations of strands
@@ -206,16 +189,14 @@ public class KSParser
 
 			args = parseArgs(args);
 
-
-
 			try{ handleDoMPI(args);} catch (Exception e){};
 		}
-		else {
+		else { //Threaded run
 			mpiRun = false;
 
 			args = parseArgs(args);
 
-			MPItoThread.initialize(mpiRun, numThreads);
+			MPItoThread.initialize(mpiRun, numThreads); 
 			//Store all the threads that are available for Kyle's "thread mpi"
 			MPItoThread.threadEle.put(Thread.currentThread(), new ThreadElement(0));
 
@@ -227,6 +208,11 @@ public class KSParser
 		}
 	}
 
+	/**
+	 * Parse and remove command line flags
+	 * @param args command line arguments
+	 * @return command line arguments with flags removed
+	 */
 	private String[] parseArgs(String[] args) {
 		while(args.length>0 && args[0].startsWith("-")){
 
@@ -1437,7 +1423,7 @@ public class KSParser
 
 		if (mutSet == null) {
 
-			//rl.loadVolFile((String)rParams.getValue("VOLFILE")); //load the rotamer volume file
+			mp.m.aaRotLib.loadVolFile(); //load the rotamer volume file
 
 			// Create the mutation list with estimated energies
 			mutSet = new TreeSet<OneMutation>();
@@ -1659,7 +1645,7 @@ public class KSParser
 				tmp.resTypes = new int[numMutable];
 				for(int q=0;q<numMutable;q++) {
 					Residue r = mp.m.residue[mp.strandMut.allMut[q]];
-					String AAtype = getToken(str,2+q);
+					String AAtype = getToken(str,3+q);
 					tmp.resTypes[q] = r.rl.getAARotamerIndex(AAtype); 	
 					if(tmp.resTypes[q] < 0){
 						System.out.println("When loading "+fName+" did not recognize "+AAtype+" on line "+resultNum);
@@ -2727,8 +2713,6 @@ public class KSParser
 		}
 		String runName = (String)sParams.getValue("RUNNAME");
 		String minEMatrixName = (String)sParams.getValue("MINENERGYMATRIXNAME",runName+"minM");
-		String maxEMatrixName = (String)sParams.getValue("MAXENERGYMATRIXNAME",runName+"maxM");
-		String eRefMatrix = (String)(sParams.getValue("EREFMATRIXNAME","Eref"+runName));
 		RotamerSearch.MINIMIZATIONSCHEME minScheme = RotamerSearch.MINIMIZATIONSCHEME.valueOf(sParams.getValue("MINIMIZATIONSCHEME","PAIRWISE").toUpperCase());
 
 		int curStrForMatrix = (new Integer((String)sParams.getValue("ONLYSINGLESTRAND","-1"))).intValue();
@@ -2785,7 +2769,6 @@ public class KSParser
 
 		System.out.println("Run Name: "+runName);
 		System.out.println("Precomputed Minimum Energy Matrix: "+minEMatrixName);
-		System.out.println("Precomputed Maximum Energy Matrix: "+maxEMatrixName);
 		System.out.println("Num Residues Allowed to Mutate: "+numMutations);
 
 

@@ -16,7 +16,7 @@ public class Rotamer implements Serializable{
 	//Dihedrals for this specific rotamer
 	double[] values; 
 	double[] minimizationWidth;
-	double volume;
+//	double volume;
 	
 	//This string is the a way to tell whether the 
 	//rotamer was part of the original LovellRotamer.dat
@@ -85,9 +85,9 @@ public class Rotamer implements Serializable{
 	
 	
 
-	public void setVolume(double vol){
-		volume = vol;
-	}
+//	public void setVolume(double vol){
+//		volume = vol;
+//	}
 	
 	@Override
 	public String toString(){

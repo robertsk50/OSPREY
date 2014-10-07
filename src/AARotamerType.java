@@ -13,6 +13,7 @@ public class AARotamerType implements Serializable{
 	
 	public ArrayList<Rotamer> rotamers;
 	
+	double volume = 0.0;
 	double entropy = 0.0;
 	String oneLet;
 	String threeLet;
