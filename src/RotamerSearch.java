@@ -4416,11 +4416,8 @@ public class RotamerSearch implements Serializable
 				if (outputFile){
 					logPS.flush(); //there may still be results to output
 				}
-				//					return new AStarResults(getBestE(),lowestBound,numConfsEvaluated.longValue(),minELowerBound);
 				return new AStarResults(getBestE(),lowestBound,numConfsEvaluated.longValue(),minELowerBound);
 			}
-			
-			
 			
 			conf = curNode.actualConf;
 			
@@ -4615,8 +4612,6 @@ public class RotamerSearch implements Serializable
 
 				if (cObj!=null)
 					cObj.bestScore = new BigDecimal(getBestE()); //update the best score so far to supply to the next partition
-
-				MSAStarSearch = null;
 
 				if(es.checkEPIC){
 					EPICFitter.analyzeLSBRecord(CETRecord);

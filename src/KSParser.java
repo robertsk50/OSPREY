@@ -197,8 +197,13 @@ public class KSParser
 			args = parseArgs(args);
 
 			MPItoThread.initialize(mpiRun, numThreads); 
+			KSParser.numProc = MPItoThread.numProc;
 			//Store all the threads that are available for Kyle's "thread mpi"
 			MPItoThread.threadEle.put(Thread.currentThread(), new ThreadElement(0));
+			
+			//KER: If it isn't an mpiRun start extra threads so that we can simulate
+			//an mpiRun
+			MPItoThread.startThreads(this,Thread.currentThread());
 
 			outputProgInfo(); //output program information
 			setConfigPars(); //set the parameters from the configuration file
@@ -5970,10 +5975,7 @@ public class KSParser
 	//Do MPI for the master node
 	public void handleDoMPIMaster(MutationManager mutMan, int size) throws MPIException, InterruptedException {
 
-		//KER: If it isn't an mpiRun start extra threads so that we can simulate
-		//an mpiRun
-		if(!mpiRun)
-			MPItoThread.startThreads(this,Thread.currentThread());
+
 
 		CommucObj cObjArray[] = new CommucObj[size];
 		int numFinished = 0;
