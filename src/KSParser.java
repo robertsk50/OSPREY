@@ -8612,10 +8612,14 @@ public class KSParser
 	
 	public boolean clustersMatch(double[] cluster1, double[] cluster2, Emat emat){ 
 
+		if(cluster1 == null || cluster2 == null) //cluster1 can be null if the rotamer or pair was pruned
+			return true;
+		
 		for(int i=0; i<cluster1.length;i++){
 			if(Math.abs(cluster1[i]-cluster2[i]) > 2)
 				return false;
 		}
+		
 
 		return true;
 	}
