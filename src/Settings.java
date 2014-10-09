@@ -160,7 +160,7 @@ public class Settings {
 			Ival = 0.0f;
 			interval = 0;
 			if(useMinDEEPruningEw)
-				Ival = (new Double((String)sParams.getValue("IVAL"))).doubleValue();
+				Ival = (new Double((String)sParams.getValue("IVAL", "5.0"))).doubleValue();
 		}
 		
 		int bak_maxFullPairs;
@@ -291,7 +291,7 @@ public class Settings {
 		BigInteger maxKSconfs;
 		
 		KStar(ParamSet sParams, String runName){
-			numMutations = (new Integer((String)sParams.getValue("NUMMUTATIONS", "1000"))).intValue();
+			numMutations = (new Integer((String)sParams.getValue("NUMMUTATIONS", "1"))).intValue();
 			mutFileName = (String)sParams.getValue("MUTFILENAME",runName+".mut");
 			repeatSearch = (new Boolean((String)sParams.getValue("REPEATSEARCH","true"))).booleanValue();
 
