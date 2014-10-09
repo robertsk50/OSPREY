@@ -291,7 +291,7 @@ public class Settings {
 		BigInteger maxKSconfs;
 		
 		KStar(ParamSet sParams, String runName){
-			numMutations = (new Integer((String)sParams.getValue("NUMMUTATIONS"))).intValue();
+			numMutations = (new Integer((String)sParams.getValue("NUMMUTATIONS", "1000"))).intValue();
 			mutFileName = (String)sParams.getValue("MUTFILENAME",runName+".mut");
 			repeatSearch = (new Boolean((String)sParams.getValue("REPEATSEARCH","true"))).booleanValue();
 
