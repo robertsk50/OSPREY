@@ -9,6 +9,13 @@ public class ArrayIndexComparator implements Comparator<Integer>{
 		this.array = array;
 	}
 	
+	public ArrayIndexComparator(int[] array){
+		this.array = new double[array.length];
+		for(int i=0; i<this.array.length;i++){
+			this.array[i] = array[i];
+		}
+	}
+	
 	public Integer[] createIndexArray(){
 		Integer[] indexes = new Integer[array.length];
 		for(int i=0; i<array.length;i++){

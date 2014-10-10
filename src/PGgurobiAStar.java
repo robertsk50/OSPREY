@@ -1,6 +1,9 @@
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.Random;
 
@@ -81,6 +84,14 @@ public class PGgurobiAStar extends AStar{
 	//number of rotamers possible for each residue (given by the assigned AA type)
 	private int numNodesForLevel[] = null;
 
+	//array to hold sorted order of number of nodes per level
+	//Sorted in descending order
+	private Integer sortedIndicesNumNodesForLevel[] = null;
+	
+	//Array used to store order for med cost function ordering
+	private Integer dom_cmed_order[] = null;
+	
+	
 	//the total number of possible rotamers for the given mutation
 	private int numTotalNodes;
 
@@ -107,7 +118,7 @@ public class PGgurobiAStar extends AStar{
 	}
  
 	HEURISTIC heuristic = null;
-	boolean reorder = true;
+	Settings.VARIABLEORDER variableOrder = null;
 
 	Molecule m;
 	StrandRotamers[] strandRot;
@@ -119,13 +130,16 @@ public class PGgurobiAStar extends AStar{
 	private int numFS = 0; 
 	
 
+	
+	
+
 	//constructor
 	/*
 	 * We assume that the parameters supplied (energy and DEE information) have already been modified
 	 * 		to consider only the residues and rotamers for the possible mutations; i.e., the matrices are of
 	 * 		reduced size
 	 */
-	PGgurobiAStar (int treeLevels, int numRotForRes[], Emat emat, Settings.ASTARMETHOD asMethod,
+	PGgurobiAStar (int treeLevels, int numRotForRes[], Emat emat, Settings.ASTARMETHOD asMethod, Settings.VARIABLEORDER varOrder,
 			EPICSettings es, boolean doPerturbations, Molecule m, StrandRotamers[] src, MutableResParams strandMut,
 			CETMatrix CETM){
 
@@ -135,30 +149,25 @@ public class PGgurobiAStar extends AStar{
 		this.CETM = CETM;
 		this.es = es;
 		this.doPerturbations = doPerturbations;
+		this.emat = emat;
 		
 		switch(asMethod){
 		case ORIG:
-			reorder=false;
 			heuristic = HEURISTIC.AS;
 			break;
 		case PGREORDER:
-			reorder = true;
 			heuristic = HEURISTIC.AS;
 			break;
 		case ASGUROBI:
-			reorder = false;
 			heuristic = HEURISTIC.GUROBI;
 			break;
 		case ASGUROBIREORDER:
-			reorder = true;
 			heuristic = HEURISTIC.GUROBI;
 			break;
 		case ASWCSP:
-			reorder = false;
 			heuristic = HEURISTIC.WCSP;
 			break;
 		case ASWCSPREORDER:
-			reorder = true;
 			heuristic = HEURISTIC.WCSP;
 			break;
 		default:
@@ -166,23 +175,30 @@ public class PGgurobiAStar extends AStar{
 			System.exit(0);
 			break;
 		}
-		
 
 		numTreeLevels = treeLevels;
 
 		numNodesForLevel = new int [numTreeLevels];
-//		nodeIndexOffset = new int [numTreeLevels];
 		numTotalNodes = 0;
 
 		for (int i=0; i<numTreeLevels; i++){
-//			nodeIndexOffset[i] = numTotalNodes;
 			numNodesForLevel[i] = numRotForRes[i];
 			numTotalNodes += numNodesForLevel[i];
 		}
+		
+		variableOrder = varOrder;
+		if(variableOrder.compareTo(Settings.VARIABLEORDER.DOM_CMED) == 0)
+			initDOMCMEDorder();
 
-		//the min energy matrix: the last column contains the intra-energy for each rotamer; the last row
-		//		contains the shell-residue energy for each rotamer
-		this.emat = emat;
+		//Sort indices for numNodesForLevel
+		ArrayIndexComparator comparator = new ArrayIndexComparator(numNodesForLevel);
+		sortedIndicesNumNodesForLevel = comparator.createIndexArray();
+		//Sorts in descending order
+		Arrays.sort(sortedIndicesNumNodesForLevel,comparator);
+		
+
+		
+		
 
 		twoDTo3D = new Index3[numTreeLevels][];
 		SinglesIterator iter = emat.singlesIterator();
@@ -215,6 +231,72 @@ public class PGgurobiAStar extends AStar{
 			curConf[i] = -1;
 		}
 
+	}
+
+	/**
+	 * Set the variable order based on minimizing the term |x_i|/med(cost functions of x_i)
+	 * where x_i is the variable for residue position i.
+	 */
+	private void initDOMCMEDorder() {
+		double minMedianCost = Double.POSITIVE_INFINITY;
+		double[][] medianCosts = new double[numNodesForLevel.length][numNodesForLevel.length];
+		DoubleComparator doubleComparator =  new DoubleComparator();
+		for(int pos1=0; pos1<medianCosts.length;pos1++){
+			for(int pos2=pos1; pos2<medianCosts.length;pos2++){
+				Iterator<EMatrixEntryWIndex> iter;
+				if(pos1 == pos2){
+					iter = emat.singlesIterator(pos1);
+				}else{
+					iter = emat.pairsIterator(pos1, pos2);
+				}
+				
+				ArrayList<Double> costs = new ArrayList<Double>();
+				while(iter.hasNext()){
+					EMatrixEntryWIndex emeWI = iter.next();
+					if(!emeWI.eme.isPruned())
+						costs.add(emeWI.eme.minE());
+				}
+				
+				//Calculate Median
+				costs.sort(doubleComparator);
+				int size = costs.size();
+				double median;
+				if(size % 2 == 0)
+					median = (costs.get(size/2)+costs.get((size/2)-1))/2;
+				else
+					median = costs.get(size/2);
+				
+				medianCosts[pos1][pos2] = median;
+				medianCosts[pos2][pos1] = median;
+				
+				if(median < minMedianCost)
+					minMedianCost = median;
+				
+			}	
+		}
+		
+		//We need all of the energies to be positive for the division to work
+		//So we add all energies by the min value
+		for(int i=0; i<medianCosts.length;i++)
+			for(int j=0; j<medianCosts[i].length;j++)
+				medianCosts[i][j] -= minMedianCost;
+		//Calculate the dom/sum of median costs for each variable
+		double[] dom_cmed = new double[numNodesForLevel.length];
+		for(int i=0; i<dom_cmed.length;i++){
+			double sumofcosts = 0;
+			for(int j=0; j<medianCosts[i].length;j++)
+				sumofcosts+= medianCosts[i][j];
+			
+			double val = (double)numNodesForLevel[i]/sumofcosts;
+			dom_cmed[i] = val;
+		}
+		
+		//Get the order
+		ArrayIndexComparator comparator = new ArrayIndexComparator(dom_cmed);
+		dom_cmed_order = comparator.createIndexArray();
+		//Sorts in descending order
+		Arrays.sort(dom_cmed_order,comparator);
+			
 	}
 
 	//Find the lowest-energy conformation and return an array with the number of the corresponding
@@ -323,8 +405,35 @@ public class PGgurobiAStar extends AStar{
 				}
 				else {// Queue not empty, we can continue.
 
-					//					PGQueueNode[] nextLevelNodes = pickNextLevel(expNode);
-					PGQueueNode[] nextLevelNodes = pickNextLevelByTuple(expNode);
+					PGQueueNode[] nextLevelNodes=null;
+					//Choose the next variable (residue position to expand)
+					switch(variableOrder){
+						case MINDOM: //choose the variable with the min domain size
+							nextLevelNodes = pickNextLevelByDom(expNode,true);
+							break;
+						case MAXDOM: //choose the variable with the max domain size
+							nextLevelNodes = pickNextLevelByDom(expNode,false);
+							break;
+						case DOM_CMED: //choose the variable that minimizes |dom|/median(cost functions)
+							nextLevelNodes = pickNextLevelByDomCmed(expNode);
+							break;
+						case MINFSCORE: //choose the variable that has the max min fscore
+							nextLevelNodes = pickNextLevel(expNode);
+							break;
+						case MEDFSCORE: //choose the variable that has the max med fscore
+							System.out.println("MEDFSCORE Not Implemented Yet");
+							System.exit(0);
+							break;
+						case BYTUPLE:
+							nextLevelNodes = pickNextLevelByTuple(expNode);
+							break;
+						case SEQUENTIAL: //no ordering
+						default:
+							nextLevelNodes = pickNextLevelSequential(expNode);
+							break;
+					}
+					
+					
 					for(int rot = 0; rot < nextLevelNodes.length; rot++){
 
 						//Recompute better bound when inserting
@@ -373,9 +482,7 @@ public class PGgurobiAStar extends AStar{
 		double maxMinFScore = Double.NEGATIVE_INFINITY;
 
 		// Iterate through all positions that have not been assigned in dequeuedNode.
-		int iterationLength = 1;
-		if(reorder)
-			iterationLength = dequeuedNode.emptyLevels.size();
+		int iterationLength = dequeuedNode.emptyLevels.size();
 		for(int iter = 0; iter < iterationLength; iter++){
 			int pos = dequeuedNode.emptyLevels.get(iter);
 			double minAtThisLevel = Double.POSITIVE_INFINITY;
@@ -384,12 +491,7 @@ public class PGgurobiAStar extends AStar{
 			// And for each rotamer at that level
 			for(int rot = 0; rot < numNodesForLevel[pos]; rot++){				
 				PGQueueNode newNode = new PGQueueNode(numTreeLevels, dequeuedNode.confSoFar, 0.0, pos, rot);  // No energy yet
-				//KER: Trying out gCompute as a heuristic
-				//newNode.fScore = gCompute(newNode);//fCompute(newNode);
 				newNode.fScore = fCompute(newNode);
-				/*if(newNode.fScore - dequeuedNode.fScore < -0.3 && dequeuedNode.fScore < 0){
-					System.out.println("DELETE ME");
-				}*/
 				curLevelPGQueueNodes[rot] = newNode;	
 
 				if(newNode.fScore < minAtThisLevel){
@@ -414,6 +516,79 @@ public class PGgurobiAStar extends AStar{
 	}
 
 
+	// PGC
+	// dePGQueueNode is the node at the top of the queue.  This node can be expanded to any of the levels that 
+	//	have not been assigned in its own confSofar array.  For each rotamer at each of the unassigned levels,
+	// we create a node.  Then, we calculate its fScore.
+	private PGQueueNode[] pickNextLevelByDom(PGQueueNode dequeuedNode, boolean minFirst){		
+
+		//Find the level to expand next
+		int levelToExpand;
+		if(minFirst){
+			//Sorted in descending order so we want the start from the far right if empty
+			levelToExpand = sortedIndicesNumNodesForLevel[dequeuedNode.emptyLevels.size()-1]; 
+		}
+		else{
+			//Sorted in descending order so we want the start from the far left for max if empty
+			levelToExpand = sortedIndicesNumNodesForLevel[dequeuedNode.nonEmptyLevels.size()];
+		}
+		
+		int pos = levelToExpand;
+		PGQueueNode curLevelPGQueueNodes[] = new PGQueueNode[numNodesForLevel[pos]];
+		// And for each rotamer at that level
+		for(int rot = 0; rot < numNodesForLevel[pos]; rot++){				
+			PGQueueNode newNode = new PGQueueNode(numTreeLevels, dequeuedNode.confSoFar, 0.0, pos, rot);  // No energy yet
+			newNode.fScore = fCompute(newNode);
+			curLevelPGQueueNodes[rot] = newNode;	
+		}			
+			
+		return curLevelPGQueueNodes;
+	}
+
+	// PGC
+	// dePGQueueNode is the node at the top of the queue.  This node can be expanded to any of the levels that 
+	//	have not been assigned in its own confSofar array.  For each rotamer at each of the unassigned levels,
+	// we create a node.  Then, we calculate its fScore.
+	private PGQueueNode[] pickNextLevelSequential(PGQueueNode dequeuedNode){		
+
+		//Find the level to expand next
+		int levelToExpand=dequeuedNode.nonEmptyLevels.size();
+		
+		
+		int pos = levelToExpand;
+		PGQueueNode curLevelPGQueueNodes[] = new PGQueueNode[numNodesForLevel[pos]];
+		// And for each rotamer at that level
+		for(int rot = 0; rot < numNodesForLevel[pos]; rot++){				
+			PGQueueNode newNode = new PGQueueNode(numTreeLevels, dequeuedNode.confSoFar, 0.0, pos, rot);  // No energy yet
+			newNode.fScore = fCompute(newNode);
+			curLevelPGQueueNodes[rot] = newNode;	
+		}			
+			
+		return curLevelPGQueueNodes;
+	}
+	
+	// PGC
+	// dePGQueueNode is the node at the top of the queue.  This node can be expanded to any of the levels that 
+	//	have not been assigned in its own confSofar array.  For each rotamer at each of the unassigned levels,
+	// we create a node.  Then, we calculate its fScore.
+	private PGQueueNode[] pickNextLevelByDomCmed(PGQueueNode dequeuedNode){		
+
+		//Find the level to expand next
+		int levelToExpand=dom_cmed_order[dequeuedNode.emptyLevels.size()-1];
+		
+		
+		int pos = levelToExpand;
+		PGQueueNode curLevelPGQueueNodes[] = new PGQueueNode[numNodesForLevel[pos]];
+		// And for each rotamer at that level
+		for(int rot = 0; rot < numNodesForLevel[pos]; rot++){				
+			PGQueueNode newNode = new PGQueueNode(numTreeLevels, dequeuedNode.confSoFar, 0.0, pos, rot);  // No energy yet
+			newNode.fScore = fCompute(newNode);
+			curLevelPGQueueNodes[rot] = newNode;	
+		}			
+			
+		return curLevelPGQueueNodes;
+	}
+	
 	// PGC
 	// dePGQueueNode is the node at the top of the queue.  This node can be expanded to any of the levels that 
 	//	have not been assigned in its own confSofar array.  For each rotamer at each of the unassigned levels,
@@ -479,9 +654,7 @@ public class PGgurobiAStar extends AStar{
 		}else{//Finally, if we still haven't found a position do the normal check
 			ArrayList<PGQueueNode[]> allLevelNodes = new ArrayList<PGQueueNode[]>(); 
 			
-			int iterationLength = 1;
-			if(reorder)
-				iterationLength = dequeuedNode.emptyLevels.size();
+			int iterationLength = dequeuedNode.emptyLevels.size();
 			for(int iter = 0; iter < iterationLength; iter++){
 				int pos = dequeuedNode.emptyLevels.get(iter);
 
@@ -1777,5 +1950,12 @@ public class PGgurobiAStar extends AStar{
         }
     }
 
+    public class DoubleComparator implements Comparator<Double>{
+    	@Override
+    	public int compare(Double d1, Double d2){
+    		return Double.compare(d1, d2);
+    	}
 
+    }
+    
 }

@@ -1258,7 +1258,7 @@ public class KSParser
 		mutMan.setAddWTRot(ematSettings.addWTRot);
 		mutMan.setIdealizeSC(Perturbation.idealizeSC);
 		mutMan.setUseFlagsAStar(false);
-		mutMan.setASMethod(enumSettings.asMethod);
+		mutMan.setEnumSettings(enumSettings);
 		mutMan.setPDBoutDir(outputSettings.pdbOutDir);
 
 		mutMan.setES(es);
@@ -2125,7 +2125,7 @@ public class KSParser
 				SaveConfsParams saveConfsParams = new SaveConfsParams(cObj.numTopConfs, cObj.saveTopConfs, cObj.printTopConfs, false);
 				AStarResults asr = rs.slaveDoRotamerSearch(runNum, cObj.computeEVEnergy,cObj.doMinimization,numMutPos,
 						strandMut,usingInitialBest,initialBest,cObj,cObj.minimizeBB,cObj.doBackrubs,cObj.backrubFile,
-						saveConfsParams, cObj.curMut, cObj.useMaxKSconfs, cObj.numKSconfs,prunedStericPerPos, DEEIval, cObj.asMethod);
+						saveConfsParams, cObj.curMut, cObj.useMaxKSconfs, cObj.numKSconfs,prunedStericPerPos, DEEIval, cObj.enumSettings);
 
 				if(KSCONFTHRESH && rs.numConfsEvaluated.compareTo(cObj.numKSconfs) >= 0){
 					finished = true;
@@ -4195,7 +4195,7 @@ public class KSParser
 								mp.strandMut.numMutPos(),mp.strandMut,deeSettings.initEw,
 								bestScore,null,enumSettings.approxMinGMEC,enumSettings.lambda,minSettings.minimizeBB,
 								ematSettings.useEref,minSettings.doBackrubs,minSettings.backrubFile,
-								localUseMinDEEpruningEw, deeSettings.Ival,enumSettings.asMethod);
+								localUseMinDEEpruningEw, deeSettings.Ival,enumSettings);
 
 						rs.es.gettingLowestBound = false;
 					}
@@ -4204,7 +4204,7 @@ public class KSParser
 							mp.strandMut.allMut.length,mp.strandMut,deeSettings.initEw,
 							bestScore,null,enumSettings.approxMinGMEC,enumSettings.lambda,minSettings.minimizeBB,
 							ematSettings.useEref,minSettings.doBackrubs,minSettings.backrubFile,
-							localUseMinDEEpruningEw, deeSettings.Ival,enumSettings.asMethod);
+							localUseMinDEEpruningEw, deeSettings.Ival,enumSettings);
 
 					
 					interval = asr.bestE - asr.lowestBound;
@@ -4283,7 +4283,7 @@ public class KSParser
 							enumSettings.lambda, numRotForRes, resumeResults, resumeFilename, minSettings.minimizeBB, 
 							enumSettings.numMaxMut, deeSettings.scaleInt, deeSettings.maxIntScale, 
 							ematSettings.useEref, minSettings.doBackrubs, minSettings.backrubFile, deeSettings.subDepth,mp.strandPresent,
-							mp.strandLimits,mp.strandsPresent,ematSettings.addWTRot, enumSettings.asMethod);
+							mp.strandLimits,mp.strandsPresent,ematSettings.addWTRot, enumSettings);
 				}
 				else { //single-processor DACS
 
@@ -4302,7 +4302,7 @@ public class KSParser
 							ematSettings.runNameEMatrixMin,	deeSettings.distrDEE, sParams, enumSettings.approxMinGMEC, enumSettings.lambda, null, 
 							null, minSettings.minimizeBB, enumSettings.numMaxMut, deeSettings.scaleInt, deeSettings.maxIntScale, ematSettings.useEref, 
 							minSettings.doBackrubs, minSettings.backrubFile, deeSettings.subDepth,
-							deeSettings.typeDep, ematSettings.addWTRot, deeSettings.Ival, deeSettings.deeSettings,enumSettings.asMethod);
+							deeSettings.typeDep, ematSettings.addWTRot, deeSettings.Ival, deeSettings.deeSettings,enumSettings);
 				}
 			}
 
@@ -4847,7 +4847,7 @@ public class KSParser
 			boolean approxMinGMEC, double lambda, Index3 partIndex[], CommucObj cObj, 
 			boolean minimizeBB, int numMaxMut, boolean scaleInt, double maxIntScale, boolean useEref,
 			boolean doBackrubs, String backrubFile, int subDepth,boolean typeDep, boolean addWTRot, double Ival,
-			DEEsettings deeSettings, Settings.ASTARMETHOD asMethod){
+			DEEsettings deeSettings, Settings.Enum enumSettings){
 
 		if (curDepth>=(initDepth+subDepth))
 			return;
@@ -5023,7 +5023,7 @@ public class KSParser
 							logPS, majorSplitPos, numConfsUnprunedForPartition[i], diffFact, outputConfInfo, minRatioDiff,
 							doMinimize, minPEM, distrDEE, sParams, approxMinGMEC, 
 							lambda, partIndex, cObj, minimizeBB, numMaxMut, scaleInt, maxIntScale, useEref, doBackrubs, 
-							backrubFile, subDepth,typeDep,addWTRot,Ival,deeSettings,asMethod);
+							backrubFile, subDepth,typeDep,addWTRot,Ival,deeSettings,enumSettings);
 				}
 				else if (!prunedRotAtRes.get(curPartIndex)){ //if enough pruned or maxDepth partitioning reached, do the rotamer search
 
@@ -5032,7 +5032,7 @@ public class KSParser
 					//Do the rotamer search
 					rs.doAStarGMEC(outputConfInfo,true,doMinimize,numMutable,strandMut,
 							initEw,bestScore,null,approxMinGMEC,lambda,minimizeBB,useEref,doBackrubs,
-							backrubFile, false, 0.0,asMethod);
+							backrubFile, false, 0.0,enumSettings);
 
 					numEvaluatedConfs = numEvaluatedConfs.add(rs.numConfsEvaluated); //add the evaluated confs for this partition
 					pruningE = Math.min(pruningE,rs.getBestE());//update cutoff energy for MinBounds
@@ -5109,7 +5109,7 @@ public class KSParser
 					cObj.approxMinGMEC, cObj.lambda, cObj.partIndex, cObj, cObj.minimizeBB, cObj.numMutations,
 					cObj.scaleInt, cObj.maxIntScale, cObj.useEref, cObj.doBackrubs, cObj.backrubFile, 
 					cObj.subDepth,cObj.typeDep,cObj.addWTRot,
-					cObj.Ival, cObj.deeSettings, cObj.asMethod);
+					cObj.Ival, cObj.deeSettings, cObj.enumSettings);
 		}
 	}
 
@@ -5270,7 +5270,7 @@ public class KSParser
 			ParamSet sParams, 
 			boolean approxMinGMEC, double lambda, int numRotForRes[], OneMutation resumeResults[], String resumeFileName, boolean minimizeBB, int numMaxMut,
 			boolean scaleInt, double maxIntScale, boolean useEref, boolean doBackrubs, String backrubFile, int subDepth,
-			boolean [] strandPresent, String[][] strandLimits, int strandsPresent, boolean addWTRot, Settings.ASTARMETHOD asMethod){
+			boolean [] strandPresent, String[][] strandLimits, int strandsPresent, boolean addWTRot, Settings.Enum enumSettings){
 
 		System.out.println("Starting DACS (distributed)");		
 		System.out.println("Forming DACS partitions..");
@@ -5381,7 +5381,7 @@ public class KSParser
 
 		mutMan.setIdealizeSC(Perturbation.idealizeSC);
 		mutMan.setAddWTRot(addWTRot);
-		mutMan.setASMethod(asMethod);
+		mutMan.setEnumSettings(enumSettings);
 
 		try{
 			handleDoMPIMaster(mutMan,mutArray.length);
@@ -8410,12 +8410,15 @@ public class KSParser
 			double ENUMIval = 0.0;
 			int numToEnumerate = 1;
 			
-			Settings.ASTARMETHOD asMethod = Settings.ASTARMETHOD.WCSP;
+			//Create temporary enumSettings to do a quick GMEC search
+			Settings.Enum tmpEnumSettings = enumSettings.copy();
+			tmpEnumSettings.asMethod = Settings.ASTARMETHOD.WCSP;
+			
 			AStarResults asr = rs.doAStarGMEC("preliminaryConfs.conf",true,minSettings.doMinimize, 
 					mp.strandMut.numMutPos(), mp.strandMut,0.0,
 					bestScore,null,enumSettings.approxMinGMEC,enumSettings.lambda,minSettings.minimizeBB,
 					ematSettings.useEref,minSettings.doBackrubs,minSettings.backrubFile,
-					localUseMinDEEPruningEw, ENUMIval,asMethod);
+					localUseMinDEEPruningEw, ENUMIval,tmpEnumSettings);
 			Ival = Math.min(enumSettings.bestE-asr.lowestBound, asr.bestE-asr.lowestBound);
 			emat.unPrune();
 			removeRot = true;
@@ -9017,7 +9020,7 @@ public class KSParser
 						mp.strandMut.numMutPos(),mp.strandMut,0,
 						bestScore,null,enumSettings.approxMinGMEC,enumSettings.lambda,minSettings.minimizeBB,
 						ematSettings.useEref,minSettings.doBackrubs,minSettings.backrubFile,
-						localUseMinDEEPruningEw, 0,enumSettings.asMethod); //Ival and initEw set to 0 to only find the lowest conformation
+						localUseMinDEEPruningEw, 0,enumSettings); //Ival and initEw set to 0 to only find the lowest conformation
 				totalConfsEvaluated += asr.numConfsEvaluated;
 				lowestPairBound = asr.lowestBound;
 				actualLowestBound = Math.min(asr.lowestBound, actualLowestBound);
@@ -9062,7 +9065,7 @@ public class KSParser
 					mp.strandMut.numMutPos(),mp.strandMut,deeSettings.initEw,
 					bestScore,null,enumSettings.approxMinGMEC,enumSettings.lambda,minSettings.minimizeBB,
 					ematSettings.useEref,minSettings.doBackrubs,minSettings.backrubFile,
-					localUseMinDEEPruningEw, ENUMIval,enumSettings.asMethod);
+					localUseMinDEEPruningEw, ENUMIval,enumSettings);
 
 			actualLowestBound = Math.min(asr.lowestBound, actualLowestBound);
 			totalConfsEvaluated += asr.numConfsEvaluated;
@@ -9268,7 +9271,7 @@ public class KSParser
 						mp.strandMut.numMutPos(),mp.strandMut,deeSettings.initEw,
 						bestScore,null,enumSettings.approxMinGMEC,enumSettings.lambda,minSettings.minimizeBB,
 						ematSettings.useEref,minSettings.doBackrubs,minSettings.backrubFile,
-						localUseMinDEEPruningEw, ENUMIval,enumSettings.asMethod);
+						localUseMinDEEPruningEw, ENUMIval,enumSettings);
 				totalConfsEvaluated += asr.numConfsEvaluated;
 
 				break;

@@ -16,6 +16,10 @@ public class Settings {
 		LEASTPAIRS, PERCENTPRUNED, CLOSESTRES, LARGESTDIFF, PERCENTLEAST
 	}
 	
+	enum VARIABLEORDER{
+		MINDOM,MAXDOM,DOM_CMED,MINFSCORE,MEDFSCORE,BYTUPLE, SEQUENTIAL;
+	}
+	
 	public static String getRunName(ParamSet sParams){
 		return ((String)sParams.getValue("RUNNAME"));
 	}
@@ -185,14 +189,19 @@ public class Settings {
 		
 	}
 	
-	public class Enum{
+	public class Enum implements Serializable{
 		
 		boolean approxMinGMEC;
 		double lambda;
 		boolean useFlagsAStar;
 		ASTARMETHOD asMethod;
+		VARIABLEORDER varOrder;
 		int numMaxMut;
 		double bestE;
+		
+		Enum(){
+			
+		}
 		
 		Enum(ParamSet sParams){
 			EnvironmentVars.useMPLP = (new Boolean((String)sParams.getValue("USEMPLP", "false"))).booleanValue(); 		//from Pablo
@@ -200,8 +209,21 @@ public class Settings {
 			lambda = (new Double((String)sParams.getValue("LAMBDA", "0"))).doubleValue();
 			useFlagsAStar = (new Boolean((String)sParams.getValue("USEFLAGSASTAR","false"))).booleanValue();
 			asMethod = ASTARMETHOD.valueOf(sParams.getValue("ASTARMETHOD","ASWCSPREORDER").toUpperCase());
+			varOrder = VARIABLEORDER.valueOf(sParams.getValue("VARORDER","MINFSCORE").toUpperCase());
 			numMaxMut = (new Integer((String)sParams.getValue("NUMMAXMUT", "1000"))).intValue();
 			bestE = (new Double((String)sParams.getValue("BESTE","10000000"))).doubleValue();
+		}
+
+		public Enum copy() {
+			Enum copy = new Enum();
+			copy.approxMinGMEC = approxMinGMEC;
+			copy.lambda = lambda;
+			copy.useFlagsAStar = useFlagsAStar;
+			copy.asMethod = asMethod;
+			copy.varOrder = varOrder;
+			copy.numMaxMut = numMaxMut;
+			copy.bestE = bestE;
+			return copy;
 		}
 		
 	}

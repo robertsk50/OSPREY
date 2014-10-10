@@ -159,7 +159,7 @@ public class MutationManager
 	private boolean saveTopConfs;
 	private boolean printTopConfs;
 	private int numTopConfs;
-	private Settings.ASTARMETHOD asMethod;
+	private Settings.Enum enumSettings;
 
 	//Variables specific to PEM computation	
 	Emat pairEMatrixMin = null;
@@ -404,7 +404,7 @@ public class MutationManager
 				cObj.epsilon = epsilon;
 				cObj.useMaxKSconfs = useMaxKSconfs;
 				cObj.numKSconfs = numKSconfs;
-				cObj.asMethod = asMethod;
+				cObj.enumSettings = enumSettings;
 				cObj.m = m;
 				cObj.deeSettings = deeSettings;
 
@@ -461,7 +461,7 @@ public class MutationManager
 					cObj.outputPruneInfo = outputPruneInfo;
 					cObj.outputConfInfo = outputConfInfo;
 					cObj.partIndex = new Index3[initDepth];
-					cObj.asMethod = asMethod;
+					cObj.enumSettings = enumSettings;
 					for (int i=0; i<initDepth; i++)
 						cObj.partIndex[i] = mutArray[curMutIndex].index[i];
 					int ctr = 0;
@@ -1258,8 +1258,8 @@ public class MutationManager
 		this.eRef = eRef;
 	}
 
-	public void setASMethod(Settings.ASTARMETHOD asMethod) {
-		this.asMethod = asMethod;
+	public void setEnumSettings(Settings.Enum enumSettings) {
+		this.enumSettings = enumSettings;
 	}
 
 	public void setDEEsettings(DEEsettings deeSettings) {

@@ -2652,7 +2652,7 @@ public class RotamerSearch implements Serializable
 			MutableResParams strandMut, boolean usingInitialBest, BigDecimal initialBest,
 			CommucObj cObj, boolean minimizeBB, boolean doBackrubs, String backrubFile,
 			SaveConfsParams saveConfsParams, int curMut,boolean useMaxKSconfs, BigInteger maxKSconfs,
-			int[] prunedStericPerPos, double Ival, Settings.ASTARMETHOD asMethod) {
+			int[] prunedStericPerPos, double Ival, Settings.Enum enumSettings) {
 
 		// A rotamer search is performed. For each residue,
 		//  every allowable rotamer is tried in combination
@@ -2763,26 +2763,11 @@ public class RotamerSearch implements Serializable
 		else*/
 		AStarResults asr = slaveMutationRotamerSearch(runNum, 0, numberMutable, strandMut, minimizeBB, 
 				doBackrubs, backrubFile,saveConfsParams, 
-				curMut,useMaxKSconfs, maxKSconfs,prunedStericPerPos, Ival,asMethod);
+				curMut,useMaxKSconfs, maxKSconfs,prunedStericPerPos, Ival,enumSettings);
 
 		// Store results to the communication object
 		if (cObj!=null){
-			/*
-			if (ligPresent) {
-				cObj.EL_searchNumConfsTotal = numConfsTotal.intValue();
-				if (allPruned) { //all of the conformations were pruned by MinDEE, as there is a residue with no remaining rotamers
-					cObj.EL_searchNumConfsPrunedByS = 0;
-					cObj.EL_searchNumPrunedMinDEE = numConfsTotal.intValue();
-					cObj.EL_searchNumConfsEvaluated = 0;
-					cObj.EL_searchNumConfsLeft = 0;
-				}
-				else {
-					cObj.EL_searchNumConfsPrunedByS = numConfsPrunedByS.intValue();
-					cObj.EL_searchNumPrunedMinDEE = numConfsPrunedByMinDEE.intValue();
-					cObj.EL_searchNumConfsEvaluated = numConfsEvaluated.intValue();
-					cObj.EL_searchNumConfsLeft = numConfsLeft.intValue();
-				}
-			} else {*/
+			
 			cObj.searchNumConfsTotal[runNum] = numConfsTotal.intValue();
 			if (allPruned) { //all of the conformations were pruned by MinDEE, as there is a residue with no remaining rotamers
 				cObj.searchNumConfsPrunedByS[runNum] = 0;
@@ -2796,28 +2781,15 @@ public class RotamerSearch implements Serializable
 				cObj.searchNumConfsEvaluated[runNum] = numConfsEvaluated.intValue();
 				cObj.searchNumConfsLeft[runNum] = numConfsLeft.intValue();
 			}
-			//}
-
-			/*if (ligPresent)
-				cObj.EL_allPruned = allPruned;
-			else*/
+			
 			cObj.allPruned[runNum] = allPruned;
 
 			// Compute q_X
-			/*if (ligPresent) {
-				cObj.q_EL = partial_q;
-				cObj.bestBoundE = (double)bestEUnMin;
-				cObj.bestBoundEMin = (double)getBestE();
-			} else {*/
 			cObj.q[runNum] = partial_q;
 			cObj.bestE[runNum] = (double)bestEUnMin;
 			cObj.bestEMin[runNum] = (double)getBestE();
-			//}
 		}
 		else {
-			/*if (ligPresent)
-				System.out.println("Statistics (bound):");
-			else*/
 			System.out.println("Statistics (unbound):");
 			System.out.println("Best Energy:  " + (double)getBestE());
 			System.out.println("partial_q: " + partial_q);
@@ -2840,7 +2812,7 @@ public class RotamerSearch implements Serializable
 			boolean doBackrubs, String backrubFile, 
 			SaveConfsParams saveConfsParams, int curMut,
 			boolean useMaxKSconfs, BigInteger maxKSconfs, int[] prunedStericByPos, double Ival,
-			Settings.ASTARMETHOD asMethod) {
+			Settings.Enum enumSettings) {
 
 
 		// If we've arrived here then we're ready to
@@ -2902,7 +2874,7 @@ public class RotamerSearch implements Serializable
 			es.gettingLowestBound = true;
 			es.lowestBound = Double.NaN;//this value will be used if no conformations are available
 			slaveRotamerSearchAStar(maxDepth, strandMut, minimizeBB, doBackrubs,
-					saveConfsParams, useMaxKSconfs, maxKSconfs,prunedStericByPos, Ival, asMethod);
+					saveConfsParams, useMaxKSconfs, maxKSconfs,prunedStericByPos, Ival, enumSettings);
 			es.gettingLowestBound = false;
 			System.out.println("Got lowest bound: "+es.lowestBound);
 		}
@@ -2913,7 +2885,7 @@ public class RotamerSearch implements Serializable
 
 			//Perform A* search: compute the partial partition function q*
 			asr = slaveRotamerSearchAStar(maxDepth, strandMut, minimizeBB, doBackrubs,
-					saveConfsParams, useMaxKSconfs, maxKSconfs,prunedStericByPos, Ival,asMethod);
+					saveConfsParams, useMaxKSconfs, maxKSconfs,prunedStericByPos, Ival,enumSettings);
 
 			System.out.println("Partition function time (ms): "+(System.currentTimeMillis()-AStarStartTime));
 
@@ -2927,7 +2899,7 @@ public class RotamerSearch implements Serializable
 	// Called by slaveMutationRotamerSearch(.)
 	private AStarResults slaveRotamerSearchAStar(int numMutable, MutableResParams strandMut, boolean minimizeBB,
 			boolean doBackrubs, SaveConfsParams saveConfsParams, boolean useMaxKSconfs, BigInteger maxKSconfs,
-			int[] prunedStericByPos, double Ival,Settings.ASTARMETHOD asMethod){
+			int[] prunedStericByPos, double Ival,Settings.Enum enumSettings){
 
 
 		if(doPerturbations)//Make sure minimizer is set properly
@@ -3021,30 +2993,20 @@ public class RotamerSearch implements Serializable
 		//				m,strandRot,strandMut);
 
 		if(MSAStarSearch == null){
-			switch(asMethod){
+			switch(enumSettings.asMethod){
 			case ORIG:
 				MSAStarSearch = new PGAStar(treeLevels, numRotForResNonPruned, arpMatrix,false,es,doPerturbations,m, strandRot, strandMut, cetm); //false = no reordering
-//				MSAStarSearch = new PGAStar(treeLevels, numRotForResNonPruned, arpMatrix,false); //false = no reordering
 				break;
 			case PGREORDER:
-				new PGAStar(treeLevels, numRotForResNonPruned, arpMatrix,true,es,doPerturbations,m, strandRot, strandMut, cetm); //false = no reordering
-//				MSAStarSearch = new PGAStar(treeLevels,numRotForResNonPruned,arpMatrix,true); //true = reordering
+			case ASGUROBI:
+			case ASGUROBIREORDER:
+			case ASWCSP:
+			case ASWCSPREORDER:
+				MSAStarSearch = new PGgurobiAStar(treeLevels,numRotForResNonPruned,arpMatrix,enumSettings.asMethod,enumSettings.varOrder,es,doPerturbations,m, strandRot, strandMut, cetm);
 				break;
 //			case MIN:
 //				MSAStarSearch = new PGgurobiMinAStar(treeLevels,numRotForResNonPruned,arpMatrix,m,arpMatrix.resByPos,a96ff,simpMin,null,doDihedE,false,false);
 //				break;
-			case ASGUROBI:
-				MSAStarSearch = new PGgurobiAStar(treeLevels,numRotForResNonPruned,arpMatrix,asMethod,es,doPerturbations,m, strandRot, strandMut, cetm);
-				break;
-			case ASGUROBIREORDER:
-				MSAStarSearch = new PGgurobiAStar(treeLevels,numRotForResNonPruned,arpMatrix,asMethod,es,doPerturbations,m, strandRot, strandMut, cetm);
-				break;
-			case ASWCSP:
-				MSAStarSearch = new PGgurobiAStar(treeLevels,numRotForResNonPruned,arpMatrix,asMethod,es,doPerturbations,m, strandRot, strandMut, cetm);
-				break;
-			case ASWCSPREORDER:
-				MSAStarSearch = new PGgurobiAStar(treeLevels,numRotForResNonPruned,arpMatrix,asMethod,es,doPerturbations,m, strandRot, strandMut, cetm);
-				break;
 //			case ASMPLP:
 //				MSAStarSearch = new PGMPLPAStar(treeLevels,numRotForResNonPruned,arpMatrix);
 //				break;
@@ -3059,7 +3021,7 @@ public class RotamerSearch implements Serializable
 				break;
 			default:
 				System.out.println("Don't Recognize AStar method... using WCSP with reordering");
-				MSAStarSearch = new PGgurobiAStar(treeLevels,numRotForResNonPruned,arpMatrix,Settings.ASTARMETHOD.ASWCSPREORDER,es,doPerturbations,m, strandRot, strandMut, cetm);
+				MSAStarSearch = new PGgurobiAStar(treeLevels,numRotForResNonPruned,arpMatrix,Settings.ASTARMETHOD.ASWCSPREORDER,Settings.VARIABLEORDER.MINFSCORE,es,doPerturbations,m, strandRot, strandMut, cetm);
 				break;
 			}
 		}
@@ -4089,7 +4051,7 @@ public class RotamerSearch implements Serializable
 			boolean searchDoMinimization,int numMutable, 
 			MutableResParams strandMut, double Ew, double bestScore, 
 			CommucObj cObj, boolean approxMinGMEC, double lambda, boolean minimizeBB, boolean useEref, 
-			boolean doBackrubs, String backrubFile, boolean useMinDEEPruningEw, double Ival,Settings.ASTARMETHOD asMethod) {
+			boolean doBackrubs, String backrubFile, boolean useMinDEEPruningEw, double Ival,Settings.Enum enumSettings) {
 
 		// A rotamer search is performed. For each residue,
 		//  every allowable rotamer is tried in combination
@@ -4164,7 +4126,7 @@ public class RotamerSearch implements Serializable
 		}
 
 		AStarResults asr = doAStarGMECHelper(numMutable, strandMut, fileName, Ew, bestScore, cObj, 
-				approxMinGMEC, lambda, minimizeBB, useEref, doBackrubs, backrubFile, useMinDEEPruningEw, Ival, asMethod);
+				approxMinGMEC, lambda, minimizeBB, useEref, doBackrubs, backrubFile, useMinDEEPruningEw, Ival, enumSettings);
 
 		if(MSAStarSearch != null){
 			MSAStarSearch.stopSlaves();
@@ -4178,7 +4140,7 @@ public class RotamerSearch implements Serializable
 	private AStarResults doAStarGMECHelper(int numMutable, MutableResParams strandMut, String fileName, 
 			double Ew, double bestScore, CommucObj cObj, 
 			boolean approxMinGMEC, double lambda, boolean minimizeBB, boolean useEref,  
-			boolean doBackrubs, String backrubFile, boolean useMinDEEPruningEw, double Ival, Settings.ASTARMETHOD asMethod){
+			boolean doBackrubs, String backrubFile, boolean useMinDEEPruningEw, double Ival, Settings.Enum enumSettings){
 
 		boolean outputFile = (fileName!=null); //output to file
 
@@ -4271,11 +4233,6 @@ public class RotamerSearch implements Serializable
 
 
 		//Get the reduced min energy matrix
-		//ReducedEnergyMatrix arpMatrixRed = arpMatrix.reduceMatrix( eliminatedRotAtPosRed,
-		//		numRotForRes, numRotForResNonPruned, treeLevels,
-		//		numTotalRotRedNonPruned, numMutable, strandMut,
-		//		numTotalRotRed, this, false, splitFlagsRed, tripleFlagsRed);
-
 		Emat arpMatrixRed = arpMatrix.unprunedMatrix();
 
 
@@ -4304,32 +4261,25 @@ public class RotamerSearch implements Serializable
 		//				m,strandRot,strandMut);
 		boolean run1 = false;
 		if(MSAStarSearch == null){
-			switch(asMethod){
+			switch(enumSettings.asMethod){
 			case ORIG:
 				MSAStarSearch = new PGAStar(treeLevels, numRotForResNonPruned, arpMatrix,false,es,doPerturbations,m, strandRot, strandMut, cetm); //false = no reordering
 				//				MSAStarSearch = new PGgurobiAStar(treeLevels, numRotForResNonPruned, arpMatrix,asMethod);
 				break;
 			case PGREORDER:
-				MSAStarSearch = new PGgurobiAStar(treeLevels,numRotForResNonPruned,arpMatrix,asMethod,es,doPerturbations,m, strandRot, strandMut, cetm); 
-				break;
-				//			case MIN:
-				//				MSAStarSearch = new PGgurobiMinAStar(treeLevels,numRotForResNonPruned,arpMatrix,m,arpMatrix.resByPos,a96ff,simpMin,arpMatrix.eRef,doDihedE,useEref,EnvironmentVars.useEntropy);
-				//				break;
 			case ASGUROBI:
-				MSAStarSearch = new PGgurobiAStar(treeLevels,numRotForResNonPruned,arpMatrix,asMethod,es,doPerturbations,m, strandRot, strandMut, cetm);
-				break;
 			case ASGUROBIREORDER:
-				MSAStarSearch = new PGgurobiAStar(treeLevels,numRotForResNonPruned,arpMatrix,asMethod,es,doPerturbations,m, strandRot, strandMut, cetm);
-				break;
 			case ASWCSP:
-				MSAStarSearch = new PGgurobiAStar(treeLevels,numRotForResNonPruned,arpMatrix,asMethod,es,doPerturbations,m, strandRot, strandMut, cetm);
-				break;
 			case ASWCSPREORDER:
-				MSAStarSearch = new PGgurobiAStar(treeLevels,numRotForResNonPruned,arpMatrix,asMethod,es,doPerturbations,m, strandRot, strandMut, cetm);
+				MSAStarSearch = new PGgurobiAStar(treeLevels,numRotForResNonPruned,arpMatrix,enumSettings.asMethod,enumSettings.varOrder,es,doPerturbations,m, strandRot, strandMut, cetm);
 				break;
-				//			case ASMPLP:
-				//				MSAStarSearch = new PGMPLPAStar(treeLevels,numRotForResNonPruned,arpMatrix);
-				//				break;
+			//			case MIN:
+			//				MSAStarSearch = new PGgurobiMinAStar(treeLevels,numRotForResNonPruned,arpMatrix,m,arpMatrix.resByPos,a96ff,simpMin,arpMatrix.eRef,doDihedE,useEref,EnvironmentVars.useEntropy);
+			//				break;
+		
+			//			case ASMPLP:
+			//				MSAStarSearch = new PGMPLPAStar(treeLevels,numRotForResNonPruned,arpMatrix);
+			//				break;
 			case BYSEQ:
 				MSAStarSearch = new PGgurobiAStarBySeq(treeLevels,numRotForResNonPruned,arpMatrix,bestScore+Ew,false);
 				break;

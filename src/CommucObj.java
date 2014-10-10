@@ -289,12 +289,12 @@ public class CommucObj implements Serializable
 		public double distCutoff;
 		public PartitionMessage[] computedPartFuns;
 		public int[] duplicateMut;
-		public Settings.ASTARMETHOD asMethod;
 		
 		//Slave Bounds Calculations
 		public boolean gurobiCalc;
 		public boolean wcspCalc;
 		public GurobiCalcInfo gurobiCalcInfo;
+		public Settings.Enum enumSettings;
 
 	CommucObj() {
 	}
