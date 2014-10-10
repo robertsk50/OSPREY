@@ -4588,7 +4588,7 @@ public class KSParser
 
 
 			}
-
+			loopNum++;
 		}
 		//KER: This is merely informative but takes a while to compute so we might want to take it out
 		emat.checkIfAllPruned(null);
@@ -8621,7 +8621,7 @@ public class KSParser
 	
 	public boolean clustersMatch(double[] cluster1, double[] cluster2, Emat emat){ 
 
-		if(cluster1 == null || cluster2 == null) //cluster1 can be null if the rotamer or pair was pruned
+		if(cluster1.length == 0 || cluster2.length == 0) //clusters can be length 0 if the rotamer or pair was pruned
 			return true;
 		
 		for(int i=0; i<cluster1.length;i++){
