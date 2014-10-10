@@ -2924,23 +2924,29 @@ class SinglesIterator implements Iterator<EMatrixEntryWIndex>{
 
 	}
 
+	// This iterator returns an iterator of all rotamers at position p.   
 	public SinglesIterator(Emat energyMat, int p){
 		pos = p;
 		emat = energyMat;
+		// 3D index for Position, AA, and rotamer.
 		curI = new int[3];
 		for(int i=0; i<curI.length;i++)
 			curI[i] = 0;
 
 		curI[0] = p;
+
 		if(emat.singles != null){
 			hasNextItem = true;
 			try{
+				// Find the first valid rotamer of a position.
 				while(emat.singles.E[curI[0]][curI[1]].length == 0){
 					curI[1]++;
 				}
 			}catch(Exception E){
-				System.out.println("DELETE ME");
+				System.out.println("An error occurred while generating rotamer iterator.  Possibly, all rotamers were pruned at residue position "+pos+".  Try increasing the pruning energy so that not all rotamers are pruned.");
 				E.printStackTrace();
+				System.exit(1);
+
 			}
 			nextItem = emat.singles.getTerm(curI);
 
@@ -2955,6 +2961,7 @@ class SinglesIterator implements Iterator<EMatrixEntryWIndex>{
 		return hasNextItem;
 	}
 
+	// Returns the next rotamer entry either pruned or unpruned. 
 	public EMatrixEntryWIndex next() {
 		int[] index = new int[curI.length];
 		for(int i=0; i<index.length;i++)
@@ -2964,7 +2971,8 @@ class SinglesIterator implements Iterator<EMatrixEntryWIndex>{
 		return ret;
 	}
 
-	public void calcNext() {
+	// Find the next rotamer; called by next function
+	private void calcNext() {
 		hasNextItem = false;
 
 		int[] ctr = curI; 
@@ -2984,6 +2992,9 @@ class SinglesIterator implements Iterator<EMatrixEntryWIndex>{
 		nextItem = emat.singles.getTerm(ctr);
 	}
 
+	// Returns the max number of rotamers, amino acids, and positions, for the current "rotamer entry"
+	// For example, if their are 4 positions, 6 amino acids at the current position and 9 rotamers at the current "amino acid",
+	// then it returns [4, 6, 9].
 	private int[] getMax(int[] ctr){
 		int[] maxes = new int[ctr.length];
 		maxes[0] = emat.singles.E.length;
