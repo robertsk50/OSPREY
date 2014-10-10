@@ -2944,8 +2944,9 @@ class SinglesIterator implements Iterator<EMatrixEntryWIndex>{
 				}
 			}catch(Exception E){
 				System.out.println("An error occurred while generating rotamer iterator.  Possibly, all rotamers were pruned at residue position "+pos+".  Try increasing the pruning energy so that not all rotamers are pruned.");
-				System.exit(1);
 				E.printStackTrace();
+				System.exit(1);
+
 			}
 			nextItem = emat.singles.getTerm(curI);
 

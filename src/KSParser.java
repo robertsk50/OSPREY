@@ -1102,13 +1102,20 @@ public class KSParser
 				
 				mp = loadMolecule(sParams, i, graphSettings.neighborList, graphSettings.distCutoff,true); //Load new molecule for curStrForMatrix
 				
-				if(rs==null || minSettings.selectPerturbations){//MH: this can happen if we just handled a special unbound-strand structure
-					rs = new RotamerSearch(m,numberMutable, strandsPresent,hElect,hVDW,hSteric,true,true,
+				//Set the allowable AAs for each AS residue
+				if(!addWT)
+					mp.strandMut.checkWT(mp.strandPresent, sParams);
+				for(int resID:mp.strandMut.allMut){
+						setAllowablesHelper(sParams, addWT, mp.m.residue[resID]);
+				}
+				
+//				if(rs==null || minSettings.selectPerturbations){//MH: this can happen if we just handled a special unbound-strand structure
+					rs = new RotamerSearch(mp.m,mp.strandMut.numMutPos(), mp.strandsPresent,hElect,hVDW,hSteric,true,true,
 							kstarSettings.epsilon,stericThresh,softStericThresh,distDepDielect,dielectConst,doDihedE,doSolvationE,solvScale,
 							softvdwMultiplier, minSettings.doPerturbations, minSettings.pertFile, minSettings.minimizePerts, false, false, es,hbonds, mp.strandMut);
 
 					rs.setupRCs(minSettings.doPerturbations);
-				}
+//				}
 
 				sParams.setValue("PERTURBATIONFILE", strandPertFile);
 
