@@ -312,11 +312,11 @@ public class CCDMinimizer {
                     //won't hit a constraint 
                      while(true) {//Can break on estminVal starting to increase, or decreasing negligibly
                         estmin = dof_base + 0.5*(estmin-dof_base);
-
+                        
                         estminValOld = estminVal;
                         estminVal = objFcn.getValForDOF(dof,estmin);
 
-                        if( estminValOld < estminVal + numTol ){//No significant improvement in the last step
+                        if( estminValOld < estminVal + numTol || (Math.abs(estmin-dof_base) < numTol) ){//No significant improvement in the last step
                             if(estminValOld<curVal)//have improvement over curVal at least
                                 x.set(dof,dof_base+2*(estmin-dof_base));
                             break;

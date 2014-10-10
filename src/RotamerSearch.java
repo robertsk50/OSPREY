@@ -1521,6 +1521,12 @@ public class RotamerSearch implements Serializable
 		}
 		else {
 			arpMatrix.setE(reWi.index, stericE);
+			if(arpMatrix.doDih()){
+				double[][] dihedrals = new double[2][0];
+				arpMatrix.setDihedrals(reWi.index,dihedrals);
+				arpMatrix.setMaxE(reWi.index,stericE);
+			}
+				
 		}
 
 		return;
