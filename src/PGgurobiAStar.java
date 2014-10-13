@@ -418,11 +418,10 @@ public class PGgurobiAStar extends AStar{
 							nextLevelNodes = pickNextLevelByDomCmed(expNode);
 							break;
 						case MINFSCORE: //choose the variable that has the max min fscore
-							nextLevelNodes = pickNextLevel(expNode);
+							nextLevelNodes = pickNextLevelByMinFscore(expNode);
 							break;
 						case MEDFSCORE: //choose the variable that has the max med fscore
-							System.out.println("MEDFSCORE Not Implemented Yet");
-							System.exit(0);
+							nextLevelNodes = pickNextLevelByMedFscore(expNode);
 							break;
 						case BYTUPLE:
 							nextLevelNodes = pickNextLevelByTuple(expNode);
@@ -474,7 +473,7 @@ public class PGgurobiAStar extends AStar{
 	// dePGQueueNode is the node at the top of the queue.  This node can be expanded to any of the levels that 
 	//	have not been assigned in its own confSofar array.  For each rotamer at each of the unassigned levels,
 	// we create a node.  Then, we calculate its fScore.
-	private PGQueueNode[] pickNextLevel(PGQueueNode dequeuedNode){		
+	private PGQueueNode[] pickNextLevelByMinFscore(PGQueueNode dequeuedNode){		
 
 		ArrayList<PGQueueNode[]> allLevelNodes = new ArrayList<PGQueueNode[]>();   
 
@@ -515,6 +514,53 @@ public class PGgurobiAStar extends AStar{
 		}
 	}
 
+	// PGC
+	// dePGQueueNode is the node at the top of the queue.  This node can be expanded to any of the levels that 
+	//	have not been assigned in its own confSofar array.  For each rotamer at each of the unassigned levels,
+	// we create a node.  Then, we calculate its fScore.
+	private PGQueueNode[] pickNextLevelByMedFscore(PGQueueNode dequeuedNode){		
+
+		ArrayList<PGQueueNode[]> allLevelNodes = new ArrayList<PGQueueNode[]>();   
+
+		int maxMedFScoreIndex = -1;
+		double maxMedFScore = Double.NEGATIVE_INFINITY;
+
+		// Iterate through all positions that have not been assigned in dequeuedNode.
+		int iterationLength = dequeuedNode.emptyLevels.size();
+		for(int iter = 0; iter < iterationLength; iter++){
+			int pos = dequeuedNode.emptyLevels.get(iter);
+			double[] fscoresAtThisLevel = new double[numNodesForLevel[pos]]; 
+			PGQueueNode curLevelPGQueueNodes[] = new PGQueueNode[numNodesForLevel[pos]];
+			// And for each rotamer at that level
+			for(int rot = 0; rot < numNodesForLevel[pos]; rot++){				
+				PGQueueNode newNode = new PGQueueNode(numTreeLevels, dequeuedNode.confSoFar, 0.0, pos, rot);  // No energy yet
+				newNode.fScore = fCompute(newNode);
+				curLevelPGQueueNodes[rot] = newNode;	
+				fscoresAtThisLevel[rot] = newNode.fScore;
+			}			
+			allLevelNodes.add(curLevelPGQueueNodes);
+
+			Arrays.sort(fscoresAtThisLevel);
+			int size = numNodesForLevel[pos];
+			double medianAtCurLevel;
+			if(size % 2 == 0)
+				medianAtCurLevel = (fscoresAtThisLevel[size/2]+fscoresAtThisLevel[(size/2)-1])/2;
+			else
+				medianAtCurLevel = fscoresAtThisLevel[size/2];
+			
+			if(medianAtCurLevel > maxMedFScore){
+				maxMedFScore = medianAtCurLevel;
+				maxMedFScoreIndex = iter;
+			}			
+		}
+		// For now return the first level.  This should work the same as the old A*.... 
+		if(!allLevelNodes.isEmpty()){
+			return allLevelNodes.get(maxMedFScoreIndex);			
+		}
+		else{
+			return null;
+		}
+	}
 
 	// PGC
 	// dePGQueueNode is the node at the top of the queue.  This node can be expanded to any of the levels that 
