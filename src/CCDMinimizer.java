@@ -302,7 +302,7 @@ public class CCDMinimizer {
                         estminValOld = estminVal;
                         estminVal = objFcn.getValForDOF(dof,estmin);
 
-                        if( !(estminVal < estminValOld) ){//No improvement in the last step
+                        if( !(estminVal < estminValOld) || (Math.abs(estmin-dof_base) < numTol) ){//No improvement in the last step
                             x.set(dof,dof_base+0.5*(estmin-dof_base));
                             break;
                         }

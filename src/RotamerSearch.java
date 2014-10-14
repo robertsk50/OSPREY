@@ -94,10 +94,6 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.math.*;
 
-import org.apache.commons.math3.genetics.MutationPolicy;
-
-import com.sun.media.sound.EmergencySoundbank;
-
 import cern.colt.matrix.DoubleMatrix1D;
 import cern.colt.matrix.linalg.Algebra;
 import cern.jet.math.Functions;
