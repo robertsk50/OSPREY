@@ -258,7 +258,7 @@ public class PGgurobiAStar extends AStar{
 				}
 				
 				//Calculate Median
-				costs.sort(doubleComparator);
+				Collections.sort(costs);//costs.sort(doubleComparator); Java7 does not have sort function
 				int size = costs.size();
 				double median;
 				if(size % 2 == 0)
