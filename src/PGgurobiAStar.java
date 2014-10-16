@@ -68,7 +68,8 @@ import java.io.*;
 import cern.colt.matrix.DoubleMatrix1D;
 
 /**
- * Written by Pablo Gainza (2004-2012)
+ * Written by Pablo Gainza (2004-2012) and Kyle Roberts (2013-2014)
+ *
  */
 
 /**
@@ -114,7 +115,7 @@ public class PGgurobiAStar extends AStar{
 	int numTopL = 0;
 
 	enum HEURISTIC{
-		AS,GUROBI,WCSP;
+		AS,GUROBI,WCSP,MPLP;
 	}
  
 	HEURISTIC heuristic = null;
@@ -130,7 +131,7 @@ public class PGgurobiAStar extends AStar{
 	private int numFS = 0; 
 	
 
-	
+	MSMPLP mpLP = null;
 	
 
 	//constructor
@@ -169,6 +170,9 @@ public class PGgurobiAStar extends AStar{
 			break;
 		case ASWCSPREORDER:
 			heuristic = HEURISTIC.WCSP;
+			break;
+		case ASMPLP:
+			heuristic = HEURISTIC.MPLP;
 			break;
 		default:
 			System.out.println("ASMethod not recognized for PGgurobiAStar");
@@ -216,11 +220,8 @@ public class PGgurobiAStar extends AStar{
 			}
 		}
 
-		/*for (int i=0; i<numTotalNodes+1; i++){
-			for (int j=0; j<numTotalNodes+1; j++){
-				pairwiseMinEnergyMatrix[i][j] = arpMatrixRed[i][j];
-			}			
-		}*/
+		if(heuristic == HEURISTIC.MPLP)
+			mpLP = new MSMPLP(numTreeLevels, numNodesForLevel, twoDTo3D,emat);
 
 		//the current expansion list
 		curExpansion = new PGExpansionQueue();
@@ -445,6 +446,8 @@ public class PGgurobiAStar extends AStar{
 //								nextLevelNodes[rot].fScore = gurobiFscore(nextLevelNodes[rot]);
 						}else if(heuristic == HEURISTIC.WCSP){
 							nextLevelNodes[rot].fScore = wcspFscore(nextLevelNodes[rot],expNode);
+						}else if(heuristic == HEURISTIC.MPLP){
+							nextLevelNodes[rot].fScore = MPLPfscore(nextLevelNodes[rot]);
 						}//Else the fScores already use the A* heuristic
 
 						if(expNode.fScore != 0 && nextLevelNodes[rot].fScore - expNode.fScore < -0.1)
@@ -467,6 +470,10 @@ public class PGgurobiAStar extends AStar{
 		outPS.println("A* returning conformation; lower bound = "+expNode.fScore+" nodes expanded: "+numExpanded+" FS terms evaluated: "+numFS);
 		
 		return expNode;
+	}
+
+	private double MPLPfscore(PGQueueNode node){
+		return mpLP.optimizeEMPLP(node.confSoFar, 100); 
 	}
 
 	// PGC

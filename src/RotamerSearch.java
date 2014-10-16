@@ -2998,6 +2998,7 @@ public class RotamerSearch implements Serializable
 			case ASGUROBIREORDER:
 			case ASWCSP:
 			case ASWCSPREORDER:
+			case ASMPLP:
 				MSAStarSearch = new PGgurobiAStar(treeLevels,numRotForResNonPruned,arpMatrix,enumSettings.asMethod,enumSettings.varOrder,es,doPerturbations,m, strandRot, strandMut, cetm);
 				break;
 //			case MIN:
@@ -4267,6 +4268,7 @@ public class RotamerSearch implements Serializable
 			case ASGUROBIREORDER:
 			case ASWCSP:
 			case ASWCSPREORDER:
+			case ASMPLP:
 				MSAStarSearch = new PGgurobiAStar(treeLevels,numRotForResNonPruned,arpMatrix,enumSettings.asMethod,enumSettings.varOrder,es,doPerturbations,m, strandRot, strandMut, cetm);
 				break;
 			//			case MIN:
