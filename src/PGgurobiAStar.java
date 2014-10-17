@@ -156,19 +156,13 @@ public class PGgurobiAStar extends AStar{
 		case ORIG:
 			heuristic = HEURISTIC.AS;
 			break;
-		case PGREORDER:
+		case ASORIG:
 			heuristic = HEURISTIC.AS;
 			break;
-		case ASGUROBI:
-			heuristic = HEURISTIC.GUROBI;
-			break;
-		case ASGUROBIREORDER:
+		case ASLP:
 			heuristic = HEURISTIC.GUROBI;
 			break;
 		case ASWCSP:
-			heuristic = HEURISTIC.WCSP;
-			break;
-		case ASWCSPREORDER:
 			heuristic = HEURISTIC.WCSP;
 			break;
 		case ASMPLP:
@@ -241,7 +235,6 @@ public class PGgurobiAStar extends AStar{
 	private void initDOMCMEDorder() {
 		double minMedianCost = Double.POSITIVE_INFINITY;
 		double[][] medianCosts = new double[numNodesForLevel.length][numNodesForLevel.length];
-		DoubleComparator doubleComparator =  new DoubleComparator();
 		for(int pos1=0; pos1<medianCosts.length;pos1++){
 			for(int pos2=pos1; pos2<medianCosts.length;pos2++){
 				Iterator<EMatrixEntryWIndex> iter;
@@ -438,12 +431,10 @@ public class PGgurobiAStar extends AStar{
 
 						//Recompute better bound when inserting
 						if(heuristic == HEURISTIC.GUROBI){
-							System.out.println("GUROBI NOT IMPLEMENTED YET...");
-							System.exit(0);
 //							if(energyTuples.size() > 0)
 //								nextLevelNodes[rot].fScore = gurobiTupleFscore(nextLevelNodes[rot], expNode);
 //							else
-//								nextLevelNodes[rot].fScore = gurobiFscore(nextLevelNodes[rot]);
+							nextLevelNodes[rot].fScore = gurobiFscore(nextLevelNodes[rot]);
 						}else if(heuristic == HEURISTIC.WCSP){
 							nextLevelNodes[rot].fScore = wcspFscore(nextLevelNodes[rot],expNode);
 						}else if(heuristic == HEURISTIC.MPLP){
@@ -472,6 +463,14 @@ public class PGgurobiAStar extends AStar{
 		return expNode;
 	}
 
+	//KER: Use gurobi LP to get a bound on the score so far
+	private double gurobiFscore(PGQueueNode node) {
+		GurobiOptimization optimizer = new GurobiOptimization(node,emat,numNodesForLevel,twoDTo3D,numTotalNodes);
+		System.out.print(".");
+		return optimizer.optimize();
+	}
+
+	//Get MPLP bound for current subproblem
 	private double MPLPfscore(PGQueueNode node){
 		return mpLP.optimizeEMPLP(node.confSoFar, 100); 
 	}
@@ -2001,14 +2000,6 @@ public class PGgurobiAStar extends AStar{
             int strResNum = r.strandResidueNumber;
             m.strand[str].residue[strResNum].flexible = false;
         }
-    }
-
-    public class DoubleComparator implements Comparator<Double>{
-    	@Override
-    	public int compare(Double d1, Double d2){
-    		return Double.compare(d1, d2);
-    	}
-
     }
     
 }

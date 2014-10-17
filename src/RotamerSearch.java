@@ -2993,11 +2993,9 @@ public class RotamerSearch implements Serializable
 			case ORIG:
 				MSAStarSearch = new PGAStar(treeLevels, numRotForResNonPruned, arpMatrix,false,es,doPerturbations,m, strandRot, strandMut, cetm); //false = no reordering
 				break;
-			case PGREORDER:
-			case ASGUROBI:
-			case ASGUROBIREORDER:
+			case ASORIG:
+			case ASLP:
 			case ASWCSP:
-			case ASWCSPREORDER:
 			case ASMPLP:
 				MSAStarSearch = new PGgurobiAStar(treeLevels,numRotForResNonPruned,arpMatrix,enumSettings.asMethod,enumSettings.varOrder,es,doPerturbations,m, strandRot, strandMut, cetm);
 				break;
@@ -3017,8 +3015,8 @@ public class RotamerSearch implements Serializable
 				MSAStarSearch = new WCSPSearch(treeLevels,numRotForResNonPruned,arpMatrix,Ival);
 				break;
 			default:
-				System.out.println("Don't Recognize AStar method... using WCSP with reordering");
-				MSAStarSearch = new PGgurobiAStar(treeLevels,numRotForResNonPruned,arpMatrix,Settings.ASTARMETHOD.ASWCSPREORDER,Settings.VARIABLEORDER.MINFSCORE,es,doPerturbations,m, strandRot, strandMut, cetm);
+				System.out.println("Don't Recognize AStar method... using ASWCSP with reordering");
+				MSAStarSearch = new PGgurobiAStar(treeLevels,numRotForResNonPruned,arpMatrix,Settings.ASTARMETHOD.ASWCSP,Settings.VARIABLEORDER.MINFSCORE,es,doPerturbations,m, strandRot, strandMut, cetm);
 				break;
 			}
 		}
@@ -4263,11 +4261,9 @@ public class RotamerSearch implements Serializable
 				MSAStarSearch = new PGAStar(treeLevels, numRotForResNonPruned, arpMatrix,false,es,doPerturbations,m, strandRot, strandMut, cetm); //false = no reordering
 				//				MSAStarSearch = new PGgurobiAStar(treeLevels, numRotForResNonPruned, arpMatrix,asMethod);
 				break;
-			case PGREORDER:
-			case ASGUROBI:
-			case ASGUROBIREORDER:
+			case ASORIG:
+			case ASLP:
 			case ASWCSP:
-			case ASWCSPREORDER:
 			case ASMPLP:
 				MSAStarSearch = new PGgurobiAStar(treeLevels,numRotForResNonPruned,arpMatrix,enumSettings.asMethod,enumSettings.varOrder,es,doPerturbations,m, strandRot, strandMut, cetm);
 				break;
@@ -4279,16 +4275,19 @@ public class RotamerSearch implements Serializable
 			//				MSAStarSearch = new PGMPLPAStar(treeLevels,numRotForResNonPruned,arpMatrix);
 			//				break;
 			case BYSEQ:
-				MSAStarSearch = new PGgurobiAStarBySeq(treeLevels,numRotForResNonPruned,arpMatrix,bestScore+Ew,false);
+				MSAStarSearch = new PGgurobiAStarBySeq(treeLevels,numRotForResNonPruned,arpMatrix,bestScore+Ew,enumSettings.varOrder);
 				break;
-			case BYSEQREORDER:
-				MSAStarSearch = new PGgurobiAStarBySeq(treeLevels,numRotForResNonPruned,arpMatrix,bestScore+Ew,true);
-				break;
+//			case BYSEQREORDER:
+//				MSAStarSearch = new PGgurobiAStarBySeq(treeLevels,numRotForResNonPruned,arpMatrix,bestScore+Ew,true);
+//				break;
 			case BYSUBROT:
 				MSAStarSearch = new PGgurobiAStarBySubRot(treeLevels,numRotForResNonPruned,arpMatrix,bestScore+Ew,m);
 				break;
 			case WCSP:
 				MSAStarSearch = new WCSPSearch(treeLevels,numRotForResNonPruned,arpMatrix,Ew);
+				break;
+			case ILP:
+				MSAStarSearch = new ILPSearch(treeLevels,numRotForResNonPruned,arpMatrix,Ew);
 				break;
 			default:
 				System.out.println("Don't Recognize AStar method... using WCSP");
