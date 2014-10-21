@@ -169,7 +169,7 @@ public class GurobiOptimization {
 	}
 
 
-	public GurobiOptimization(PGQueueNode node, Emat emat, int[] numNodesForLevel, Index3[][] twoDTo3D, int numTotalNodes){
+	public GurobiOptimization(PGQueueNode node, Emat emat, int[] numNodesForLevel, Index3[][] twoDTo3D, int numTotalNodes, int numThreads){
 		singleVars = new GRBVar[numNodesForLevel.length][1][];
 		pairVars   = new GRBVar[numNodesForLevel.length][1][][][][];
 
@@ -199,6 +199,7 @@ public class GurobiOptimization {
 
 			env   = new GRBEnv();
 			env.set( GRB.IntParam.OutputFlag, 0 );
+			env.set( GRB.IntParam.Threads, numThreads);
 			model = new GRBModel(env);
 
 

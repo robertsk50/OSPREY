@@ -4120,11 +4120,17 @@ public class RotamerSearch implements Serializable
 			return null;
 		}
 
+		long startEnum = System.currentTimeMillis();
 		AStarResults asr = doAStarGMECHelper(numMutable, strandMut, fileName, Ew, bestScore, cObj, 
 				approxMinGMEC, lambda, minimizeBB, useEref, doBackrubs, backrubFile, useMinDEEPruningEw, Ival, enumSettings);
-
+		long endEnum = System.currentTimeMillis();
+		KSParser.metrics.EnumTime += (endEnum - startEnum);
+		KSParser.metrics.totalNumConfs += asr.numConfsEvaluated;
+		
 		if(MSAStarSearch != null){
 			MSAStarSearch.stopSlaves();
+			KSParser.metrics.numExpanded += MSAStarSearch.numExpanded;
+			KSParser.metrics.totNumNodes += MSAStarSearch.curExpansion.numNodes();
 			MSAStarSearch = null;
 		}
 		return asr;
@@ -4351,8 +4357,11 @@ public class RotamerSearch implements Serializable
 				/*cObj.EL_searchNumConfsEvaluated = numConfsEvaluated.intValue();*/
 			}
 
+			long startAS = System.currentTimeMillis();
 			curNode = MSAStarSearch.doAStar(run1); //the current rotamer sequence); //the current rotamer sequence
-
+			long endAS = System.currentTimeMillis();
+			KSParser.metrics.AStime += (endAS - startAS);
+			
 			//check if the conformation is valid
 			if (curNode == null || curNode.actualConf == null){ // no valid conformations remaining
 
@@ -4361,8 +4370,8 @@ public class RotamerSearch implements Serializable
 
 				//					if(!keepAStree){
 				MSAStarSearch.stopSlaves();
-				//						KSParser.metrics.numExpanded += MSAStarSearch.numExpanded;
-				//						KSParser.metrics.totNumNodes += MSAStarSearch.curExpansion.numNodes();
+				KSParser.metrics.numExpanded += MSAStarSearch.numExpanded;
+				KSParser.metrics.totNumNodes += MSAStarSearch.curExpansion.numNodes();
 				MSAStarSearch = null;
 				//					}
 

@@ -465,7 +465,8 @@ public class PGgurobiAStar extends AStar{
 
 	//KER: Use gurobi LP to get a bound on the score so far
 	private double gurobiFscore(PGQueueNode node) {
-		GurobiOptimization optimizer = new GurobiOptimization(node,emat,numNodesForLevel,twoDTo3D,numTotalNodes);
+		int numThreads = 1;
+		GurobiOptimization optimizer = new GurobiOptimization(node,emat,numNodesForLevel,twoDTo3D,numTotalNodes,numThreads);
 		System.out.print(".");
 		return optimizer.optimize();
 	}

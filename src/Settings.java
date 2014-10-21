@@ -9,7 +9,7 @@ public class Settings {
 	}
 	
 	public enum ASTARMETHOD{
-		ORIG,ASLP,MIN,ILP,ASMPLP,BYSEQ,WCSP,BYSUBROT,ASWCSP,ASORIG
+		ORIG,ASLP,MIN,ILP,ASMPLP,BYSEQ,WCSP,BYSUBROT,ASWCSP,ASORIG	
 	}
 	
 	public enum CONTRACTMETHOD {
@@ -235,6 +235,7 @@ public class Settings {
 		boolean addWTRotsSomehow;
 		boolean addOrigRots;
 		boolean addWTRot;
+		boolean saveLatestPruned;
 		
 		Emat(ParamSet sParams, String runName, boolean doPerturbations){
 			runNameEMatrixMin = (String)(sParams.getValue("MINENERGYMATRIXNAME",runName+"minM" ));
@@ -243,6 +244,7 @@ public class Settings {
 			if(ematDir != null && !ematDir.exists()){
 				ematDir.mkdirs();
 			}
+			saveLatestPruned = (new Boolean((String)sParams.getValue("SAVELATESTPRUNED","false"))).booleanValue();
 			useEref = (new Boolean((String)sParams.getValue("USEEREF","true"))).booleanValue();
 			addWTRotsSomehow = (new Boolean((String)sParams.getValue("ADDWTROTS","false"))).booleanValue();
 			addOrigRots = false;

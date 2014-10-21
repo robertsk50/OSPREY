@@ -109,6 +109,8 @@ import mpi.MPIException;
 public class KSParser
 {
 
+	static Metrics metrics = new Metrics();
+	
 	boolean printSegID = false;
 
 	boolean hElect = true; // should hydrogens be used in electrostatic energy calculations
@@ -3940,7 +3942,7 @@ public class KSParser
 		// 1: System parameter filename (string)
 		// 2: DEE config filename (string)
 
-		long startTimeAll = System.currentTimeMillis();
+		metrics.setStartTime();
 
 		System.out.println("Performing DEE");
 
@@ -4035,6 +4037,8 @@ public class KSParser
 		//   we set a new Ew equal to minimumEnergy - lowestBount and repeat this cycle.  We
 		//   only have to do it at most twice.   
 		double interval = 0;
+		double actualLowestBound = Double.POSITIVE_INFINITY;
+		double bestScore = Double.POSITIVE_INFINITY;
 		do{
 
 			if( reload ){
@@ -4071,10 +4075,13 @@ public class KSParser
 			if((!minSettings.selectPerturbations || reload) && !mp.loadedFromCache)
 					rs.setupRCs(minSettings.doPerturbations);
 
+			long startEmat = System.currentTimeMillis();
 			System.out.print("Loading precomputed energy matrix...");
 			Emat emat = loadPairwiseEnergyMatrices(sParams,ematSettings.runNameEMatrixMin,minSettings.doMinimize,curStrForMatrix,es,mp.m, false);
 			rs.setMinMatrix(emat);
-
+			long endEmat = System.currentTimeMillis();
+			metrics.EmatTime += (endEmat-startEmat);
+			metrics.setLoopStart();
 
 			//Prune all rotamers that don't belong to the allowed position
 			emat.pruneNotAllowed(mp.m);
@@ -4147,7 +4154,9 @@ public class KSParser
 					emat, localUseMinDEEpruningEw, true,deeSettings.stericE, sParams,deeSettings.maxFullPairs,
 					deeSettings.maxDEELoopNum,deeSettings.deeSettings,rs.strandRot,mp.strandMut,rs.m,rs.doPerturbations);
 
-
+			if(ematSettings.saveLatestPruned)
+				emat.save(ematSettings.runNameEMatrixMin+"_latestPruned_COM.dat",mp.m);
+			
 
 
 			long pruneTime = System.currentTimeMillis();
@@ -4173,8 +4182,7 @@ public class KSParser
 							deeSettings.preprocPairs, deeSettings.pairSt);
 
 				else { //perform A* search to enumerate conformations
-					double bestScore = Math.pow(10,38); //for DEE/A*, the initial best score is the highest possible
-
+					
 					// 2010: A* now returns a new value for Ew.  Note that right now useMinDEEdeeSettings.pruningEw
 					//   is incompatible with the traditional usage of initEw.  This can be easily 
 					//   fixed by adding a different Ew for this method.  If A* returns an initEw of 
@@ -4208,6 +4216,8 @@ public class KSParser
 
 					
 					interval = asr.bestE - asr.lowestBound;
+					bestScore = Math.min(bestScore, asr.bestE);
+					actualLowestBound = Math.min(asr.lowestBound, actualLowestBound);
 					if(es.useEPIC){
 						//we want to raise the Ival to make sure that
 						//we have all conformations up to minE, where minE may vary a little bit from run to run
@@ -4316,14 +4326,18 @@ public class KSParser
 				System.out.println("Enumeration/DACS time: "+((stopTime-startAStarTime)/(60.0*1000.0)));
 			System.out.println("DEE execution time: "+((stopTime-startTime)/(60.0*1000.0)));
 			System.out.println("DEE done");
-			System.out.println("Total execution time: "+((stopTime-startTimeAll)/(60.0*1000.0)));
+			System.out.println("Total execution time: "+((stopTime-metrics.startTime)/(60.0*1000.0)));
 			//end of DEE section
 			/////////////////////////////////////////////////////////////
 		}
 		while(difference > 0.001 && deeSettings.useMinDEEPruningEw && minSettings.doMinimize); // 2010: if I1-I0 >0 we must repeat the cycle with the new energy 
 		// window.  This can only happen if useMinDEEdeeSettings.pruningEw is true
 		//   and not topK
+		
+		metrics.setEndTime();
 
+		metrics.trueIval = bestScore - actualLowestBound; 
+		metrics.print();
 
 	}
 
@@ -4594,10 +4608,9 @@ public class KSParser
 		emat.checkIfAllPruned(null);
 
 		long deeEnd = System.currentTimeMillis();
-		//		metrics.DEEtime += (deeEnd - deeStart);
+		metrics.DEEtime += (deeEnd - deeStart);
 
-
-		//emat.write("PEM_latestPruned_COM.dat",aaRotLib);
+		
 
 		//checkBest(sParams,rs, emat);
 	}
