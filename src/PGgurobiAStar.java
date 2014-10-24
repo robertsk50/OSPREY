@@ -96,6 +96,8 @@ public class PGgurobiAStar extends AStar{
 	//the total number of possible rotamers for the given mutation
 	private int numTotalNodes;
 
+	
+	
 	//the offset in the array index for each level
 //	private int nodeIndexOffset[] = null;
 
@@ -226,6 +228,8 @@ public class PGgurobiAStar extends AStar{
 			curConf[i] = -1;
 		}
 
+		KSParser.metrics.initASMetrics(numTreeLevels);
+		
 	}
 
 	/**
@@ -317,18 +321,32 @@ public class PGgurobiAStar extends AStar{
 		PGQueueNode expNode = null;
 		PGQueueNode newNode = null;
 
-		int countNodes = 0;
-
 		for (int i=0; i<numTreeLevels; i++){ //initialize for this run
 			curConf[i] = -1;
 		}
 
+		long numNodesStart = curExpansion.totalNodes;
+		
 		if (run1) {//if this is the first run of A*, then we need to set-up the empty head node
-			//create an empty PGQueueNode.  We do this by assigning a -1 at level 0.			
-			newNode = new PGQueueNode (numTreeLevels, curConf, Double.NEGATIVE_INFINITY, 0, -1);
-
-			//insert in the expansion list
-			curExpansion.insert(newNode);
+			//Expand nodes that only have 1 or 2 possibilities so we don't waste our time on them
+			//First count how many there are
+			int numInitialNodes = 1;
+			for(int i=0; i<numNodesForLevel.length;i++)
+				if(numNodesForLevel[i] <= 2)
+					numInitialNodes *= numNodesForLevel[i];
+			
+			int[][] confs = new int[numInitialNodes][];
+			makeConfs(0,numNodesForLevel,numTreeLevels,new ArrayList<Integer>(),confs); 
+			
+			
+			for(int i=0; i<confs.length;i++){
+				//create an empty PGQueueNode.  We do this by assigning a -1 at level 0.
+				newNode = new PGQueueNode (numTreeLevels, confs[i], Double.NEGATIVE_INFINITY,0,confs[i][0]);
+	
+				//insert in the expansion list
+				curExpansion.insert(newNode);
+			}
+			
 		}							
 
 
@@ -399,6 +417,9 @@ public class PGgurobiAStar extends AStar{
 				}
 				else {// Queue not empty, we can continue.
 
+//					long start = System.currentTimeMillis();
+//					long validateTime = 0;
+					
 					PGQueueNode[] nextLevelNodes=null;
 					//Choose the next variable (residue position to expand)
 					switch(variableOrder){
@@ -441,15 +462,24 @@ public class PGgurobiAStar extends AStar{
 							nextLevelNodes[rot].fScore = MPLPfscore(nextLevelNodes[rot]);
 						}//Else the fScores already use the A* heuristic
 
+						//Validate the current bound
+//						long validStart = System.currentTimeMillis();
+//						double actualBound = validate(nextLevelNodes[rot]);
+//						KSParser.metrics.updateASMetrics(expNode.nonEmptyLevels.size(), actualBound, nextLevelNodes[rot].fScore);
+//						long validEnd = System.currentTimeMillis();
+//						validateTime += (validEnd - validStart);
+						//End Validate
+						
 						if(expNode.fScore != 0 && nextLevelNodes[rot].fScore - expNode.fScore < -0.1)
 							System.out.println("Something went wrong with fScores");
 
 						curExpansion.insert(nextLevelNodes[rot]);	
-						countNodes++;
+						
 					}
 
-					//delete the expanded node from the queue, since it has already contributed
-					//curExpansion.delete(expNode);
+					
+					long stop = System.currentTimeMillis();
+//					KSParser.metrics.updateASTimes(expNode.nonEmptyLevels.size(), (stop-start - validateTime), nextLevelNodes.length);
 				}	
 			}
 		}
@@ -457,10 +487,53 @@ public class PGgurobiAStar extends AStar{
 		EMatrixEntryWIndex[] actualConf = getActualConf(expNode.confSoFar, emat);
 		expNode.actualConf = actualConf;
 		
-		System.out.println("Number of A* nodes inserted in the queue: "+countNodes);
+		System.out.println("Number of A* nodes inserted in the queue: "+(curExpansion.totalNodes -numNodesStart));
 		outPS.println("A* returning conformation; lower bound = "+expNode.fScore+" nodes expanded: "+numExpanded+" FS terms evaluated: "+numFS);
 		
 		return expNode;
+	}
+
+	private void makeConfs(int level, int[] numSeqForLevel, int numTreeLevels,
+			ArrayList<Integer> curConf, int[][] confs) {
+		if(curConf.size() == numTreeLevels){
+			int confNum = -1;
+			for(int i=0; i<confs.length;i++)
+				if(confs[i] == null){
+					confNum = i;
+					break;
+				}
+			
+			confs[confNum] = new int[numTreeLevels];
+			for(int i=0; i< curConf.size();i++)
+				confs[confNum][i] = curConf.get(i);
+		}else{ //Have to build the conformation
+			
+			if(numSeqForLevel[level] <= 2){
+				for(int i=0; i<numSeqForLevel[level];i++){
+					curConf.add(i);
+					makeConfs(level+1,numSeqForLevel,numTreeLevels,curConf,confs);
+					curConf.remove(curConf.size()-1);
+				}
+			}else{
+				curConf.add(-1);
+				makeConfs(level+1,numSeqForLevel,numTreeLevels,curConf,confs);
+				curConf.remove(curConf.size()-1);
+			}
+			
+			
+		}
+		
+	}
+
+	private double validate(PGQueueNode node) {
+		
+		//Solve subproblem with WCSP
+		WCSPOptimization optimizer = new WCSPOptimization(node,emat,numNodesForLevel,Double.POSITIVE_INFINITY,twoDTo3D);
+		System.out.print(".");
+		double E = optimizer.optimize(null);
+		optimizer.cleanUp();
+		
+		return E;
 	}
 
 	//KER: Use gurobi LP to get a bound on the score so far

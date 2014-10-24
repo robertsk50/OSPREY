@@ -20,6 +20,10 @@ public class Metrics {
 	double trueIval;
 	long loopStart= -1;
 	
+	//Measures of A* efficiency
+	long[] timePerLevel; 
+	double[] boundTightnessPerLevel; //Report how close the bound was to the actual solution (in percentage)
+	long[] nodesEvaluatedPerLevel;
 	
 	public void setStartTime(){
 		if(startTime == -1)
@@ -55,6 +59,30 @@ public class Metrics {
 		System.out.println("ASTotalNodes: "+totNumNodes);
 		
 	}
+	
+	public void initASMetrics(int numLevels){
+		if(timePerLevel == null){
+			timePerLevel = new long[numLevels]; 
+			boundTightnessPerLevel = new double[numLevels]; 
+			nodesEvaluatedPerLevel = new long[numLevels];
+		}
+	}
+
+	public void updateASMetrics(int curLevel, double actualBound, double fScore) {
+		if(actualBound == Double.POSITIVE_INFINITY){ //Skip these because they mess up the calculation
+			nodesEvaluatedPerLevel[curLevel]--;
+		}else{
+			boundTightnessPerLevel[curLevel] += Math.abs((fScore-actualBound) / actualBound);
+		}
+	}
+
+	public void updateASTimes(int curLevel, long time, int numNodes) {
+		timePerLevel[curLevel] += time;
+		nodesEvaluatedPerLevel[curLevel] += numNodes;
+		
+	}
+	
+	
 	
 	
 }

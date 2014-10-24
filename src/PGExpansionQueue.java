@@ -67,7 +67,8 @@ Bruce Donald, Professor of Computer Science
  */
 public class PGExpansionQueue {
 	
-	 private PriorityBlockingQueue<PGQueueNode> thequeue;
+	private PriorityBlockingQueue<PGQueueNode> thequeue;
+	long totalNodes = 0;
 	
 		//constructor
 	PGExpansionQueue () {
@@ -80,7 +81,7 @@ public class PGExpansionQueue {
 	
 	 public void insert(PGQueueNode newNode){
          thequeue.add(newNode);
-
+         totalNodes++;
 	 }
 
 	 public PGQueueNode getMin(){

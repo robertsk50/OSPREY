@@ -4149,6 +4149,8 @@ public class KSParser
 				rs.cetm = null;
 			}
 
+//			wcspUpdateEmat(mp, bestScore, emat, numRotForRes);
+			
 			runDEE(deeSettings.useFlags, minSettings.doMinimize, minSettings.minimizeBB, deeSettings.scaleInt,
 					deeSettings.initEw, deeSettings.maxIntScale, deeSettings.typeDep, deeSettings.Ival,
 					emat, localUseMinDEEpruningEw, true,deeSettings.stericE, sParams,deeSettings.maxFullPairs,
@@ -4339,6 +4341,59 @@ public class KSParser
 		metrics.trueIval = bestScore - actualLowestBound; 
 		metrics.print();
 
+	}
+
+	private double wcspUpdateEmat(MolParameters mp, double bestScore,
+			Emat emat, int[] numRotForRes) {
+		boolean WCSPupdate = true;
+		if(WCSPupdate){
+			
+//			MCSearch mcs = new MCSearch(mp.m,emat);
+//			double bestMCE = mcs.doCalculation(1000000,10);
+//			bestMCE -= emat.templ_E;
+//			
+			int[] conf = new int[emat.resByPos.size()];
+			for(int i=0; i<conf.length;i++){conf[i] = -1;}
+			PGQueueNode dummy = new PGQueueNode (emat.resByPos.size(), conf, Double.NEGATIVE_INFINITY,0,-1);
+			WCSPOptimization wcspOpt = new WCSPOptimization(dummy, emat, null, null, emat.numRotPerPos(),Double.POSITIVE_INFINITY);
+			String postprocOutFile = wcspOpt.outDir+File.separator+"postproc_"+wcspOpt.filename;
+			String[] additionalCommands = {"-z=2", "-filetodump="+postprocOutFile, "-maxarity=2","-wcsponly"};
+			wcspOpt.getBound(additionalCommands);
+//				tbOpt.optimize(additionalCommands);
+			
+//				//Print the best conformation
+//				PrintStream logPS = null; //the output file for conf info
+//				try {			
+//					FileOutputStream fileOutputStream = new FileOutputStream(outputConfInfo,true); //append file if more than 1 partition
+//					BufferedOutputStream bufferedOutputStream = new BufferedOutputStream( fileOutputStream );
+//					logPS = new PrintStream( bufferedOutputStream );
+//				}
+//				catch (Exception ex) {
+//					System.out.println("ERROR: An exception occured while opening log file");
+//				}
+//				
+//				logPS.print(1+" ");
+//				for (int i=0; i<tbOpt.bestConf.conf.length; i++){
+//					
+//					logPS.print(tbOpt.bestConf.conf[i].eme.printRes(mp.m,emat.resByPos));	
+//				}
+//
+//				logPS.print("unMinE: "+(tbOpt.bestConf.E+emat.templ_E)+" ");
+//				logPS.print("minE: "+(tbOpt.bestConf.E+emat.templ_E)+" ");
+//				logPS.println();
+//				logPS.close();
+//				//Done Printing conformation
+			
+//			double pruneE = initEw + bestMCE;
+//			tbOpt.pruneEmat(postprocOutFile, pruneE);
+//			bestScore = Math.min(bestScore, bestMCE );
+////				bestScore = Math.min(bestScore, tbOpt.bestConf.E);
+			wcspOpt.updateEmat(postprocOutFile);
+			File f = new File(postprocOutFile);
+			f.delete();
+			wcspOpt.cleanUp();
+		}
+		return bestScore;
 	}
 
 	/**

@@ -4,6 +4,8 @@ import java.util.LinkedList;
 import java.util.StringTokenizer;
 
 import gurobi.GRB;
+import gurobi.GRB.Callback;
+import gurobi.GRBCallback;
 import gurobi.GRBConstr;
 import gurobi.GRBEnv;
 import gurobi.GRBException;
@@ -35,6 +37,8 @@ public class GurobiOptimization {
 
 	int excludedConformations = 0;
 	int excludedSeqs = 0;
+	
+	GurobiCallback grbCallback;
 
 	public GurobiOptimization(Emat emat,boolean doILP) {
 		singleVars = new GRBVar[emat.singles.E.length][][];
@@ -200,8 +204,10 @@ public class GurobiOptimization {
 			env   = new GRBEnv();
 			env.set( GRB.IntParam.OutputFlag, 0 );
 			env.set( GRB.IntParam.Threads, numThreads);
+//			env.set( GRB.IntParam.Method, 1);
 			model = new GRBModel(env);
-
+//			grbCallback = new GurobiCallback(9000);
+//			model.setCallback(grbCallback);
 
 			for(int p1=0; p1<node.confSoFar.length;p1++){
 				if(node.confSoFar[p1] >= 0){ //Is not empty
@@ -818,8 +824,10 @@ public class GurobiOptimization {
 //							}
 //						}
 
-
-			return model.get(GRB.DoubleAttr.ObjVal);
+//			if(grbCallback != null && grbCallback.didAbort())
+//				return grbCallback.getObjVal();
+//			else
+				return model.get(GRB.DoubleAttr.ObjVal);
 		}catch(Exception E){
 			//			try {
 			//							model.computeIIS();

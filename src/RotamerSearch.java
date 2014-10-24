@@ -4130,7 +4130,7 @@ public class RotamerSearch implements Serializable
 		if(MSAStarSearch != null){
 			MSAStarSearch.stopSlaves();
 			KSParser.metrics.numExpanded += MSAStarSearch.numExpanded;
-			KSParser.metrics.totNumNodes += MSAStarSearch.curExpansion.numNodes();
+			KSParser.metrics.totNumNodes += MSAStarSearch.curExpansion.totalNodes;
 			MSAStarSearch = null;
 		}
 		return asr;
@@ -4371,7 +4371,7 @@ public class RotamerSearch implements Serializable
 				//					if(!keepAStree){
 				MSAStarSearch.stopSlaves();
 				KSParser.metrics.numExpanded += MSAStarSearch.numExpanded;
-				KSParser.metrics.totNumNodes += MSAStarSearch.curExpansion.numNodes();
+				KSParser.metrics.totNumNodes += MSAStarSearch.curExpansion.totalNodes;
 				MSAStarSearch = null;
 				//					}
 
