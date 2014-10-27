@@ -123,6 +123,10 @@ public class PGgurobiAStarBySeq extends AStar{
 	//array to hold sorted order of number of nodes per level
 	//Sorted in descending order
 	private Integer sortedIndicesNumSeqsForLevel[] = null;
+
+	private int numPreexpandedLevels = 0;
+
+	private int preExpandDomainSize=2;
 	
 	//constructor
 	/*
@@ -278,6 +282,8 @@ public class PGgurobiAStarBySeq extends AStar{
 				sumofcosts+= medianCosts[i][j];
 			
 			double val = (double)numNodesForLevel[i]/sumofcosts;
+			if(numNodesForLevel[i] <= preExpandDomainSize) //Force low domain nodes to be low because they will be preexpanded anyway
+				val = 0;
 			dom_cmed[i] = val;
 		}
 		
@@ -321,8 +327,10 @@ public class PGgurobiAStarBySeq extends AStar{
 			//First count how many there are
 			int numInitialNodes = 1;
 			for(int i=0; i<numSeqForLevel.length;i++)
-				if(numSeqForLevel[i] <= 2)
+				if(numSeqForLevel[i] <= preExpandDomainSize){
 					numInitialNodes *= numSeqForLevel[i];
+					numPreexpandedLevels++;
+				}
 			
 			int[][] confs = new int[numInitialNodes][];
 			makeConfs(0,numSeqForLevel,numTreeLevels,new ArrayList<Integer>(),confs); 
@@ -1028,7 +1036,7 @@ public class PGgurobiAStarBySeq extends AStar{
 		}
 		else{
 			//Sorted in descending order so we want the start from the far left for max if empty
-			levelToExpand = sortedIndicesNumSeqsForLevel[dequeuedNode.nonEmptyLevels.size()];
+			levelToExpand = sortedIndicesNumSeqsForLevel[dequeuedNode.nonEmptyLevels.size() - numPreexpandedLevels ];
 		}
 		
 		int pos = levelToExpand;
@@ -1050,7 +1058,7 @@ public class PGgurobiAStarBySeq extends AStar{
 	private PGQueueNode[] pickNextLevelSequential(PGQueueNode dequeuedNode){		
 
 		//Find the level to expand next
-		int levelToExpand=dequeuedNode.nonEmptyLevels.size();
+		int levelToExpand=dequeuedNode.emptyLevels.get(0);
 		
 		
 		int pos = levelToExpand;

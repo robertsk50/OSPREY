@@ -134,6 +134,10 @@ public class PGgurobiAStar extends AStar{
 	
 
 	MSMPLP mpLP = null;
+
+	private int numPreexpandedLevels = 0;
+
+	private int preExpandDomainSize = 2;
 	
 
 	//constructor
@@ -286,6 +290,8 @@ public class PGgurobiAStar extends AStar{
 				sumofcosts+= medianCosts[i][j];
 			
 			double val = (double)numNodesForLevel[i]/sumofcosts;
+			if(numNodesForLevel[i] <= preExpandDomainSize) //Force low domain nodes to be low because they will be preexpanded anyway
+				val = 0;
 			dom_cmed[i] = val;
 		}
 		
@@ -332,8 +338,10 @@ public class PGgurobiAStar extends AStar{
 			//First count how many there are
 			int numInitialNodes = 1;
 			for(int i=0; i<numNodesForLevel.length;i++)
-				if(numNodesForLevel[i] <= 2)
+				if(numNodesForLevel[i] <= preExpandDomainSize ){
 					numInitialNodes *= numNodesForLevel[i];
+					numPreexpandedLevels++;
+				}
 			
 			int[][] confs = new int[numInitialNodes][];
 			makeConfs(0,numNodesForLevel,numTreeLevels,new ArrayList<Integer>(),confs); 
@@ -652,11 +660,11 @@ public class PGgurobiAStar extends AStar{
 		int levelToExpand;
 		if(minFirst){
 			//Sorted in descending order so we want the start from the far right if empty
-			levelToExpand = sortedIndicesNumNodesForLevel[dequeuedNode.emptyLevels.size()-1]; 
+			levelToExpand = sortedIndicesNumNodesForLevel[dequeuedNode.emptyLevels.size()-1 ]; 
 		}
 		else{
 			//Sorted in descending order so we want the start from the far left for max if empty
-			levelToExpand = sortedIndicesNumNodesForLevel[dequeuedNode.nonEmptyLevels.size()];
+			levelToExpand = sortedIndicesNumNodesForLevel[dequeuedNode.nonEmptyLevels.size() - numPreexpandedLevels];
 		}
 		
 		int pos = levelToExpand;
@@ -678,7 +686,7 @@ public class PGgurobiAStar extends AStar{
 	private PGQueueNode[] pickNextLevelSequential(PGQueueNode dequeuedNode){		
 
 		//Find the level to expand next
-		int levelToExpand=dequeuedNode.nonEmptyLevels.size();
+		int levelToExpand=dequeuedNode.emptyLevels.get(0);
 		
 		
 		int pos = levelToExpand;
@@ -700,6 +708,7 @@ public class PGgurobiAStar extends AStar{
 	private PGQueueNode[] pickNextLevelByDomCmed(PGQueueNode dequeuedNode){		
 
 		//Find the level to expand next
+		//This assumes that all variables of domain size 1-2 that are preexpanded are to the right of this matrix.
 		int levelToExpand=dom_cmed_order[dequeuedNode.emptyLevels.size()-1];
 		
 		
