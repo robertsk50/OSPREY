@@ -2,7 +2,7 @@ import java.io.File;
 import java.io.Serializable;
 import java.math.BigInteger;
 
-public class Settings {
+public class Settings implements Serializable {
 
 	public enum DEEMETHOD {
 		GOLDSTEIN, SPLITFLAGS1, SPLITFLAGS2, MBPAIRS, FULLPAIRS
