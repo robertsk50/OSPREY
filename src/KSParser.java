@@ -3654,13 +3654,14 @@ public class KSParser
 					done = true;
 				else {
 					FullConf conf = new FullConf(numResidues);
+					int offset = 4;
 					for (int i=0; i<numResidues; i++){
-						conf.pdbNums[i] = getToken(str,2+i*4);
-						conf.AAnames[i] = getToken(str,2+i*4+1);
-						conf.rcNums[i]  = new Integer((String)getToken(str,2+i*4+2)).intValue();
-						conf.rotNums[i] = new Integer((String)getToken(str,2+i*4+3)).intValue();
+						conf.pdbNums[i] = getToken(str,2+i*offset);
+						conf.AAnames[i] = getToken(str,2+i*offset+1);
+						conf.rcNums[i]  = new Integer((String)getToken(str,2+i*offset+2)).intValue();
+						conf.rotNums[i] = new Integer((String)getToken(str,2+i*offset+3)).intValue();
 					}
-					conf.minE = new Double((String)getToken(str,numResidues*3+5)).doubleValue();
+					conf.minE = new Double((String)getToken(str,numResidues*offset+5)).doubleValue();
 					resultNum++;
 					confs.add(conf);
 				}
