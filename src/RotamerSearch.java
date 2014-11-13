@@ -2983,7 +2983,7 @@ public class RotamerSearch implements Serializable
 		Emat arpMatrixRed = arpMatrix.unprunedMatrix();
 
 		//Set-up the A* search
-		MSAStarSearch = new PGAStar(treeLevels, numRotForResNonPruned, arpMatrix,false, es, doPerturbations,m, strandRot, strandMut,cetm); //false = no reordering
+//		MSAStarSearch = new PGAStar(treeLevels, numRotForResNonPruned, arpMatrix,false, es, doPerturbations,m, strandRot, strandMut,cetm); //false = no reordering
 		//		MSAStar AStarSearch = new MSAStar(treeLevels,numRotForResNonPruned,arpMatrixRed,null,
 		//				splitFlagsRed,tripleFlagsRed,doPerturbations,es,
 		//				m,strandRot,strandMut);
@@ -3087,7 +3087,7 @@ public class RotamerSearch implements Serializable
 					outPS.print(conf[i].eme.printRes(m,arpMatrix.resByPos));
 				}
 			}
-
+			
 			for(int i=0;i<treeLevels;i++)System.out.print(conf[i]+" ");System.out.println();
 
 			//Check the energy of the conformation and compute the score if necessary
@@ -3337,6 +3337,7 @@ public class RotamerSearch implements Serializable
 				//unMin energy
 				energy[1] = calcTotalSnapshotEnergy();			
 				if(useCCD){//The ideal dihedrals are already recorded since we just reinitialized ccdMin
+					((ContSCObjFunction)ccdMin.objFcn).updateIdealDihedrals(); //The molecule has ideal values for the dihedrals now; record these
 					ccdMin.minimize();
 					energy[0] = (double)this.efunc.getEnergy();
 				}else{

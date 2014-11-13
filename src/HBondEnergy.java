@@ -2227,14 +2227,14 @@ public static double fade_energy(double energy) {
 	public void initHBNeighbors(Molecule m) {
 		if(numNeighborsHB != null)
 			return;
-		
+	
 		//get CB atoms
 		Atom[] CBatoms = new Atom[m.residue.length];
 		double[] nbRadii = new double[m.residue.length];
 		for(int i=0; i<m.residue.length;i++){
 			String resName = m.residue[i].name;
 			String nbrAtomName = "CB";
-			if(resName.equals("GLY"))
+			if(resName.endsWith("GLY"))
 				nbrAtomName = "CA";
 			for(Atom a : m.residue[i].atom){
 				if(a.name.equals(nbrAtomName)){

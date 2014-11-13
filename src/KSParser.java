@@ -1210,6 +1210,9 @@ public class KSParser
 		//Check to see if any of the strands sequences are repeated so we don't have to compute them more than once
 		checkDuplicateMutations(mutArray, mp.m);
 
+		//Check to see if all the sequences are valid, given the energy matrix
+		checkSequenceValidity(mutArray,mp.m,emat);
+		
 		MutationManager mutMan = new MutationManager(runName,mutArray,false);
 
 //		mutMan.setMutationSearch(true);
@@ -1280,6 +1283,44 @@ public class KSParser
 		}
 
 		System.out.println("DONE: K* computation");
+	}
+
+	/**
+	 * Check to make sure that all sequences in the mutArray are present
+	 * in the energy matrix. 
+	 * @param mutArray
+	 * @param m
+	 * @param emat
+	 */
+	private void checkSequenceValidity(OneMutation[] mutArray, Molecule m,
+			Emat emat) {
+		
+		ArrayList<Set<Integer>> ematAllowedPerPos = new ArrayList<Set<Integer>>();
+		for(int i=0; i<emat.resByPos.size();i++){
+			ematAllowedPerPos.add(new TreeSet<Integer>());
+		}
+		
+		
+		SinglesIterator iter = emat.singlesIterator();
+		while(iter.hasNext()){ //Innefficient, but only going through singles so not that big of a deal
+			EMatrixEntryWIndex emeWI = iter.next();
+			Residue r = m.residue[emat.resByPos.get(emeWI.pos1()).get(0)];
+			ResidueConformation rc = m.strand[r.strandNumber].rcl.getRC(emat.singles.getRot(emeWI.index)[0]); //Assuming no super rotamers
+			ematAllowedPerPos.get(emeWI.pos1()).add(rc.rot.aaType.index);
+		}
+		
+		for(OneMutation mut: mutArray){
+			for(int i=0; i<mut.resTypes.length;i++){
+				if(!ematAllowedPerPos.get(i).contains(mut.resTypes[i])){
+					Residue r = m.residue[emat.resByPos.get(i).get(0)];
+					String resName = r.rl.getAAName(mut.resTypes[i]);
+					System.err.println(resName+" was not part of the emat at position "+i+ " (PDBnum: "+r.fullName+")");
+					System.err.println("Please change your emat settings to include the residue or change your .mut file");
+					System.exit(0);
+				}
+			}
+		}
+		
 	}
 
 	/**
