@@ -1704,19 +1704,18 @@ public class Amber96ext implements ForceField, Serializable {
 		partHalfNBeval = new int[numRows][];
 		partNBeval = new int[numRows][];
 
-		for(int i=0; i<numRows;i++){
-			partHalfNonBonded[i] = new double[numColumns[i]*m.numberOfAtoms*5];
-			partNonBonded[i] = new double[numColumns[i]*m.numberOfAtoms*5];
-			// In the worst case each atom in a column of atomList is involved with
-			//  every other atom in the molecule
-			partHalfNBeval[i] = new int[numColumns[i]*m.numberOfAtoms];
-			partNBeval[i] = new int[numColumns[i]*m.numberOfAtoms];
-		}
-
 		for(int q=0;q<numRows;q++){
+			// In the worst case each atom in a column of atomList is involved with
+			//every other atom in the molecule
+			partHalfNonBonded[q] = new double[numColumns[q]*m.numberOfAtoms*NBTOff];
+			partNonBonded[q] = new double[numColumns[q]*m.numberOfAtoms*NBTOff];
+			partHalfNBeval[q] = new int[numColumns[q]*m.numberOfAtoms];
+			partNBeval[q] = new int[numColumns[q]*m.numberOfAtoms];
+			
 			int[] tempAtomList = new int[m.numberOfAtoms];
 			for(int i=0;i<numColumns[q];i++)
 				tempAtomList[atomList[q][i]] = 1;
+			
 			tempCount = 0;
 			ix5 = -NBTOff;
 			for(int i=0; i<numHalfNonBondedTerms; i++) {
@@ -1734,6 +1733,15 @@ public class Amber96ext implements ForceField, Serializable {
 					tempCount++;
 				}
 			}
+			//Reduce the Arrays
+			double[] reducedPartHalfNonBonded = new double[tempCount*NBTOff]; 
+			int [] reducedPartHalfNBeval = new int[tempCount];		
+			System.arraycopy(partHalfNonBonded[q], 0, reducedPartHalfNonBonded, 0, reducedPartHalfNonBonded.length);
+			partHalfNonBonded[q] = reducedPartHalfNonBonded;
+			
+			System.arraycopy(partHalfNBeval[q], 0, reducedPartHalfNBeval, 0, reducedPartHalfNBeval.length);
+			partHalfNBeval[q] = reducedPartHalfNBeval;
+			
 			numPartHalfNonBonded[q] = tempCount;
 
 			tempCount = 0;
@@ -1753,6 +1761,15 @@ public class Amber96ext implements ForceField, Serializable {
 					tempCount++;
 				}
 			}
+			//Reduce the Arrays
+			double[] reducedPartNonBonded = new double[tempCount*NBTOff]; 
+			int [] reducedPartNBeval = new int[tempCount];		
+			System.arraycopy(partNonBonded[q], 0, reducedPartNonBonded, 0, reducedPartNonBonded.length);
+			partNonBonded[q] = reducedPartNonBonded;
+			
+			System.arraycopy(partNBeval[q], 0, reducedPartNBeval, 0, reducedPartNBeval.length);
+			partNBeval[q] = reducedPartNBeval;
+			
 			numPartNonBonded[q] = tempCount;
 		}
 
@@ -1770,11 +1787,12 @@ public class Amber96ext implements ForceField, Serializable {
 		int atomi = 0;
 
 		numPartSolv = new int[numRows];
-		partSolv = new double[numRows][maxNumColumns*m.numberOfAtoms*SOLVOff];
-
+		partSolv = new double[numRows][];
+		
 		isSolvTermInPart = new boolean[numRows][numSolvationTerms];
 
 		for(int q=0;q<numRows;q++){
+			partSolv[q] = new double[numColumns[q]*m.numberOfAtoms*SOLVOff];
 			int[] tempAtomList = new int[m.numberOfAtoms];
 			for(int i=0;i<numColumns[q];i++)
 				tempAtomList[atomList[q][i]] = 1;
@@ -1797,6 +1815,11 @@ public class Amber96ext implements ForceField, Serializable {
 					isSolvTermInPart[q][i] = true;
 				}
 			}
+			//Reduce the Arrays
+			double[] reducedPartSolv = new double[tempCount*SOLVOff]; 
+			System.arraycopy(partSolv[q], 0, reducedPartSolv, 0, reducedPartSolv.length);
+			partSolv[q] = reducedPartSolv;
+			
 			numPartSolv[q] = tempCount;
 		}		
 	}

@@ -69,12 +69,22 @@ public class PerturbationSelector {
 
     String startingPertFile;
     boolean onlyStarting = false;
-
-
+    boolean[] allowedPertTypes;
+    
+    final static int SSNE = 2;
+    final static int SSCE = 3;
+    final static int LCA = 4;
+    final static int PF = 5;
+    final static int SHEAR = 6;
+    final static int BACKRUB = 7;
+    
+    final static int numPertTypes = 8;
+    
     //Now some parameters
 
     public PerturbationSelector(int numMut, MutableResParams strandMut, Molecule molec,
-            StrandRotamers[] strandRot, double minrmsd, String startPF, boolean onlyStart){
+            StrandRotamers[] strandRot, double minrmsd, String startPF, boolean onlyStart, 
+            boolean[] allowedPertTypes){
 
 //        addWTRot = addWTRotamers;
 
@@ -94,6 +104,7 @@ public class PerturbationSelector {
         min_rmsd = minrmsd;
         startingPertFile = startPF;
         onlyStarting = onlyStart;
+        this.allowedPertTypes = allowedPertTypes;
     }
 
 
@@ -101,11 +112,13 @@ public class PerturbationSelector {
     //and their states
     public void generatePerturbations(Molecule m){
 
-        final int numPertTypes = 8;
+        
 
         Perturbation[][] pertsByType = new Perturbation[numPertTypes][];
 
-        pertsByType[0] = new Perturbation[0];
+        //Initialize all pertsByType to length 0 in case we skip setting one or more up
+        for(int i=0; i<pertsByType.length;i++)
+        	pertsByType[i] = new Perturbation[0];
         //Not currently auto-generating partial or full structure switches
         //except in starting perturbation file (if present)
 
@@ -138,12 +151,18 @@ public class PerturbationSelector {
         }
         else {//generate other perturbations unless only using those in the starting perturbation file
             //doing discrete then continuous!
-            pertsByType[2] = Perturbation.generateAll("SSNE", m, flexMolResNum, 4);
-            pertsByType[3] = Perturbation.generateAll("SSCE", m, flexMolResNum, 4);
-            pertsByType[4] = Perturbation.generateAll("LOOP CLOSURE ADJUSTMENT", m, flexMolResNum, 3);
-            pertsByType[5] = ProlineFlip.generateAll(m, sRC);
-            pertsByType[6] = Perturbation.generateAll("SHEAR", m, flexMolResNum, 4);
-            pertsByType[7] = Perturbation.generateAll("BACKRUB", m, flexMolResNum, 3);
+            if(allowedPertTypes[SSNE])
+            	pertsByType[SSNE] = Perturbation.generateAll("SSNE", m, flexMolResNum, 4);
+            if(allowedPertTypes[SSCE])
+            	pertsByType[SSCE] = Perturbation.generateAll("SSCE", m, flexMolResNum, 4);
+            if(allowedPertTypes[LCA])
+            	pertsByType[LCA] = Perturbation.generateAll("LOOP CLOSURE ADJUSTMENT", m, flexMolResNum, 3);
+            if(allowedPertTypes[PF])
+            	pertsByType[PF] = ProlineFlip.generateAll(m, sRC);
+            if(allowedPertTypes[SHEAR])
+            	pertsByType[SHEAR] = Perturbation.generateAll("SHEAR", m, flexMolResNum, 4);
+            if(allowedPertTypes[BACKRUB])
+            	pertsByType[BACKRUB] = Perturbation.generateAll("BACKRUB", m, flexMolResNum, 3);
 
             //Copy them all into m.perts
             for(int a=0;a<numPertTypes;a++)
@@ -627,6 +646,29 @@ public class PerturbationSelector {
 
         return count;
     }
+
+
+	public static String pertTypeName(int i) {
+		switch(i){
+		case SSNE:
+			return "SSNE";
+		case SSCE:
+			return "SSCE";
+		case LCA:
+			return "LCA";
+		case PF:
+			return "PF";
+		case SHEAR:
+			return "SHEAR";
+		case BACKRUB:
+			return "BACKRUB";
+		default:
+			if(i>BACKRUB) //if 0 or 1 we expect that to fall through
+				System.out.println("Perturbation type not recognized");	
+			return "";
+		}
+		
+	}
         
    
         /* Might steric-check perturbation states (BB only) to reduce number

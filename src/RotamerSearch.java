@@ -4980,7 +4980,7 @@ public class RotamerSearch implements Serializable
 
 		double totEref = 0.0f;
 
-		for(int i=0; i<numberOfStrands;i++){
+		for(int i=0; i<strandMut.numMutPos();i++){
 			int str = strandMut.resStrand[i];
 			if(m.strand[str].isProtein){
 				int strResNum = strandMut.resStrandNum[i];

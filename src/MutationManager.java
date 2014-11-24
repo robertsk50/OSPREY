@@ -568,23 +568,61 @@ public class MutationManager
 					if(compCETM)
 						cetm.mergeIn(cObj.cetm,cObj.resMut);
 					else{
-						for(EMatrixEntrySlim re : cObj.compEE){
-							if(cObj.flagMutType.equals("SHL-AS")){
+						if(cObj.flagMutType.equals("SHL-AS")){ //Shell-AS computation
+							for(EMatrixEntrySlim re : cObj.compEE){
 								pairEMatrixMin.singles.setE(re);
 								if(re.rotDih1 != null){
 									pairEMatrixMin.singles.setMaxE(re);
 									pairEMatrixMin.singles.setDihed(re);
 								}
 							}
-							else{
-								pairEMatrixMin.pairs.setE(re);
-								if(re.rotDih1 != null){
-									pairEMatrixMin.pairs.setDihed(re);
-									pairEMatrixMin.pairs.setMaxE(re);
-								}
-
-							}
 						}
+						else{ //Pairs Computation
+							String fileName = cObj.arpFilenameMin+"_"+cObj.runParams.pos1+"_"+cObj.runParams.pos2;
+							PairMats tmpPairs = PairMats.read(fileName, cObj.doDih);
+							//Get what AAs we need to loop over
+							int p1 = cObj.runParams.pos1;
+							int p2 = cObj.runParams.pos2;
+							Integer[] AA1,AA2;
+							if(cObj.runParams.AAs1 != null)
+								AA1 = cObj.runParams.AAs1.toArray(new Integer[0]);
+							else{
+								AA1 = new Integer[tmpPairs.E[p1].length];
+								for(int i=0; i<AA1.length;i++){AA1[i] = i;}
+							}
+							if(cObj.runParams.AAs2 != null)
+								AA2 = cObj.runParams.AAs2.toArray(new Integer[0]);
+							else{
+								AA2 = new Integer[pairEMatrixMin.singles.E[p2].length];
+								for(int i=0; i<AA2.length;i++){AA2[i] = i;}
+							}
+							//Copy over all terms in tmpPairs
+							for(int a1 : AA1){
+								for(int r1=0; r1<tmpPairs.E[p1][a1].length;r1++){
+									for(int a2 : AA2){
+										for(int r2=0;r2<tmpPairs.E[p1][a1][r1][p2][a2].length;r2++){
+											if(cObj.runParams.rotamers == null || cObj.runParams.rotamers.contains(new Index3(p1,a1,r1)) ){
+												pairEMatrixMin.pairs.E[p1][a1][r1][p2][a2][r2] = tmpPairs.E[p1][a1][r1][p2][a2][r2];
+												if(cObj.doDih){
+													pairEMatrixMin.pairs.rotDih1[p1][a1][r1][p2][a2][r2] = tmpPairs.rotDih1[p1][a1][r1][p2][a2][r2];
+													pairEMatrixMin.pairs.rotDih2[p1][a1][r1][p2][a2][r2] = tmpPairs.rotDih2[p1][a1][r1][p2][a2][r2];
+													pairEMatrixMin.pairs.maxE[p1][a1][r1][p2][a2][r2] = tmpPairs.maxE[p1][a1][r1][p2][a2][r2];
+												}
+											}
+													
+										}
+									}
+								}
+							}
+							
+//								pairEMatrixMin.pairs.setE(re);
+//								if(re.rotDih1 != null){
+//									pairEMatrixMin.pairs.setDihed(re);
+//									pairEMatrixMin.pairs.setMaxE(re);
+//								}
+
+						}
+						
 					}
 				}
 			}
@@ -1271,3 +1309,4 @@ public class MutationManager
 	}
 
 }
+

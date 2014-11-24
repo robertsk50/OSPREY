@@ -3205,7 +3205,6 @@ public class KSParser
 		long stopTime = System.currentTimeMillis();
 		cObj.elapsedTime = Math.round((stopTime - startTime) / 1000.0f);
 
-
 		if(cObj.compCETM)
 			cObj.cetm = rs.cetm;
 		else{
@@ -3232,16 +3231,19 @@ public class KSParser
 					}
 				}
 				else{
-					Iterator<EMatrixEntryWIndex> iter = null;
-					if(cObj.runParams.AAs1 == null || cObj.runParams.AAs2 == null)
-						iter = minEmatrix.pairsIterator(cObj.runParams.pos1,cObj.runParams.pos2);
-					else
-						iter = minEmatrix.pairsIterator(cObj.runParams.pos1,cObj.runParams.pos2,cObj.runParams.AAs1,cObj.runParams.AAs2);
-					while(iter.hasNext()){
-						EMatrixEntryWIndex eme = iter.next();
-						if(cObj.runParams.rotamers==null || cObj.runParams.rotamers.contains(new Index3(eme.index[0],eme.index[1],eme.index[2])))
-							cObj.compEE.add(new EMatrixEntrySlim((RotamerPairEntry)eme.eme, eme.index));
-					}
+					
+					minEmatrix.pairs.write(cObj.arpFilenameMin+"_"+cObj.runParams.pos1+"_"+cObj.runParams.pos2);
+					
+//					Iterator<EMatrixEntryWIndex> iter = null;
+//					if(cObj.runParams.AAs1 == null || cObj.runParams.AAs2 == null)
+//						iter = minEmatrix.pairsIterator(cObj.runParams.pos1,cObj.runParams.pos2);
+//					else
+//						iter = minEmatrix.pairsIterator(cObj.runParams.pos1,cObj.runParams.pos2,cObj.runParams.AAs1,cObj.runParams.AAs2);
+//					while(iter.hasNext()){
+//						EMatrixEntryWIndex eme = iter.next();
+//						if(cObj.runParams.rotamers==null || cObj.runParams.rotamers.contains(new Index3(eme.index[0],eme.index[1],eme.index[2])))
+//							cObj.compEE.add(new EMatrixEntrySlim((RotamerPairEntry)eme.eme, eme.index));
+//					}
 				}
 			}
 		}
@@ -3515,7 +3517,20 @@ public class KSParser
 			if( doPerturbations && curResult>0 ){//Reload the molecule
 //				mp.m.origMol();
 				mp = loadMolecule(sParams, COMPLEX, neighborList, distCutoff,false);
-//				m = mp.m;
+				m = mp.m;
+				
+				//Reset all of the residue conformation information in the molecule
+				m.aaRotLib.loadGlobalRots(runNameEMatrixMin+"_COM.dat.aaRots");
+				if(m.genRotLib != null)
+					m.genRotLib.loadGlobalRots(runNameEMatrixMin+"_COM.dat.genRots");
+				if(doPerturbations)
+					PertFileHandler.readPertFile(pertFile, m, strandRot,true);
+				for(Strand strand : m.strand){
+					if(strand.isProtein)
+						strand.rcl.loadGlobalRCs(runNameEMatrixMin+"_COM.dat.rcl_"+strand.number, m.aaRotLib);
+					else
+						strand.rcl.loadGlobalRCs(runNameEMatrixMin+"_COM.dat.rcl_"+strand.number, m.genRotLib);
+				}
 			}
 
 
@@ -8146,7 +8161,6 @@ public class KSParser
 		boolean addWT = (new Boolean((String)sParams.getValue("ADDWT", "true"))).booleanValue();
 		if(!addWT)
 			mp.strandMut.checkWT(mp.strandPresent, sParams);
-		int molStrand = 0;
 		for (int resID: mp.strandMut.allMut){
 				setAllowablesHelper(sParams, addWT, mp.m.residue[resID]);
 		}
@@ -8162,8 +8176,15 @@ public class KSParser
 			System.err.println("ERROR: Perturbation selector can't use only starting perturbations if startingPerturbationFile is set to 'none'");
 		}
 
+		boolean[] allowedPertTypes = new boolean[PerturbationSelector.numPertTypes];
+		for(int i=0; i<allowedPertTypes.length;i++){
+			String paramName = "allow"+PerturbationSelector.pertTypeName(i);
+			allowedPertTypes[i] = new Boolean(sParams.getValue(paramName,"true"));			
+		}
+		
+		
 		PerturbationSelector ps = new PerturbationSelector(mp.strandMut.numMutPos(), mp.strandMut, 
-				mp.m,	rs.strandRot, min_rmsd, startingPertFile,onlyStarting);
+				mp.m,	rs.strandRot, min_rmsd, startingPertFile,onlyStarting, allowedPertTypes);
 
 		ps.selectPerturbations();
 		rs.removeImpossibleRCs(mp.strandMut.numMutPos(), mp.strandMut);
