@@ -2743,6 +2743,11 @@ public class KSParser
 			}
 		}
 		else{
+			//Delete partial matrices
+//			for(int p1=0; p1<mutMan.getMinEmatrix().numMutPos();p1++)
+//				for(int p2=p1+1; p2<mutMan.getMinEmatrix().numMutPos();p2++)
+//					mutMan.getMinEmatrix().pairs.delete(minEMatrixName+"_"+p1+"_"+p2);
+			//Save Full matrix
 			mutMan.getMinEmatrix().save(minEMatrixName,m);
 		}
 
@@ -3195,7 +3200,13 @@ public class KSParser
 		Emat minEmatrix = cObj.emat;
 		rs.setMinMatrix(minEmatrix);
 
-
+//		File pairEmatFile = null;
+//		try{
+//		pairEmatFile = new File(cObj.arpFilenameMin+"_"+cObj.runParams.pos1+"_"+cObj.runParams.pos2+".pairsE");
+//		}catch(Exception E){}
+//		if(pairEmatFile == null || !pairEmatFile.exists()){
+		
+		
 		//Compute the corresponding matrix entries
 		rs.simplePairwiseMutationAllRotamerSearch(cObj.strandMut,cObj.strandMut.allMut.length,cObj.doMinimization,shellRun,intraRun,
 				cObj.resMut,cObj.minimizeBB,cObj.doBackrubs,
@@ -3232,7 +3243,8 @@ public class KSParser
 				}
 				else{
 					
-					minEmatrix.pairs.write(cObj.arpFilenameMin+"_"+cObj.runParams.pos1+"_"+cObj.runParams.pos2);
+					//We just send back the matrix, since it only includes the pairs that we care about.
+//					minEmatrix.pairs.write(cObj.arpFilenameMin+"_"+cObj.runParams.pos1+"_"+cObj.runParams.pos2);
 					
 //					Iterator<EMatrixEntryWIndex> iter = null;
 //					if(cObj.runParams.AAs1 == null || cObj.runParams.AAs2 == null)
@@ -3247,11 +3259,11 @@ public class KSParser
 				}
 			}
 		}
-
+//		}
 		//KER: reset evalAtoms
 		mp.m.setAllEval(); 
 
-		cObj.emat = null;
+//		cObj.emat = null;
 		cObj.m = null;
 		outPS.print("Finished Mutation\n");
 		

@@ -98,16 +98,16 @@ public class DEEGoldsteinPierceNoIter {
 	//entries with this particular value will not be examined, as they are not allowed;
 	//note that when computing E intervals, if a steric is not allowed, (maxE-minE)=0,
 	//		so no comparison with stericE is necessary there
-	private float bigE = (float)Math.pow(10,38);
+	private double bigE = Double.POSITIVE_INFINITY;
 
 	//steric energy that determines incompatibility of a rotamer with the template
-	float stericE = bigE;
+	double stericE = bigE;
 
 	private double curEw = 0.0;	//the max allowable difference from the GMEC (checkSum<=curEw should not be pruned)
 	
 
 	//the minimum difference in the checkSum when a rotamer cannot be pruned
-	private double minDiff = -(float)Math.pow(10,30);
+	private double minDiff = -Double.POSITIVE_INFINITY;
 
 	//the rotamer library
 	//RotamerLibrary rl = null;
@@ -318,7 +318,7 @@ public class DEEGoldsteinPierceNoIter {
 			for(int i_t_rot=0; i_t_rot<pairwiseMinEnergyMatrix.singles.E[pos][i_t_aa].length;i_t_rot++){
 				
 		
-			if(pairwiseMinEnergyMatrix.getSinglePruned(pos, i_t_aa, i_t_rot)) //skip if pruned
+			if(pairwiseMinEnergyMatrix.getSinglePruned(pos, i_t_aa, i_t_rot) || (i_t_aa == i_r_aa && i_t_rot == i_r_rot)) //skip if pruned or the same rotamer
 				continue;
 
 			//If typeDependent we can set same AAs to have curEw of 0
@@ -411,7 +411,7 @@ public class DEEGoldsteinPierceNoIter {
 		}
 
 
-		if(validK && !found)	
+		if(validK && !found)	//Valid position at j, but all pairs were pruned, so we can prune the rotamer
 			minE = Double.POSITIVE_INFINITY;
 		else if(!found)
 			minE = Double.NEGATIVE_INFINITY; //KER: if there's not a valid pair then this cannot be pruned;

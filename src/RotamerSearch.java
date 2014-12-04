@@ -4400,7 +4400,8 @@ public class RotamerSearch implements Serializable
 
 			//KER: Need to calculate Types with template before we mutate anything to set the
 			//KER: nterm and cterm flags for the residues
-			a96ff.calculateTypesWithTemplates();
+			if(doMinimization) //Will only mutate residues when minimization is on
+				a96ff.calculateTypesWithTemplates();
 			//Extract the AA numbers for the current conformation and appply the corresponding AA types
 			int[] curAANums = new int[treeLevels];
 			int[] curRotNums = new int[treeLevels];
@@ -4600,10 +4601,10 @@ public class RotamerSearch implements Serializable
 					double checkminE = 0;//Check EPIC energy using real energy function
 
 					if (computeEVEnergy){
-						a96ff.calculateTypesWithTemplates();
-						a96ff.initializeCalculation();
-						a96ff.setNBEval(hElect,hVDW);
 						if (doMinimization){
+							a96ff.calculateTypesWithTemplates();
+							a96ff.initializeCalculation();
+							a96ff.setNBEval(hElect,hVDW);
 							if (!minimizeBB){
 								
 								if(useCCD){
@@ -4733,6 +4734,12 @@ public class RotamerSearch implements Serializable
 						if (doMinimization)
 							logPS.print("minBound: "+minELowerBound+" ");
 						logPS.print("bestE: "+getBestE());
+						logPS.print(" timeToConf: "+ (System.currentTimeMillis() - KSParser.metrics.loopStart)+" ");
+						logPS.print("numConfs: "+(KSParser.metrics.totalNumConfs+numConfsEvaluated.longValue()+1)+" ");
+						if(MSAStarSearch != null){
+							logPS.print("numExpanded: "+(KSParser.metrics.numExpanded + MSAStarSearch.numExpanded)+" ");
+							logPS.print("totNumNodes: "+(KSParser.metrics.totNumNodes + MSAStarSearch.curExpansion.numNodes())+" ");
+						}
 						logPS.println();
 						logPS.flush();
 					}

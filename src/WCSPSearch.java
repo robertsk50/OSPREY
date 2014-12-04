@@ -34,8 +34,11 @@ public class WCSPSearch extends AStar {
 			if(Ew > 0){
 				wcspOpt.allConfs.poll(); //Remove top conformation;
 				wcspOpt.getAllConfs(Ew,bestE);
+				System.out.println("Found "+wcspOpt.allConfs.size()+" conformations within "+Ew+" kcal/mol of the GMEC");
 			}
+			
 		}
+		
 		
 		RotConf bConf = wcspOpt.allConfs.poll();
 		if(bConf == null)

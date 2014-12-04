@@ -1,6 +1,10 @@
 import java.io.FileInputStream;
+import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.Serializable;
+import java.nio.file.FileSystem;
+import java.nio.file.FileSystems;
+import java.nio.file.Files;
 
 
 public class PairMats implements Serializable {
@@ -536,6 +540,28 @@ public class PairMats implements Serializable {
 			KSParser.outputObject(maxE,fileName+".pairsMaxE");
 			KSParser.outputObject(rotDih1,fileName+".pairsRotDih1");
 			KSParser.outputObject(rotDih2,fileName+".pairsRotDih2");
+		}
+	}
+	
+	public void delete(String fileName) {
+		try {
+			Files.deleteIfExists(FileSystems.getDefault().getPath(fileName+".pairsE"));
+			Files.deleteIfExists(FileSystems.getDefault().getPath(fileName+".pairsPruned"));
+		
+		
+		//First 6 dim are indices, last dim are rotamers
+//		KSParser.outputObject(supRot1,fileName+".pairsSupRot1");
+//		KSParser.outputObject(supRot2,fileName+".pairsSupRot2");
+		
+			if(doDih){
+				Files.deleteIfExists(FileSystems.getDefault().getPath(fileName+".pairsMaxE"));
+				Files.deleteIfExists(FileSystems.getDefault().getPath(fileName+".pairsRotDih1"));
+				Files.deleteIfExists(FileSystems.getDefault().getPath(fileName+".pairsRotDih2"));
+			}
+		
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
 		}
 	}
 

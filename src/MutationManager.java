@@ -578,8 +578,9 @@ public class MutationManager
 							}
 						}
 						else{ //Pairs Computation
-							String fileName = cObj.arpFilenameMin+"_"+cObj.runParams.pos1+"_"+cObj.runParams.pos2;
-							PairMats tmpPairs = PairMats.read(fileName, cObj.doDih);
+//							String fileName = cObj.arpFilenameMin+"_"+cObj.runParams.pos1+"_"+cObj.runParams.pos2;
+//							PairMats tmpPairs = PairMats.read(fileName, cObj.doDih);
+							PairMats tmpPairs = cObj.emat.pairs;
 							//Get what AAs we need to loop over
 							int p1 = cObj.runParams.pos1;
 							int p2 = cObj.runParams.pos2;
@@ -603,10 +604,14 @@ public class MutationManager
 										for(int r2=0;r2<tmpPairs.E[p1][a1][r1][p2][a2].length;r2++){
 											if(cObj.runParams.rotamers == null || cObj.runParams.rotamers.contains(new Index3(p1,a1,r1)) ){
 												pairEMatrixMin.pairs.E[p1][a1][r1][p2][a2][r2] = tmpPairs.E[p1][a1][r1][p2][a2][r2];
+												pairEMatrixMin.pairs.E[p2][a2][r2][p1][a1][r1] = tmpPairs.E[p1][a1][r1][p2][a2][r2]; //Set Symmetric entry
 												if(cObj.doDih){
 													pairEMatrixMin.pairs.rotDih1[p1][a1][r1][p2][a2][r2] = tmpPairs.rotDih1[p1][a1][r1][p2][a2][r2];
+													pairEMatrixMin.pairs.rotDih1[p2][a2][r2][p1][a1][r1] = tmpPairs.rotDih1[p1][a1][r1][p2][a2][r2];
 													pairEMatrixMin.pairs.rotDih2[p1][a1][r1][p2][a2][r2] = tmpPairs.rotDih2[p1][a1][r1][p2][a2][r2];
+													pairEMatrixMin.pairs.rotDih2[p2][a2][r2][p1][a1][r1] = tmpPairs.rotDih2[p1][a1][r1][p2][a2][r2];
 													pairEMatrixMin.pairs.maxE[p1][a1][r1][p2][a2][r2] = tmpPairs.maxE[p1][a1][r1][p2][a2][r2];
+													pairEMatrixMin.pairs.maxE[p2][a2][r2][p1][a1][r1] = tmpPairs.maxE[p1][a1][r1][p2][a2][r2];
 												}
 											}
 													
@@ -620,7 +625,8 @@ public class MutationManager
 //									pairEMatrixMin.pairs.setDihed(re);
 //									pairEMatrixMin.pairs.setMaxE(re);
 //								}
-
+							tmpPairs = null;
+							System.gc();
 						}
 						
 					}
