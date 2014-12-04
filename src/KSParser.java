@@ -4925,8 +4925,15 @@ public class KSParser
 		boolean addOrigRots = (new Boolean((String)sParams.getValue("ADDWTROTS", "false"))).booleanValue();
 		int totalNumMut = 0;
 		for(int i=0; i<mp.strandPresent.length; i++){
-			if(mp.strandPresent[i])
-				totalNumMut += (new Integer(KSParser.getToken(strandMutNums,i+1))).intValue();
+			if(mp.strandPresent[i]){
+				try{
+					totalNumMut += (new Integer(KSParser.getToken(strandMutNums,i+1))).intValue();
+				}catch(Exception E){
+					System.out.println("ERROR reading strandMutNums...exiting");
+					System.out.println("Please check your strandMutNums flag to make sure the number of mutations is set for each strand.");
+					System.exit(0);
+				}
+			}
 		}
 		mp.strandMut = new MutableResParams(totalNumMut,mp.m.numberOfStrands);  //taking the place of resMap and ligMap
 
