@@ -6249,7 +6249,8 @@ public class KSParser
 						return;
 
 					cObj[0] = handleKSSlave(cObj[0]); //perform computation
-					MPItoThread.Send(cObj, 0, 1, ThreadMessage.OBJECT, 0, regTag); //send back result
+					if(	! (cObj[0].gurobiCalc || cObj[0].wcspCalc)) //If we are performing a bounds calculation we don't need to send anything back
+						MPItoThread.Send(cObj, 0, 1, ThreadMessage.OBJECT, 0, regTag); //send back result
 				}
 				else { //(s.tag==updateTag), so discard
 					double c[] = new double[1];
