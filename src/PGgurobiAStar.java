@@ -398,10 +398,14 @@ public class PGgurobiAStar extends AStar{
 				if(numNodesForLevel[i] <= preExpandDomainSize ){
 					numInitialNodes *= numNodesForLevel[i];
 					numPreexpandedLevels++;
+					//Now we must remove the preExpandedLevel from the allowed levels
+					if(variableOrder.compareTo(Settings.VARIABLEORDER.HMEANSTATIC) == 0)
+						removeLevelFromHMeanStaticOrder(i);
 				}
 			
 			int[][] confs = new int[numInitialNodes][];
 			makeConfs(0,numNodesForLevel,numTreeLevels,new ArrayList<Integer>(),confs); 
+			
 			
 			
 			for(int i=0; i<confs.length;i++){
@@ -565,6 +569,22 @@ public class PGgurobiAStar extends AStar{
 		return expNode;
 	}
 
+
+	//Shifts everything after the posToRemove one to the left and then
+	//Puts the position to remove at the end
+	//Note: This is inefficient when called multiple times,
+	//but it only happens when the A* search is initialized, so it
+	//shouldn't impact things very much
+	private void removeLevelFromHMeanStaticOrder(int posToRemove) {
+		boolean pastPosToRemove = false;
+		for(int i=0; i<hmean_static_order.length;i++){
+			if(pastPosToRemove)
+				hmean_static_order[i-1] = hmean_static_order[i];
+			if(hmean_static_order[i] == posToRemove)
+				pastPosToRemove = true;
+		}
+		hmean_static_order[hmean_static_order.length-1] = posToRemove;
+	}
 
 	private void makeConfs(int level, int[] numSeqForLevel, int numTreeLevels,
 			ArrayList<Integer> curConf, int[][] confs) {
@@ -748,8 +768,9 @@ public class PGgurobiAStar extends AStar{
 	private PGQueueNode[] pickNextLevelByHmeanStatic(PGQueueNode dequeuedNode) {
 
 		//Find the level to expand next
+		//Choose the level with the max hmean score
 		//This assumes that all variables of domain size 1-2 that are preexpanded are to the right of this matrix.
-		int levelToExpand=this.hmean_static_order[dequeuedNode.emptyLevels.size()-1];
+		int levelToExpand=this.hmean_static_order[dequeuedNode.nonEmptyLevels.size()-numPreexpandedLevels];
 		
 		
 		int pos = levelToExpand;
