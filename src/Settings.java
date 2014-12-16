@@ -17,7 +17,7 @@ public class Settings implements Serializable {
 	}
 	
 	enum VARIABLEORDER{
-		MINDOM,MAXDOM,DOM_CMED,MINFSCORE,MEDFSCORE,BYTUPLE, SEQUENTIAL;
+		MINDOM,MAXDOM,DOM_CMED,HMEANSTATIC,MINFSCORE,MEDFSCORE,HMEANFSCORE,BYTUPLE, SEQUENTIAL, ;
 	}
 	
 	public static String getRunName(ParamSet sParams){

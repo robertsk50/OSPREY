@@ -92,6 +92,8 @@ public class PGgurobiAStar extends AStar{
 	//Array used to store order for med cost function ordering
 	private Integer dom_cmed_order[] = null;
 	
+	//Array used to store order for hmean cost function static ordering
+	private Integer hmean_static_order[] = null;
 	
 	//the total number of possible rotamers for the given mutation
 	private int numTotalNodes;
@@ -193,6 +195,8 @@ public class PGgurobiAStar extends AStar{
 		variableOrder = varOrder;
 		if(variableOrder.compareTo(Settings.VARIABLEORDER.DOM_CMED) == 0)
 			initDOMCMEDorder();
+		if(variableOrder.compareTo(Settings.VARIABLEORDER.HMEANSTATIC) == 0)
+			initHMeanOrder();
 
 		//Sort indices for numNodesForLevel
 		ArrayIndexComparator comparator = new ArrayIndexComparator(numNodesForLevel);
@@ -300,6 +304,59 @@ public class PGgurobiAStar extends AStar{
 		dom_cmed_order = comparator.createIndexArray();
 		//Sorts in descending order
 		Arrays.sort(dom_cmed_order,comparator);
+			
+	}
+	
+	/**
+	 * Set the variable order based on minimizing the term for all x_i= sum_{j}(hmean(cost functions of x_i, x_j))
+	 * where x_i is the variable for residue position i.
+	 */
+	private void initHMeanOrder() {
+		
+		// The hmean score for each residue.  Residues with the highest scores should be explored first.
+		double hmeanScore [] = new double[numNodesForLevel.length];
+
+		// Compute an hmean score for every residue.
+		for(int pos1=0; pos1<numNodesForLevel.length;pos1++){
+			// All residues initially have an hmean score of zero.
+			hmeanScore[pos1] =0.0;
+			for(int pos2=pos1; pos2<hmeanScore.length;pos2++){
+				Iterator<EMatrixEntryWIndex> iter;
+				if(pos1 == pos2){
+					iter = emat.singlesIterator(pos1);
+				}else{
+					iter = emat.pairsIterator(pos1, pos2);
+				}
+				
+				ArrayList<Double> costs = new ArrayList<Double>();
+				while(iter.hasNext()){
+					EMatrixEntryWIndex emeWI = iter.next();
+					if(!emeWI.eme.isPruned())
+						costs.add(emeWI.eme.minE());
+				}
+				
+				//Calculate Hmean
+				Collections.sort(costs);
+				int size = costs.size();
+				double minValue = costs.get(0);				
+				// The hmean is zero automatically if there is only one element or if the second element is equal in cost to the first.
+				double hmean = 0.0;
+				if (size > 1 && costs.get(1) != minValue){
+					for(int pair = 1; pair < size; pair++){
+						hmean += 1.0/costs.get(pair);
+					}
+					// Invert this for the actual value of the hmean.
+					hmean = 1.0/hmean;
+				}
+				hmeanScore[pos1] += hmean;
+			}	
+		}
+		
+		//Get the order
+		ArrayIndexComparator comparator = new ArrayIndexComparator(hmeanScore);
+		hmean_static_order = comparator.createIndexArray();
+		//Sorts in descending order
+		Arrays.sort(hmean_static_order,comparator);
 			
 	}
 
@@ -440,12 +497,19 @@ public class PGgurobiAStar extends AStar{
 						case DOM_CMED: //choose the variable that minimizes |dom|/median(cost functions)
 							nextLevelNodes = pickNextLevelByDomCmed(expNode);
 							break;
+						case HMEANSTATIC: // chose the next residue by the sum of hmeans of all outgoing edges 
+							nextLevelNodes = pickNextLevelByHmeanStatic(expNode);
+							break;
+						//// The following criteria are "dynamic": 
 						case MINFSCORE: //choose the variable that has the max min fscore
 							nextLevelNodes = pickNextLevelByMinFscore(expNode);
 							break;
 						case MEDFSCORE: //choose the variable that has the max med fscore
 							nextLevelNodes = pickNextLevelByMedFscore(expNode);
 							break;
+						case HMEANFSCORE: // choose the residue that has the highest harmonic mean (of all rotamers) with respect to the expanded node.
+							nextLevelNodes = pickNextLevelByHmeanFscore(expNode);
+							break;						
 						case BYTUPLE:
 							nextLevelNodes = pickNextLevelByTuple(expNode);
 							break;
@@ -500,6 +564,7 @@ public class PGgurobiAStar extends AStar{
 		
 		return expNode;
 	}
+
 
 	private void makeConfs(int level, int[] numSeqForLevel, int numTreeLevels,
 			ArrayList<Integer> curConf, int[][] confs) {
@@ -679,6 +744,82 @@ public class PGgurobiAStar extends AStar{
 		return curLevelPGQueueNodes;
 	}
 
+	// Picks the next level by the sum of the harmonic means of residue pair energies.
+	private PGQueueNode[] pickNextLevelByHmeanStatic(PGQueueNode dequeuedNode) {
+
+		//Find the level to expand next
+		//This assumes that all variables of domain size 1-2 that are preexpanded are to the right of this matrix.
+		int levelToExpand=this.hmean_static_order[dequeuedNode.emptyLevels.size()-1];
+		
+		
+		int pos = levelToExpand;
+		PGQueueNode curLevelPGQueueNodes[] = new PGQueueNode[numNodesForLevel[pos]];
+		// And for each rotamer at that level
+		for(int rot = 0; rot < numNodesForLevel[pos]; rot++){				
+			PGQueueNode newNode = new PGQueueNode(numTreeLevels, dequeuedNode.confSoFar, 0.0, pos, rot);  // No energy yet
+			newNode.fScore = fCompute(newNode);
+			curLevelPGQueueNodes[rot] = newNode;	
+		}			
+			
+		return curLevelPGQueueNodes;
+	}
+	
+	// Pick the next level dynamically by the highest harmonic mean fscore.
+	// dePGQueueNode is the node at the top of the queue.  This node can be expanded to any of the levels that 
+	//	have not been assigned in its own confSofar array.  For each rotamer at each of the unassigned levels,
+	// we create a node.  Then, we calculate its fScore.
+	private PGQueueNode[] pickNextLevelByHmeanFscore(PGQueueNode dequeuedNode) {
+		ArrayList<PGQueueNode[]> allLevelNodes = new ArrayList<PGQueueNode[]>();
+
+		// The index and value of the unassigned residue with the highest hmean fscore. 
+		int maxHmeanFScoreIndex = -1;
+		double maxHmeanFScore = Double.NEGATIVE_INFINITY;
+
+		// Iterate through all residues that have not been assigned in the partial conformation of dequeuedNode.
+		int iterationLength = dequeuedNode.emptyLevels.size();
+		for(int iter = 0; iter < iterationLength; iter++){
+			// pos: the actual residue index.
+			int pos = dequeuedNode.emptyLevels.get(iter);
+			// Initially  the hmean is zero; it will only be changed for this residue if the minimum fScore for all rotamers is higher than dequeueNode.fScore 
+			double hmeanAtThisLevel = 0.0;
+			// We store all expanded nodes.
+			PGQueueNode curLevelPGQueueNodes[] = new PGQueueNode[numNodesForLevel[pos]];
+			// We store the sum of the inverses of each fscore, which is equal to 1/hmean
+			double inverseSumHmean = 0.0;
+			boolean hmeanIsZero = false; // A flag, in case the minimum fScore is equal to dequeueNode.fScore
+			// Go through each rotamer at this residue
+			for(int rot = 0; rot < numNodesForLevel[pos]; rot++){				
+				PGQueueNode newNode = new PGQueueNode(numTreeLevels, dequeuedNode.confSoFar, 0.0, pos, rot);  // No energy yet
+				// Compute an fscore for pos 
+				newNode.fScore = fCompute(newNode);
+				curLevelPGQueueNodes[rot] = newNode;
+				// To normalize the hmean, which requires only positive values, we substract the parent's fscore,
+				if(newNode.fScore > dequeuedNode.fScore){
+					inverseSumHmean += 1.0/(newNode.fScore - dequeuedNode.fScore);
+				}
+				else{ // If one of the values is equal to the fScore, then the hmean will be zero.
+					hmeanIsZero = true;
+				}
+			}			
+			allLevelNodes.add(curLevelPGQueueNodes);
+			if(!hmeanIsZero){
+				hmeanAtThisLevel = 1.0/inverseSumHmean;
+			}
+
+			// Store the highest hmean and its index.
+			if(hmeanAtThisLevel > maxHmeanFScore){
+				maxHmeanFScore = hmeanAtThisLevel;
+				maxHmeanFScoreIndex = iter;
+			}			
+		}
+		// For now return the first level.  This should work the same as the old A*.... 
+		if(!allLevelNodes.isEmpty()){
+			return allLevelNodes.get(maxHmeanFScoreIndex);			
+		}
+		else{
+			return null;
+		}
+	}
 	// PGC
 	// dePGQueueNode is the node at the top of the queue.  This node can be expanded to any of the levels that 
 	//	have not been assigned in its own confSofar array.  For each rotamer at each of the unassigned levels,
