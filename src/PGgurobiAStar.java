@@ -82,6 +82,8 @@ public class PGgurobiAStar extends AStar{
 	//number of residues under consideration
 //	private int numTreeLevels;
 
+	static final boolean debug = false;
+	
 	//number of rotamers possible for each residue (given by the assigned AA type)
 	private int numNodesForLevel[] = null;
 
@@ -128,8 +130,7 @@ public class PGgurobiAStar extends AStar{
 	Molecule m;
 	StrandRotamers[] strandRot;
 	MutableResParams strandMut;
-	EPICSettings es;
-	CETMatrix CETM;
+	
 	boolean doPerturbations;
 
 	private int numFS = 0; 
@@ -139,7 +140,7 @@ public class PGgurobiAStar extends AStar{
 
 	private int numPreexpandedLevels = 0;
 
-	private int preExpandDomainSize = 2;
+	private int preExpandDomainSize = 1;
 	
 
 	//constructor
@@ -341,12 +342,13 @@ public class PGgurobiAStar extends AStar{
 				double minValue = costs.get(0);				
 				// The hmean is zero automatically if there is only one element or if the second element is equal in cost to the first.
 				double hmean = 0.0;
-				if (size > 1 && costs.get(1) != minValue){
+				if (size > 1 && costs.get(1) > minValue){
 					for(int pair = 1; pair < size; pair++){
-						hmean += 1.0/costs.get(pair);
+                                                // Substract the min value from each cost.  
+						hmean += 1.0/(costs.get(pair)-minValue);
 					}
-					// Invert this for the actual value of the hmean.
-					hmean = 1.0/hmean;
+					// Invert this for the actual value of the hmean.  We use size-1 because we don't include the min value.
+					hmean = (size-1)/hmean;
 				}
 				hmeanScore[pos1] += hmean;
 			}	
@@ -377,6 +379,14 @@ public class PGgurobiAStar extends AStar{
 	 */
 	public PGQueueNode doAStar (boolean run1){
 
+		//We are messing with the molecule so save what is flexible
+		boolean[] flexible = null;
+		if(es.useSVE){
+			flexible = new boolean[m.residue.length];
+			for(int i=0; i<m.residue.length;i++)
+				flexible[i] = m.residue[i].flexible;
+		}
+		
 		int curLevelNum = 0;
 		double hScore;
 		double gScore;
@@ -411,7 +421,7 @@ public class PGgurobiAStar extends AStar{
 			for(int i=0; i<confs.length;i++){
 				//create an empty PGQueueNode.  We do this by assigning a -1 at level 0.
 				newNode = new PGQueueNode (numTreeLevels, confs[i], Double.NEGATIVE_INFINITY,0,confs[i][0]);
-	
+				newNode.fScore = fCompute(newNode);
 				//insert in the expansion list
 				curExpansion.insert(newNode);
 			}
@@ -476,7 +486,7 @@ public class PGgurobiAStar extends AStar{
 					double finalScore = fCompute(expNode);
 
 					if(finalScore != retConfE){
-						System.out.println("Fscore: "+retConfE +"  Gscore: "+finalScore);
+						System.out.println("\nFscore: "+retConfE +"  Gscore: "+finalScore);
 						expNode.fScore = finalScore;
 						curExpansion.insert(expNode);
 					}
@@ -486,8 +496,8 @@ public class PGgurobiAStar extends AStar{
 				}
 				else {// Queue not empty, we can continue.
 
-//					long start = System.currentTimeMillis();
-//					long validateTime = 0;
+					long start = System.currentTimeMillis();
+					long validateTime = 0;
 					
 					PGQueueNode[] nextLevelNodes=null;
 					//Choose the next variable (residue position to expand)
@@ -546,6 +556,12 @@ public class PGgurobiAStar extends AStar{
 //						validateTime += (validEnd - validStart);
 						//End Validate
 						
+						//Print bound if it's the root node
+//						if(expNode.fScore == Double.NEGATIVE_INFINITY){
+//							System.out.println("First Bound and GMEC: "+nextLevelNodes[rot].fScore+" "+actualBound);
+//							System.exit(0);
+//						}
+						
 						if(expNode.fScore != 0 && nextLevelNodes[rot].fScore - expNode.fScore < -0.1)
 							System.out.println("Something went wrong with fScores");
 
@@ -554,7 +570,7 @@ public class PGgurobiAStar extends AStar{
 					}
 
 					
-					long stop = System.currentTimeMillis();
+//					long stop = System.currentTimeMillis();
 //					KSParser.metrics.updateASTimes(expNode.nonEmptyLevels.size(), (stop-start - validateTime), nextLevelNodes.length);
 				}	
 			}
@@ -565,6 +581,14 @@ public class PGgurobiAStar extends AStar{
 		
 		System.out.println("Number of A* nodes inserted in the queue: "+(curExpansion.totalNodes -numNodesStart));
 		outPS.println("A* returning conformation; lower bound = "+expNode.fScore+" nodes expanded: "+numExpanded+" FS terms evaluated: "+numFS);
+		
+		//If we used epic and messed with the molecule we need to fix the molecule
+		if(es.useEPIC && es.useSVE){
+			for(int i=0; i<m.residue.length;i++)
+				m.residue[i].flexible = flexible[i]; 
+			m.updateCoordinates();//restore the actualCoordinates array to the initial values
+			m.revertPertParamsToCurState();
+		}
 		
 		return expNode;
 	}
@@ -601,7 +625,7 @@ public class PGgurobiAStar extends AStar{
 				confs[confNum][i] = curConf.get(i);
 		}else{ //Have to build the conformation
 			
-			if(numSeqForLevel[level] <= 2){
+			if(numSeqForLevel[level] <= preExpandDomainSize){
 				for(int i=0; i<numSeqForLevel[level];i++){
 					curConf.add(i);
 					makeConfs(level+1,numSeqForLevel,numTreeLevels,curConf,confs);
@@ -622,7 +646,7 @@ public class PGgurobiAStar extends AStar{
 		
 		//Solve subproblem with WCSP
 		WCSPOptimization optimizer = new WCSPOptimization(node,emat,numNodesForLevel,Double.POSITIVE_INFINITY,twoDTo3D);
-		System.out.print(".");
+//		System.out.print(".");
 		double E = optimizer.optimize(null);
 		optimizer.cleanUp();
 		
@@ -633,7 +657,7 @@ public class PGgurobiAStar extends AStar{
 	private double gurobiFscore(PGQueueNode node) {
 		int numThreads = 1;
 		GurobiOptimization optimizer = new GurobiOptimization(node,emat,numNodesForLevel,twoDTo3D,numTotalNodes,numThreads);
-		System.out.print(".");
+//		System.out.print(".");
 		return optimizer.optimize();
 	}
 
@@ -824,7 +848,7 @@ public class PGgurobiAStar extends AStar{
 			}			
 			allLevelNodes.add(curLevelPGQueueNodes);
 			if(!hmeanIsZero){
-				hmeanAtThisLevel = 1.0/inverseSumHmean;
+				hmeanAtThisLevel = numNodesForLevel[pos]/inverseSumHmean;
 			}
 
 			// Store the highest hmean and its index.
@@ -1082,11 +1106,11 @@ public class PGgurobiAStar extends AStar{
 	//KER: Use wcsp to get a bound on the score so far
 	private double wcspFscore(PGQueueNode node,PGQueueNode parent) {
 		WCSPOptimization optimizer = new WCSPOptimization(node,emat,numNodesForLevel,Double.POSITIVE_INFINITY,twoDTo3D);
-		System.out.print(".");
+//		System.out.print(".");
 		//double E =optimizer.optimize(null);
 		double E = optimizer.getBound(null);
 		optimizer.cleanUp();
-		if(E < parent.fScore)
+		if(E < parent.fScore && !es.useEPIC)
 			E = parent.fScore;
 		return E;
 
@@ -2076,7 +2100,8 @@ public class PGgurobiAStar extends AStar{
             return Double.POSITIVE_INFINITY;
         
         double LSBE = of.getValue( optDOFs );
-        System.out.println("LSBE: "+LSBE+" Fscore: "+expNode.fScore);
+        if(debug)
+        	System.out.println("LSBE: "+LSBE+" Fscore: "+expNode.fScore);
         
         if(es.useSVE){
             //cof minimized m...revert to unminimized state
@@ -2209,12 +2234,14 @@ public class PGgurobiAStar extends AStar{
             
             
             //For Debugging, so delete for increased speed
-            Residue r = m.residue[emat.resByPos.get(re.pos).get(0)];
-            Rotamer rot = m.strand[r.strandNumber].rcl.getRC(re.r.rotamers[0]).rot;
-            int aaInd1 = rot.aaType.index;
-            int rotInd1 = rot.aaIndex; 
-			System.out.print(re.pos+"_"+aaInd1+"_"+rotInd1+",");
-			
+            if(debug){
+	            Residue r = m.residue[emat.resByPos.get(re.pos).get(0)];
+	            ResidueConformation rc = m.strand[r.strandNumber].rcl.getRC(re.r.rotamers[0]);
+	            Rotamer rot = rc.rot;
+	            int aaInd1 = rot.aaType.index;
+	            int rotInd1 = rot.aaIndex; 
+				System.out.print(rc.id+","); //"_"+re.pos+"_"+aaInd1+"_"+rotInd1+",");
+            }
             
             //fill in curAANum while we're at it
 //            curAANum[m.strand[str].residue[strResNum].moleculeResidueNumber] = AANums[i];

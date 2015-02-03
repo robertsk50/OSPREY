@@ -788,7 +788,10 @@ public class Molecule implements Serializable{
 	public void addResidue(int strandNumber, Residue newResidue, boolean updateBonds){
 
 		//KER: assign handedness of the amino acid
-		newResidue.assignHandedness();
+		//Hard Code to Skip Folate
+		//TODO: Make the skip more general for all non-amino acids
+		if(!newResidue.name.equalsIgnoreCase("FOL"))
+			newResidue.assignHandedness();
 
 		if (strandNumber>=numberOfStrands){
 			addStrand();

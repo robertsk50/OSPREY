@@ -3487,25 +3487,35 @@ public class KSParser
 				strandRot[i] = new StrandRotamers(m.rotLibForStrand(i),m.strand[i]);
 		}
 		
-		//Load rotamer and residue conformation libraries
-		String runNameEMatrixMin = (String)(sParams.getValue("MINENERGYMATRIXNAME",runName+"minM" ));
+		
+		//Emat Settings (used for eref matrix)
+		Settings settings = new Settings();
+		Settings.Minimization minSettings = settings.new Minimization(sParams);
+		Settings.Emat ematSettings = settings.new Emat(sParams, runName, minSettings.doPerturbations);
+		
 		
 		//TODO: Right now I just check to see if an expanded matrix exists and then use it if it does
 		//It might be better to have the user denote the expanded matrix somehow instead of just blindly using it
-		File expandedRCfile = new File(runNameEMatrixMin+"_expanded_COM.dat.rcl_0");
+		File expandedRCfile = new File(ematSettings.runNameEMatrixMin+"_expanded_COM.dat.rcl_0");
 		if(expandedRCfile.exists())
-			runNameEMatrixMin = runNameEMatrixMin+"_expanded";
+			ematSettings.runNameEMatrixMin = ematSettings.runNameEMatrixMin+"_expanded";
 		
-		m.aaRotLib.loadGlobalRots(runNameEMatrixMin+"_COM.dat.aaRots");
+		HashMap<String,double[]> eRef = null;
+		if(ematSettings.useEref){
+			eRef = Emat.loadErefMatrix(ematSettings.runNameEMatrixMin+"_COM.dat.eref");
+		}
+		
+		//Load rotamer and residue conformation libraries
+		m.aaRotLib.loadGlobalRots(ematSettings.runNameEMatrixMin+"_COM.dat.aaRots");
 		if(m.genRotLib != null)
-			m.genRotLib.loadGlobalRots(runNameEMatrixMin+"_COM.dat.genRots");
+			m.genRotLib.loadGlobalRots(ematSettings.runNameEMatrixMin+"_COM.dat.genRots");
 		if(doPerturbations)
 			PertFileHandler.readPertFile(pertFile, m, strandRot,true);
 		for(Strand strand : m.strand){
 			if(strand.isProtein)
-				strand.rcl.loadGlobalRCs(runNameEMatrixMin+"_COM.dat.rcl_"+strand.number, m.aaRotLib);
+				strand.rcl.loadGlobalRCs(ematSettings.runNameEMatrixMin+"_COM.dat.rcl_"+strand.number, m.aaRotLib);
 			else
-				strand.rcl.loadGlobalRCs(runNameEMatrixMin+"_COM.dat.rcl_"+strand.number, m.genRotLib);
+				strand.rcl.loadGlobalRCs(ematSettings.runNameEMatrixMin+"_COM.dat.rcl_"+strand.number, m.genRotLib);
 		}
 		
 		int numResidues = numberMutable;
@@ -3532,16 +3542,16 @@ public class KSParser
 				m = mp.m;
 				
 				//Reset all of the residue conformation information in the molecule
-				m.aaRotLib.loadGlobalRots(runNameEMatrixMin+"_COM.dat.aaRots");
+				m.aaRotLib.loadGlobalRots(ematSettings.runNameEMatrixMin+"_COM.dat.aaRots");
 				if(m.genRotLib != null)
-					m.genRotLib.loadGlobalRots(runNameEMatrixMin+"_COM.dat.genRots");
+					m.genRotLib.loadGlobalRots(ematSettings.runNameEMatrixMin+"_COM.dat.genRots");
 				if(doPerturbations)
 					PertFileHandler.readPertFile(pertFile, m, strandRot,true);
 				for(Strand strand : m.strand){
 					if(strand.isProtein)
-						strand.rcl.loadGlobalRCs(runNameEMatrixMin+"_COM.dat.rcl_"+strand.number, m.aaRotLib);
+						strand.rcl.loadGlobalRCs(ematSettings.runNameEMatrixMin+"_COM.dat.rcl_"+strand.number, m.aaRotLib);
 					else
-						strand.rcl.loadGlobalRCs(runNameEMatrixMin+"_COM.dat.rcl_"+strand.number, m.genRotLib);
+						strand.rcl.loadGlobalRCs(ematSettings.runNameEMatrixMin+"_COM.dat.rcl_"+strand.number, m.genRotLib);
 				}
 			}
 
@@ -3647,6 +3657,15 @@ public class KSParser
 				m.backupAtomCoord();	
 
 			double unMinE[] = a96ff.calculateTotalEnergy(m.actualCoordinates,-1); //the energy before minimization
+			double totEref = 0;
+			double totEntropy = 0;
+			if (ematSettings.useEref)
+				totEref = getTotSeqEref(eRef,confs.get(curResult),mp.m);
+			if (EnvironmentVars.useEntropy)
+				totEntropy = getTotSeqEntropy(confs.get(curResult).AAnames,strandMut,mp.m);
+
+			unMinE[0] -= (totEref - totEntropy);
+			
 			if (outputPDB){ //save molecule
 				String fName = runName;
 				String filename = String.format("pdbs/%1$s_%2$03d_unmin.pdb",fName,numSaved);
@@ -3676,6 +3695,8 @@ public class KSParser
 			 */
 			double minE[] = { ef.getEnergy() };
 
+			minE[0] -= (totEref - totEntropy);
+			
 			if (outputPDB){ //save molecule
 				String fName = runName;
 				String filename = String.format("pdbs/%1$s_%2$03d_min.pdb",fName,numSaved);
@@ -4274,7 +4295,7 @@ public class KSParser
 								mp.strandMut.numMutPos(),mp.strandMut,deeSettings.initEw,
 								bestScore,null,enumSettings.approxMinGMEC,enumSettings.lambda,minSettings.minimizeBB,
 								ematSettings.useEref,minSettings.doBackrubs,minSettings.backrubFile,
-								localUseMinDEEpruningEw, deeSettings.Ival,enumSettings);
+								localUseMinDEEpruningEw, deeSettings.Ival,enumSettings,outputSettings);
 
 						rs.es.gettingLowestBound = false;
 					}
@@ -4283,7 +4304,7 @@ public class KSParser
 							mp.strandMut.allMut.length,mp.strandMut,deeSettings.initEw,
 							bestScore,null,enumSettings.approxMinGMEC,enumSettings.lambda,minSettings.minimizeBB,
 							ematSettings.useEref,minSettings.doBackrubs,minSettings.backrubFile,
-							localUseMinDEEpruningEw, deeSettings.Ival,enumSettings);
+							localUseMinDEEpruningEw, deeSettings.Ival,enumSettings,outputSettings);
 
 					
 					interval = asr.bestE - asr.lowestBound;
@@ -5176,7 +5197,7 @@ public class KSParser
 					//Do the rotamer search
 					rs.doAStarGMEC(outputConfInfo,true,doMinimize,numMutable,strandMut,
 							initEw,bestScore,null,approxMinGMEC,lambda,minimizeBB,useEref,doBackrubs,
-							backrubFile, false, 0.0,enumSettings);
+							backrubFile, false, 0.0,enumSettings,null);
 
 					numEvaluatedConfs = numEvaluatedConfs.add(rs.numConfsEvaluated); //add the evaluated confs for this partition
 					pruningE = Math.min(pruningE,rs.getBestE());//update cutoff energy for MinBounds
@@ -8569,7 +8590,7 @@ public class KSParser
 					mp.strandMut.numMutPos(), mp.strandMut,0.0,
 					bestScore,null,enumSettings.approxMinGMEC,enumSettings.lambda,minSettings.minimizeBB,
 					ematSettings.useEref,minSettings.doBackrubs,minSettings.backrubFile,
-					localUseMinDEEPruningEw, ENUMIval,tmpEnumSettings);
+					localUseMinDEEPruningEw, ENUMIval,tmpEnumSettings,outputSettings);
 			Ival = Math.min(enumSettings.bestE-asr.lowestBound, asr.bestE-asr.lowestBound);
 			emat.unPrune();
 			removeRot = true;
@@ -9066,12 +9087,11 @@ public class KSParser
 		//double Ival = initIval;
 		double DEEIval = initIval;
 		double ENUMIval = initIval;
-		int numToEnumerate = 5;
 		boolean runDEE = true;
 		if(ibSettings.doTuples)
 			runDEE = false;
 		if(ibSettings.subRotamers)
-			numToEnumerate=1;
+			enumSettings.numToEnumerate=1;
 		ArrayList<Index3> permanentlyPrune = new ArrayList<Index3>();
 //		GurobiOptimization gurobiOpt = null; 
 
@@ -9146,7 +9166,7 @@ public class KSParser
 				removeRot = false;
 				if(DEEIval < 1.0 && loopNum > 1){
 					enumSettings.asMethod = Settings.ASTARMETHOD.BYSUBROT;
-					numToEnumerate = Integer.MAX_VALUE;
+					enumSettings.numToEnumerate = Long.MAX_VALUE;
 					ENUMIval = Double.POSITIVE_INFINITY;
 				}
 				else
@@ -9171,7 +9191,7 @@ public class KSParser
 						mp.strandMut.numMutPos(),mp.strandMut,0,
 						bestScore,null,enumSettings.approxMinGMEC,enumSettings.lambda,minSettings.minimizeBB,
 						ematSettings.useEref,minSettings.doBackrubs,minSettings.backrubFile,
-						localUseMinDEEPruningEw, 0,enumSettings); //Ival and initEw set to 0 to only find the lowest conformation
+						localUseMinDEEPruningEw, 0,enumSettings,outputSettings); //Ival and initEw set to 0 to only find the lowest conformation
 				totalConfsEvaluated += asr.numConfsEvaluated;
 				lowestPairBound = asr.lowestBound;
 				actualLowestBound = Math.min(asr.lowestBound, actualLowestBound);
@@ -9216,7 +9236,7 @@ public class KSParser
 					mp.strandMut.numMutPos(),mp.strandMut,deeSettings.initEw,
 					bestScore,null,enumSettings.approxMinGMEC,enumSettings.lambda,minSettings.minimizeBB,
 					ematSettings.useEref,minSettings.doBackrubs,minSettings.backrubFile,
-					localUseMinDEEPruningEw, ENUMIval,enumSettings);
+					localUseMinDEEPruningEw, ENUMIval,enumSettings,outputSettings);
 
 			actualLowestBound = Math.min(asr.lowestBound, actualLowestBound);
 			totalConfsEvaluated += asr.numConfsEvaluated;
@@ -9422,7 +9442,7 @@ public class KSParser
 						mp.strandMut.numMutPos(),mp.strandMut,deeSettings.initEw,
 						bestScore,null,enumSettings.approxMinGMEC,enumSettings.lambda,minSettings.minimizeBB,
 						ematSettings.useEref,minSettings.doBackrubs,minSettings.backrubFile,
-						localUseMinDEEPruningEw, ENUMIval,enumSettings);
+						localUseMinDEEPruningEw, ENUMIval,enumSettings,outputSettings);
 				totalConfsEvaluated += asr.numConfsEvaluated;
 
 				break;

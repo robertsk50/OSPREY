@@ -1336,7 +1336,7 @@ public class HBondEnergy {
 	 * @param m
 	 */
 	void calculateHBondEnergy(double[] coordinates, int curIndex,
-			double[] energyTerms, Molecule m) {
+			double[] energyTerms, Molecule m,boolean updateTerms, Amber96ext amb96ff) {
 
 
 
@@ -1596,285 +1596,8 @@ public class HBondEnergy {
 			//				System.out.println(Edelta+" ( "+rij+" ) "+Etheta+" ( "+costheta+" ) "+Ephi+" ( "+cosPhi+" ) "+Echi+" ( "+chi+" ) ");
 			//			}
 			//			}
-			energyTerms[4] += Ehb; 
-		}
-
-		energyTerms[4] *= hbondScale;
-
-
-	}
-
-	/**
-	 * Same as the function calculateHBondEnergy except that the energy terms
-	 * per mutable residue are stored.
-	 * @param coordinates
-	 * @param curIndex
-	 * @param energyTerms
-	 * @param m
-	 * @param amb96ff
-	 */
-	void calculateHBondEnergyUpdTerms(double[] coordinates, int curIndex,
-			double[] energyTerms, Molecule m, Amber96ext amb96ff ) {
-
-
-
-		int atomix3, atomjx3, atomi, atomj, atomk, atomkx3, atomb=0,atombx3 = 0,atomb2=0,atomb2x3=0,atoml, atomlx3, atomm, atommx3;
-		int ix4;
-		double rij, rij2, rij6, rij10, rij12;
-		double cx, cy, cz, cmag;
-		double dx, dy, dz, ex, ey, ez, dmag, emag;
-		double theta=0.0, thetadeg;
-		double fx, fy, fz, fmag, gx,gy,gz,gmag;
-		double ux, uy, uz, vx, vy, vz, umag, vmag;
-		double dihed;
-		double negcostheta;
-		double cos2theta,cos4theta, negcosPhi, cos2phi, Ehb;
-		byte donorType, acceptType;
-		byte donorSS, acceptSS;
-
-		double phi=0;
-		double chi=0;
-
-
-
-		Iterator<HbondPair> iter = hbondTerms.iterator();
-
-		while(iter.hasNext()){
-			HbondPair hbp = iter.next();
-
-			HBEvalType hbe = hbp.hbe;
-			atomi = hbp.donor.moleculeAtomNumber;
-			atomj = hbp.hydro.moleculeAtomNumber;
-			atomk = hbp.accept.moleculeAtomNumber;
-
-
-			atomix3 = atomi * 3;
-			atomjx3 = atomj * 3;
-			atomkx3 = atomk * 3;
-
-
-			//H-A
-			dx = coordinates[atomjx3] - coordinates[atomkx3];
-			dy = coordinates[atomjx3 + 1] - coordinates[atomkx3 + 1];
-			dz = coordinates[atomjx3 + 2] - coordinates[atomkx3 + 2];
-			rij2 = dx*dx + dy*dy + dz*dz;
-			dmag = Math.sqrt(rij2);
-
-			rij = dmag;
-
-			if(dmag < 1.4 || dmag > 3.0){
-				continue; //Only calculate if 1.4<= R <= 3.0 angstroms
-			}
-
-			double Edelta = 0.0;
-
-			double sDeltaShort = 0.0; //Smoothing term
-			double sDeltaLong = 0.0; //Smoothing term
-
-			Edelta = AHdist_poly_lookup[hbe.ordinal()].getVal(rij); 
-			sDeltaShort = AHdist_short_fade_lookup[hbe.ordinal()].getSmoothVal(rij); 
-			sDeltaLong = AHdist_long_fade_lookup[hbe.ordinal()].getSmoothVal(rij);
-
-			//D-H
-			cx = coordinates[atomix3] - coordinates[atomjx3];
-			cy = coordinates[atomix3 + 1] - coordinates[atomjx3 + 1];
-			cz = coordinates[atomix3 + 2] - coordinates[atomjx3 + 2];
-			cmag = Math.sqrt(cx*cx + cy*cy + cz*cz);
-
-			//angle = (float)Math.toDegrees(Math.acos((dx*ex + dy*ey + dz*ez) / (dmag * -emag)));
-			//costheta = (cx*dx + cy*dy + cz*dz) / (cmag * -dmag);
-			negcostheta = (cx*dx + cy*dy + cz*dz) / (cmag * dmag);
-			//theta = Math.toDegrees(Math.acos(costheta));
-
-			boolean use_cosAHD = (cosBAH_short_poly_lookup[hbe.ordinal()].geoType == HBGeoDimType.hbgd_AHD);
-
-			if(! use_cosAHD)
-				theta = Math.PI - Math.acos(negcostheta);
-
-			double EthetaShort = 0.0;
-			double EthetaLong = 0.0;
-			double sTheta = 1.0; //Smoothing term
-
-			if(use_cosAHD){
-				EthetaShort = cosAHD_short_poly_lookup[hbe.ordinal()].getVal(negcostheta);
-				EthetaLong = cosAHD_long_poly_lookup[hbe.ordinal()].getVal(negcostheta);
-			}else{
-				EthetaShort = cosAHD_short_poly_lookup[hbe.ordinal()].getVal(theta);
-				EthetaLong = cosAHD_long_poly_lookup[hbe.ordinal()].getVal(theta);
-			}
-			sTheta = cosAHD_fade_lookup[hbe.ordinal()].getSmoothVal(negcostheta);
-
-
-
-			//Determine Phi
-			//Hydro-Accept-Base
-			Atom base = null;
-			Atom base2 = null;
-
-			for(int i=0; i<hbp.accept.bond.length;i++){
-				if(!m.atom[hbp.accept.bond[i]].elementType.equals("H")){ //Want a heavy atom
-					if(base == null){
-						base = m.atom[hbp.accept.bond[i]];
-						atomb = base.moleculeAtomNumber;
-						atombx3 = atomb*3;
-					}
-					else{
-						base2 = m.atom[hbp.accept.bond[i]];
-						atomb2 = base2.moleculeAtomNumber;
-						atomb2x3 = atomb2*3;
-					}
-				}else if(base2 == null){
-					base2 = m.atom[hbp.accept.bond[i]];
-					atomb2 = base2.moleculeAtomNumber;
-					atomb2x3 = atomb2*3;
-				}
-			}
-
-
-
-
-
-			//Accept-Base
-			if(hbp.accept.hybridization == RING_HYBRID){
-				ex = coordinates[atomkx3] - 0.5*(coordinates[atombx3]+coordinates[atomb2x3]);
-				ey = coordinates[atomkx3 + 1] - 0.5*(coordinates[atombx3 + 1]+coordinates[atomb2x3 + 1]);
-				ez = coordinates[atomkx3 + 2] - 0.5*(coordinates[atombx3 + 2]+coordinates[atomb2x3 + 2]);
-			} else{
-				ex = coordinates[atomkx3] - coordinates[atombx3];
-				ey = coordinates[atomkx3 + 1] - coordinates[atombx3 + 1];
-				ez = coordinates[atomkx3 + 2] - coordinates[atombx3 + 2];
-			}
-			emag = Math.sqrt(ex*ex + ey*ey + ez*ez);
-
-			negcosPhi = (dx*ex + dy*ey + dz*ez) / (dmag * emag);
-			//phi = Math.toDegrees(Math.acos( cosPhi ));
-
-			double EphiShort = 0.0;
-			double EphiLong = 0.0;
-			double sPhi = 1.0; //Smoothing term
-
-			EphiShort = cosBAH_short_poly_lookup[hbe.ordinal()].getVal(negcosPhi);
-			EphiLong = cosBAH_long_poly_lookup[hbe.ordinal()].getVal(negcosPhi);
-			sPhi = cosBAH_fade_lookup[hbe.ordinal()].getSmoothVal(negcosPhi);
-
-
-
-
-
-
-			//energy = Pr*FxD*FxH + FSr*(PSxD*FxH + FxD*PSxH) + FLr*(PLxD*FxH + FxD*PLxH);
-
-
-			//energy = Pr*FxD*FxH + FSr*(PSxD*FxH + FxD*PSxH) + FLr*(PLxD*FxH + FxD*PLxH);
-
-			Ehb = hbp.multiplier * (Edelta*sTheta*sPhi + sDeltaShort*(EthetaShort*sPhi + sTheta*EphiShort) + sDeltaLong*(EthetaLong*sPhi + sTheta*EphiLong));
-
-
- 			double Echi = 0.0;
-
-			//Determine chi
-			if(hbp.accept.hybridization == SP2_HYBRID ||
-					(hbp.accept.hbacc == HBAccChemType.hbacc_AHX || 
-					hbp.accept.hbacc == HBAccChemType.hbacc_HXL )){
-				if(base2 == null){
-				for(int i=0; i<base.bond.length;i++){
-					if(m.atom[base.bond[i]].elementType.equals("C") && m.atom[base.bond[i]].moleculeResidueNumber == base.moleculeResidueNumber 
-							&& m.atom[base.bond[i]].moleculeAtomNumber != atomk){ //Doesn't equal the acceptor
-						base2 = m.atom[base.bond[i]];
-					}
-				}	
-				if(base2 == null){
-					for(int i=0; i<base.bond.length;i++){
-						if(m.atom[base.bond[i]].elementType.equals("N") && m.atom[base.bond[i]].moleculeResidueNumber == base.moleculeResidueNumber
-								&& m.atom[base.bond[i]].moleculeAtomNumber != atomk){
-							base2 = m.atom[base.bond[i]];
-						}
-					}
-				}
-				if(base2 == null){ //if it's still equal to null we find the connected atom with the most bonds
-					int maxBonds = -1; //if tied we should recurse, but I don't do that yet
-					int maxAtom = -1;
-					for(int i=0; i<base.bond.length;i++){
-						if(m.atom[base.bond[i]].bond.length > maxBonds){
-							maxBonds = m.atom[base.bond[i]].bond.length;
-							maxAtom = base.bond[i];
-						}
-					}
-					base2 = m.atom[maxAtom];
-
-				}
-				atomb2 = base2.moleculeAtomNumber;
-				atomb2x3 = atomb2*3;
-				}
-
-//				atomm = R1.moleculeAtomNumber;
-//				atommx3 = atomm*3;
-
-				//Accept-Base
-				fx = coordinates[atombx3] - coordinates[atomb2x3];
-				fy = coordinates[atombx3 + 1] - coordinates[atomb2x3 + 1];
-				fz = coordinates[atombx3 + 2] - coordinates[atomb2x3 + 2];
-				fmag = Math.sqrt(fx*fx + fy*fy + fz*fz);
-
-
-				// Cross product: a x b = (aybz-azby, -axbz+azbx, axby-aybx)
-				// 'u' and 'v' are normals to planes
-				// u = f x e, v = e x d
-				ux = fy*ez - fz*ey;
-				uy = fz*ex - fx*ez;
-				uz = fx*ey - fy*ex;
-				umag = Math.sqrt(ux*ux + uy*uy + uz*uz);
-				vx = ey*dz - ez*dy;
-				vy = ez*dx - ex*dz;
-				vz = ex*dy - ey*dx;
-				vmag = Math.sqrt(vx*vx + vy*vy + vz*vz);
-				// Dot product again
-				chi = Math.acos((ux*vx + uy*vy + uz*vz) / (umag * vmag));
-
-				// BUT, that doesn't solve the handedness (sign) problem for the dihedral!
-				// To do that, we look at the angle between 'f' and 'v'
-				// Dot product again
-				if( Math.acos((fx*vx + fy*vy + fz*vz) / (fmag * vmag)) > 1.57079633 )
-				{ chi = -chi; }
-
-				double chiPenalty = 0.0;
-				if(hbp.accept.hybridization == SP2_HYBRID)
-					chiPenalty = bah_chi_compute_energy_sp2(negcosPhi,chi);
-				else if((hbp.accept.hbacc == HBAccChemType.hbacc_AHX || 
-					hbp.accept.hbacc == HBAccChemType.hbacc_HXL ))
-					chiPenalty = bah_chi_compute_energy_sp3(chi);
-				
-				Ehb += chiPenalty;
-
-
-			}
-
-			Ehb = fade_energy(Ehb);
-
-			if(Ehb >= MAX_HB_ENERGY)
-				continue;
-
-
-			double environmentScale = getNeighborScale(hbe,m,hbp.donor,hbp.accept);
-
-			if(Amber96ext.debug)
-				System.out.println("Acc: " + m.residue[hbp.accept.moleculeResidueNumber].fullName+" Don: "+m.residue[hbp.donor.moleculeResidueNumber].fullName+" "+Ehb+" "+environmentScale+" "+
-					numNeighborsHB[hbp.accept.moleculeResidueNumber]+" "+numNeighborsHB[hbp.donor.moleculeResidueNumber]);
-			
-			Ehb *= environmentScale;
-			
-			
-			//Ehb = hbp.multiplier * sDelta * sTheta * sPhi * (Edelta+Etheta+Ephi+Echi);
-
-			//Ehb = Echi;
-
-			//			if(hbp.donor.strandNumber != hbp.accept.strandNumber){
-			//			if(debug){
-			//				System.out.print("Ehb: "+Ehb+" "+m.residue[hbp.donor.moleculeResidueNumber].fullName+" "+hbp.donor.name+" "+m.residue[hbp.accept.moleculeResidueNumber].fullName+" "+hbp.accept.name+" ");
-			//				System.out.println(Edelta+" ( "+rij+" ) "+Etheta+" ( "+costheta+" ) "+Ephi+" ( "+cosPhi+" ) "+Echi+" ( "+chi+" ) ");
-			//			}
-			//			}
-			amb96ff.updatePairTerms(hbondScale*Ehb,hbp.donor.moleculeResidueNumber,hbp.accept.moleculeResidueNumber);
+			if(updateTerms)
+				amb96ff.updatePairTerms(hbondScale*Ehb,hbp.donor.moleculeResidueNumber,hbp.accept.moleculeResidueNumber);
 			energyTerms[4] += Ehb; 
 		}
 
@@ -2233,40 +1956,60 @@ public static double fade_energy(double energy) {
 		double[] nbRadii = new double[m.residue.length];
 		for(int i=0; i<m.residue.length;i++){
 			String resName = m.residue[i].name;
-			String nbrAtomName = "CB";
-			if(resName.endsWith("GLY"))
-				nbrAtomName = "CA";
-			for(Atom a : m.residue[i].atom){
-				if(a.name.equals(nbrAtomName)){
-					CBatoms[i] = a;
-					break;
+			if(m.strand[m.residue[i].strandNumber].isProtein && !m.residue[i].cofactor){
+				String nbrAtomName = "CB";
+				if(resName.endsWith("GLY"))
+					nbrAtomName = "CA";
+				for(Atom a : m.residue[i].atom){
+					if(a.name.equals(nbrAtomName)){
+						CBatoms[i] = a;
+						break;
+					}
 				}
-			}
-			switch(m.residue[i].name){
-			case "ALA": nbRadii[i] = 3.4473;break;
-			case "ARG": nbRadii[i] = 6.1209;break;
-			case "ASN": nbRadii[i] = 3.4473;break;
-			case "ASP": nbRadii[i] = 3.4473;break;
-			case "CYD": nbRadii[i] = 3.4473;break;
-			case "CYS": nbRadii[i] = 3.4473;break;
-			case "CYV": nbRadii[i] = 3.4473;break;
-			case "CYZ": nbRadii[i] = 3.4473;break;
-			case "GLN": nbRadii[i] = 3.7348;break;
-			case "GLU": nbRadii[i] = 3.6154;break;
-			case "GLY": nbRadii[i] = 3.4473;break;
-			case "HID": nbRadii[i] = 5.437512;break;
-			case "HIE": nbRadii[i] = 3.6718;break;
-			case "ILE": nbRadii[i] = 3.4473;break;
-			case "LEU": nbRadii[i] = 3.4473;break;
-			case "LYS": nbRadii[i] = 5.0084;break;
-			case "MET": nbRadii[i] = 4.1766;break;
-			case "PHE": nbRadii[i] = 4.2832;break;
-			case "PRO": nbRadii[i] = 3.4473;break;
-			case "SER": nbRadii[i] = 3.4473;break;
-			case "THR": nbRadii[i] = 3.4473;break;
-			case "TRP": nbRadii[i] = 5.3639;break;
-			case "TYR": nbRadii[i] = 5.6694;break;
-			case "VAL": nbRadii[i] = 4.137511;break;
+				switch(m.residue[i].name){
+				case "ALA": nbRadii[i] = 3.4473;break;
+				case "ARG": nbRadii[i] = 6.1209;break;
+				case "ASN": nbRadii[i] = 3.4473;break;
+				case "ASP": nbRadii[i] = 3.4473;break;
+				case "CYD": nbRadii[i] = 3.4473;break;
+				case "CYS": nbRadii[i] = 3.4473;break;
+				case "CYV": nbRadii[i] = 3.4473;break;
+				case "CYZ": nbRadii[i] = 3.4473;break;
+				case "GLN": nbRadii[i] = 3.7348;break;
+				case "GLU": nbRadii[i] = 3.6154;break;
+				case "GLY": nbRadii[i] = 3.4473;break;
+				case "HID": nbRadii[i] = 5.437512;break;
+				case "HIE": nbRadii[i] = 3.6718;break;
+				case "ILE": nbRadii[i] = 3.4473;break;
+				case "LEU": nbRadii[i] = 3.4473;break;
+				case "LYS": nbRadii[i] = 5.0084;break;
+				case "MET": nbRadii[i] = 4.1766;break;
+				case "PHE": nbRadii[i] = 4.2832;break;
+				case "PRO": nbRadii[i] = 3.4473;break;
+				case "SER": nbRadii[i] = 3.4473;break;
+				case "THR": nbRadii[i] = 3.4473;break;
+				case "TRP": nbRadii[i] = 5.3639;break;
+				case "TYR": nbRadii[i] = 5.6694;break;
+				case "VAL": nbRadii[i] = 4.137511;break;
+				}
+			}else{ //TODO: need to figure out what to do for non-amino acid residues
+				//For now will find center atom and approximate radius
+				double minDistance = Double.POSITIVE_INFINITY;
+				Atom minAtom = null;
+				for(Atom a1: m.residue[i].atom){
+					double curDist = 0;
+					for(Atom a2: m.residue[i].atom){
+						if(a1 != a2){
+							curDist = Math.max(curDist, a1.distance(a2));
+						}
+					}
+					if(curDist < minDistance){
+						minDistance = curDist;
+						minAtom = a1;
+					}
+				}
+				nbRadii[i] = minDistance;
+				CBatoms[i] = minAtom;
 			}
 		}
 		

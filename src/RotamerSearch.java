@@ -1269,7 +1269,7 @@ public class RotamerSearch implements Serializable
 
 			ctr++;
 			EMatrixEntryWIndex reWi= rotamerEntries.next();
-
+			
 			EMatrixEntry re = reWi.eme;
 
 			if(ctr % 50 == 0){
@@ -4047,7 +4047,7 @@ public class RotamerSearch implements Serializable
 			boolean searchDoMinimization,int numMutable, 
 			MutableResParams strandMut, double Ew, double bestScore, 
 			CommucObj cObj, boolean approxMinGMEC, double lambda, boolean minimizeBB, boolean useEref, 
-			boolean doBackrubs, String backrubFile, boolean useMinDEEPruningEw, double Ival,Settings.Enum enumSettings) {
+			boolean doBackrubs, String backrubFile, boolean useMinDEEPruningEw, double Ival,Settings.Enum enumSettings,Settings.Output outSettings) {
 
 		// A rotamer search is performed. For each residue,
 		//  every allowable rotamer is tried in combination
@@ -4123,7 +4123,7 @@ public class RotamerSearch implements Serializable
 
 		long startEnum = System.currentTimeMillis();
 		AStarResults asr = doAStarGMECHelper(numMutable, strandMut, fileName, Ew, bestScore, cObj, 
-				approxMinGMEC, lambda, minimizeBB, useEref, doBackrubs, backrubFile, useMinDEEPruningEw, Ival, enumSettings);
+				approxMinGMEC, lambda, minimizeBB, useEref, doBackrubs, backrubFile, useMinDEEPruningEw, Ival, enumSettings,outSettings);
 		long endEnum = System.currentTimeMillis();
 		KSParser.metrics.EnumTime += (endEnum - startEnum);
 		KSParser.metrics.totalNumConfs += asr.numConfsEvaluated;
@@ -4142,7 +4142,7 @@ public class RotamerSearch implements Serializable
 	private AStarResults doAStarGMECHelper(int numMutable, MutableResParams strandMut, String fileName, 
 			double Ew, double bestScore, CommucObj cObj, 
 			boolean approxMinGMEC, double lambda, boolean minimizeBB, boolean useEref,  
-			boolean doBackrubs, String backrubFile, boolean useMinDEEPruningEw, double Ival, Settings.Enum enumSettings){
+			boolean doBackrubs, String backrubFile, boolean useMinDEEPruningEw, double Ival, Settings.Enum enumSettings, Settings.Output outSettings){
 
 		boolean outputFile = (fileName!=null); //output to file
 
@@ -4412,7 +4412,8 @@ public class RotamerSearch implements Serializable
 
 				//TODO: allow all rotamer libraries the ability to mutate
 				//KER: only apply mutation if we actually need to calcualate an energy
-				if(doMinimization){
+				//  or if we are saving PDBs right now
+				if(doMinimization || (outSettings!= null && outSettings.savePDBs)){
 					conf[i].eme.applyMutation(m, arpMatrix.resByPos, addHydrogens,connectResidues );
 					if(parentConf != null){ //Will only not be null if we want to compute it
 						parentConf[i].eme.applyRC(arpMatrix.resByPos, m);
@@ -4566,7 +4567,7 @@ public class RotamerSearch implements Serializable
 //							return (getBestE()-lowestBound+IvalTol);
 					}
 				}
-				else if(lowestBound+Ival+Ew < minELowerBound /*|| getBestE()+Ew < minELowerBound*/){ // We are not done and we pruned too much, repeat search
+				else if(lowestBound+Ival+Ew < minELowerBound || numConfsEvaluated.longValue() >= enumSettings.numToEnumerate /*|| getBestE()+Ew < minELowerBound*/){ // We are not done and we pruned too much, repeat search
 					return new AStarResults(getBestE(),lowestBound,numConfsEvaluated.longValue(),minELowerBound);
 				}			  
 			}
@@ -4742,6 +4743,13 @@ public class RotamerSearch implements Serializable
 						}
 						logPS.println();
 						logPS.flush();
+						
+						if(outSettings != null && outSettings.savePDBs){
+							
+							String filename = String.format(outSettings.pdbOutDir+"/%1$s_%2$03d_min.pdb",outSettings.runName,numConfsOutput);
+							m.saveMolecule(filename, minE);
+						}
+						
 					}
 				}
 			}

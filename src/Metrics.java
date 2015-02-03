@@ -57,7 +57,9 @@ public class Metrics {
 		System.out.println("TotalNumConfs: "+totalNumConfs);
 		System.out.println("ASNumExpanded: "+numExpanded);
 		System.out.println("ASTotalNodes: "+totNumNodes);
-		
+		if(boundTightnessPerLevel != null){
+			System.out.print("boundTightnessAvgPerLevel: ");for(int i=0; i<boundTightnessPerLevel.length;i++){System.out.print((boundTightnessPerLevel[i]/nodesEvaluatedPerLevel[i])+" ");}System.out.println("");
+		}
 	}
 	
 	public void initASMetrics(int numLevels){

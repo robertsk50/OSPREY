@@ -53,7 +53,7 @@ public class BakerHBond {
 			readDSSP(dsspFile,m);
 		}
 		catch(Exception e ){
-			System.out.println("ERROR: An error occurred while reading file: "+dsspFile);
+			System.out.println("ERROR: An error occurred while reading DSSP file: "+dsspFile);
 			System.exit(0);
 		}
 
@@ -176,7 +176,7 @@ public class BakerHBond {
 
 
 	public void calculateHBondEnergy(double[] coordinates, int curIndex,
-			double[] energyTerms, Molecule m) {
+			double[] energyTerms, Molecule m,boolean updateTerms,Amber96ext amb96ff) {
 
 		int atomix3, atomjx3, atomi, atomj, atomk, atomkx3;//, atoml, atomlx3, atomm, atommx3;
 		int atomb=0, atombx3=0, atomb2=0, atomb2x3=0; //atom bases
@@ -551,6 +551,8 @@ public class BakerHBond {
 				System.out.println(Edelta+" ( "+rij+" ) "+Etheta+" ( "+costheta+" ) "+Ephi+" ( "+cosPhi+" ) "+Echi+" ( "+chi+" ) ");
 			}
 			//				}
+			if(updateTerms)
+				amb96ff.updatePairTerms(hbondScale*Ehb,hbp.donor.moleculeResidueNumber,hbp.accept.moleculeResidueNumber);
 			energyTerms[4] += Ehb; 
 		}
 
@@ -1227,4 +1229,5 @@ public class BakerHBond {
 		}
 
 	}
+
 }

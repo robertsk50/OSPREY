@@ -214,8 +214,8 @@ public class Amber96ext implements ForceField, Serializable {
 	HashMap<Pair,Double> pairsE;
 	HashMap<Integer,Double> singleE;
 	
-//	BakerHBond hbondPotential; //Kept for legacy purposes
-	HBondEnergy hbondPotential; //Updated hbond energy class
+	//BakerHBond hbondPotential; //Kept for legacy purposes
+    HBondEnergy hbondPotential; //Updated hbond energy class
 	
 	private Amber96ext(Molecule m, boolean ddDielect, double dielectConst, boolean doSolv, double solvScFactor, double vdwMult){
 
@@ -286,7 +286,7 @@ public class Amber96ext implements ForceField, Serializable {
 		doHBondE = hbonds.doHbondE;
 		
 		if(doHBondE){
-//			hbondPotential = new BakerHBond(hbonds.hbondScale,hbonds.dsspFile,m);
+			//hbondPotential = new BakerHBond(hbonds.hbondScale,hbonds.dsspFile,m);
 			hbondPotential = new HBondEnergy(m, hbonds.hbondScale);
 		}
 
@@ -1045,6 +1045,8 @@ public class Amber96ext implements ForceField, Serializable {
 						if (tmpAt.residueAtomNumber == atArray[rootNum]) {
 							atUsedArray[w]=true;
 							atArray[curAtResNum]=w;
+							if(debug)
+								System.out.println("Matched: "+res.atom[w].name+" "+templateRes.atom[curAtResNum].name);
 							if (recurseAA(m,templateRes,res,atArray,atUsedArray,curAtResNum+1,requireHydrogens)) {
 								if (debug)
 									System.out.println("FOUND MATCH, AT:"+(w+1)+" to template "+curAtResNum);
@@ -1844,7 +1846,7 @@ public class Amber96ext implements ForceField, Serializable {
 		if (doSolvationE) //compute solvation energies
 			calculateSolvationEnergy(coordinates,curIndex,energyTerms);
 		if (doHBondE) //compute H-bond energies
-			hbondPotential.calculateHBondEnergy(coordinates,curIndex,energyTerms,m);
+			hbondPotential.calculateHBondEnergy(coordinates,curIndex,energyTerms,m,false,null);
 		
 		//compute total energy (electrostatics + vdW + solvation+hbond)
 		for(int i=1; i<energyTerms.length;i++)
@@ -1894,7 +1896,7 @@ public class Amber96ext implements ForceField, Serializable {
 			calculateSolvationEnergyUpdTerms(coordinates,curIndex,energyTerms);
 
 		if (doHBondE) //compute H-bond energies
-			hbondPotential.calculateHBondEnergyUpdTerms(coordinates,curIndex,energyTerms,m,this);
+			hbondPotential.calculateHBondEnergy(coordinates,curIndex,energyTerms,m,true,this);
 
 		//compute total energy (electrostatics + vdW + solvation+hbond)
 		for(int i=1; i<energyTerms.length;i++)

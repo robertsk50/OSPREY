@@ -198,6 +198,7 @@ public class Settings implements Serializable {
 		VARIABLEORDER varOrder;
 		int numMaxMut;
 		double bestE;
+		long numToEnumerate = Long.MAX_VALUE;
 		
 		Enum(){
 			
@@ -286,14 +287,24 @@ public class Settings implements Serializable {
 	}
 	
 	public class Output{
+		String runName;
 		String outputConfInfo;
 		String outputPruneInfo;
 		String pdbOutDir;
+		boolean savePDBs;
 		
 		Output(ParamSet sParams, String runName){
+			this.runName = runName;
 			outputConfInfo = (String)(sParams.getValue("OUTPUTCONFINFO","c_"+runName));
 			outputPruneInfo = (String)(sParams.getValue("OUTPUTPRUNEINFO","p_"+runName));
 			pdbOutDir = sParams.getValue("pdbOutDir","pdbs");
+			savePDBs = (new Boolean((String)sParams.getValue("SAVEPDBS","false"))).booleanValue();
+			if(savePDBs){
+				//KER: make directory for the confs to be printed to.
+				File pdbDir = new File(pdbOutDir);
+				if(!pdbDir.exists())
+					pdbDir.mkdirs();
+			}
 		}
 	}
 	

@@ -194,7 +194,7 @@ public class MutUtils {
 					newDaa = true;
 		}
 		if(localResidue.name.equalsIgnoreCase("gly") ||
-				localResidue.name.equalsIgnoreCase("gly"))
+				localResidue.name.equalsIgnoreCase("dgly"))
 				oldResGly = true;
 
 		//Going to allow gly mutations, we have a check earlier for mutations to same residue
@@ -231,7 +231,8 @@ public class MutUtils {
 		
 		//If never been mutated we store the default atom values for WT rot
 		if(!localResidue.mutatedOnce){
-			localResidue.saveWTcoords();
+			//We now save WTcoords when mutableResidue is initialized
+			//localResidue.saveWTcoords();
 			localResidue.mutatedOnce = true;
 				
 			//Set the default CB value that we will use

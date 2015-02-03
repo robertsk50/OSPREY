@@ -854,6 +854,9 @@ public class Residue implements Serializable {
 		AATypesAllowed = new ArrayList<AARotamerType>();
 		allowedRCs = new ArrayList<ResidueConformation>();
 		
+		//Save initial coordinates for WT rotamer
+		saveWTcoords();
+		
 		//resRots = new ResRotamers(rl, this, addOrigRot);
 	}
 	
@@ -987,8 +990,8 @@ public class Residue implements Serializable {
 		double CAy = CA.coord[1];
 		double CAz = CA.coord[2];
 		if(CA == null){
-			System.out.println("Wasn't able to find CA atom in residue when saving WT coords.");
-			System.exit(0);
+			System.out.println("Wasn't able to find CA atom in residue: "+name+" when saving WT coords.");
+			//System.exit(0);
 		}else{
 			for(Atom a: this.wildtypeAtoms){
 				a.coord[0] -= CAx;
@@ -1017,13 +1020,15 @@ public class Residue implements Serializable {
 			}
 		}
 		if(CA == null){
-			System.out.println("Could not find CA for WT rotamer");
-			System.exit(0);
+			System.out.println("Could not find CA for WT rotamer. Using (0,0,0)");
+			double[] zeros = {0.0,0.0,0.0};
+			CA = new Atom(zeros);
 		}
 		
 		int nonBBatoms = 0;
 		int atomsChanged = 0;
 //		System.out.println("Restoring wildtype rotamer coordinates for residue: "+this.fullName);
+		try{
 		for(int aIx1 = 0; aIx1 < this.atom.length; aIx1++){
 			if(!this.atom[aIx1].isBBatom || !skipBB ){
 				nonBBatoms++;
@@ -1042,6 +1047,9 @@ public class Residue implements Serializable {
 					System.out.println("Couldn't find a match for "+this.atom[aIx1].name);
 				}
 			}
+		}
+		}catch(Exception E){
+			E.printStackTrace();
 		}
 		if (atomsChanged != nonBBatoms || (!skipBB && (atomsChanged != this.wildtypeAtoms.length || atomsChanged != this.atom.length) ) ){
 			System.out.println("Something went wrong when trying to copy atom coordinates");

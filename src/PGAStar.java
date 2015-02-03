@@ -378,7 +378,7 @@ public class PGAStar extends AStar{
                 return Double.POSITIVE_INFINITY;
             
             double LSBE = of.getValue( optDOFs );
-            System.out.println("LSBE: "+LSBE+" Fscore: "+expNode.fScore);
+//            System.out.println("LSBE: "+LSBE+" Fscore: "+expNode.fScore);
             
             if(es.useSVE){
                 //cof minimized m...revert to unminimized state
