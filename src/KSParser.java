@@ -889,7 +889,7 @@ public class KSParser
 
 			double energy[] = a96ff.calculateTotalEnergy(m.actualCoordinates,-1);
 			energy[0] -= (totEref - totEntropy);
-			System.out.println("System energy: " + energy[0]+" (elect: "+energy[1]+" vdW: "+energy[2]+" solvation: "+energy[3]+") Eref: "+totEref+" Entropy: "+totEntropy);
+			System.out.println("System energy: " + energy[0]+" (elect: "+energy[1]+" vdW: "+energy[2]+" solvation: "+energy[3]+" hbond: "+energy[4]+") Eref: "+totEref+" Entropy: "+totEntropy);
 			//}
 
 		}

@@ -1003,16 +1003,16 @@ public class Amber96ext implements ForceField, Serializable {
 	//ffType: forcefield type
 	private byte getHybridization(String ffType) {
 		//Check SP2
-		if(ffType.equals("N") || ffType.equals("O") || ffType.equals("O2") || ffType.equals("NA") ||
-				ffType.equals("NC") || ffType.equals("N*") || ffType.equals("N2") ||
-				ffType.equals("NT")){ //Added NT for small molecules.
+		if(ffType.equalsIgnoreCase("N") || ffType.equalsIgnoreCase("O") || ffType.equalsIgnoreCase("O2") || ffType.equalsIgnoreCase("NA") ||
+				ffType.equalsIgnoreCase("NC") || ffType.equalsIgnoreCase("N*") || ffType.equalsIgnoreCase("N2") ||
+				ffType.equalsIgnoreCase("NT") || ffType.equalsIgnoreCase("NH")){ //Added NT for small molecules.
 			return HBondEnergy.SP2_HYBRID;
 		}
 		//Check SP3
-		else if(ffType.equals("N3") || ffType.equals("OH") || ffType.equals("OW") || ffType.equals("OS") ){
+		else if(ffType.equalsIgnoreCase("N3") || ffType.equalsIgnoreCase("OH") || ffType.equalsIgnoreCase("OW") || ffType.equalsIgnoreCase("OS") ){
 			return HBondEnergy.SP3_HYBRID;
 		}
-		else if(ffType.equals("NB")){//Check RING_HYBRID
+		else if(ffType.equalsIgnoreCase("NB")){//Check RING_HYBRID
 			return HBondEnergy.RING_HYBRID;
 		}
 		else{
@@ -1149,6 +1149,9 @@ public class Amber96ext implements ForceField, Serializable {
 				//			System.out.println(" FFT: " + atArray[q] + " " + templateRes.atom[q].forceFieldType + " charge: " + templateRes.atom[q].charge);
 				res.atom[atArray[q]].charge = templateRes.atom[q].charge;
 				assignNumericalType(res.atom[atArray[q]], res.atom[atArray[q]].forceFieldType);
+				
+				if(res.atom[atArray[q]].elementType.equals("N") || res.atom[atArray[q]].elementType.equals("O"))
+					assignHbondFF(m, res, res.atom[atArray[q]]);
 			}
 		}
 		res.ffAssigned = true;		
