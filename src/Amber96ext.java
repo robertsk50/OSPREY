@@ -1876,6 +1876,13 @@ public class Amber96ext implements ForceField, Serializable {
 				if(Double.isNaN(coordinates[a])||Double.isInfinite(coordinates[a]))
 					System.out.println("NaN encountered in Amber96ext.calculateTotalEnergy!");
 			}
+			
+			for(int i=0; i<energyTerms.length;i++){
+				if(Double.isNaN(energyTerms[i]))
+					energyTerms[i] = Double.POSITIVE_INFINITY;
+					
+			}
+			
 		}
 
 		return energyTerms;
