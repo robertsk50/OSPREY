@@ -414,7 +414,7 @@ public class BackrubMinimizer implements Serializable {
 				flexResListSize);
 		else*/
 			a96ff.setupPartialArrays(totalFlexRes+totalTransRotStrands,MAX_NUM_ATOMS_RES,flexResAtomList,
-				flexResListSize);
+				flexResListSize,totalTransRotStrands);
 	}
 	
 	//Applies the backrub conformation that corresponds to the max found energy

@@ -805,7 +805,11 @@ public class KSParser
 		ParamSet sParams = new ParamSet();
 		sParams.addParamsFromFile(getToken(s,2)); //read system parameters
 		sParams.addParamsFromFile(getToken(s,3)); //read mutation search parameters
-
+		
+		//Minimization Settings
+		Settings settings = new Settings();
+		Settings.Minimization minSettings = settings.new Minimization(sParams);
+		
 		String runName = ((String)sParams.getValue("RUNNAME"));
 		MolParameters mp = new MolParameters();
 		loadStrandParams(sParams, mp, COMPLEX);
@@ -883,15 +887,29 @@ public class KSParser
 
 			}
 
-
+			
 
 
 
 			double energy[] = a96ff.calculateTotalEnergy(m.actualCoordinates,-1);
 			energy[0] -= (totEref - totEntropy);
 			System.out.println("System energy: " + energy[0]+" (elect: "+energy[1]+" vdW: "+energy[2]+" solvation: "+energy[3]+" hbond: "+energy[4]+") Eref: "+totEref+" Entropy: "+totEntropy);
-			//}
-
+			
+			if(minSettings.doMinimize){
+				//m.saveMolecule("beforeMin.pdb", energy[0]);
+				StrandRotamers[] strandRot = new StrandRotamers[mp.m.numberOfStrands];
+				for(int i=0; i<mp.m.numberOfStrands;i++){
+					strandRot[i] = new StrandRotamers(m.rotLibForStrand(i),m.strand[i]);
+				}
+				SimpleMinimizer simpMin = new SimpleMinimizer();
+				simpMin.initialize(m,m.strand.length,a96ff,strandRot,doDihedE);
+				simpMin.minimize(35);
+				//m.saveMolecule("afterMin.pdb", energy[0]);
+				energy = a96ff.calculateTotalEnergy(m.actualCoordinates,-1);
+				energy[0] -= (totEref - totEntropy);
+				//Minimize the ligand if desired
+				System.out.println("After min: " + energy[0]+" (elect: "+energy[1]+" vdW: "+energy[2]+" solvation: "+energy[3]+" hbond: "+energy[4]+") Eref: "+totEref+" Entropy: "+totEntropy);
+			}
 		}
 	}
 

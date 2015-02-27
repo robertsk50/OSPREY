@@ -373,7 +373,7 @@ public class BBMinimizer implements Serializable {
 		// numFlexRes, flexResAtomList, and flexResListSize include the ligand if one exists
 		//if(ligStrNum != -1)
 		a96ff.setupPartialArrays(totalFlexRes+totalTransRotStrands,MAX_NUM_ATOMS_RES,flexResAtomList,
-				flexResListSize);
+				flexResListSize,totalTransRotStrands);
 		/*else
 			a96ff.setupPartialArrays(totalFlexRes,MAX_NUM_ATOMS_RES,flexResAtomList,
 				flexResListSize);*/

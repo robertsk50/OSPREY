@@ -518,11 +518,23 @@ public class Amber96ext implements ForceField, Serializable {
 
 			for(int q=0;q<equivAtoms[tmpInt].length;q++)
 				equivAtoms[tmpInt][q] = -noMatchInt;
-			int tmpInt2=1;
-			while (!getToken(curLine,tmpInt2).equalsIgnoreCase("")) { 
-				equivAtoms[tmpInt][tmpInt2-1] = atomTypeToInt( getToken(curLine,tmpInt2) );
-				tmpInt2++;
+			int tmpInt2=0;
+			int tokenInd=1;
+			while (!getToken(curLine,tokenInd).equalsIgnoreCase("")) { 
+				equivAtoms[tmpInt][tmpInt2] = atomTypeToInt( getToken(curLine,tokenInd) );
+				tokenInd++;
+				if(equivAtoms[tmpInt][tmpInt2] != -1)
+					tmpInt2++;
 			}
+			//Shrink array if necessary
+			if(tmpInt2 != equivAtoms[tmpInt].length){
+				int[] smallArray = new int[tmpInt2];
+				System.arraycopy(equivAtoms[tmpInt], 0, smallArray, 0, smallArray.length);
+				equivAtoms[tmpInt] = smallArray;
+			}
+				
+			
+			
 			tmpInt++;
 			curLine = bufread.readLine();
 		}
@@ -1677,14 +1689,14 @@ public class Amber96ext implements ForceField, Serializable {
 	// 		the full atoms arrays (nonBonded, halfNonBonded, dihedralAngleTerms, etc.)	
 	//////////////////////////////////////////////////////////////////////////////////////////////////	
 	//Sets up the partial arrays
-	public void setupPartialArrays(int numRows, int maxNumColumns, int atomList[][],int numColumns[]){
+	public void setupPartialArrays(int numRows, int maxNumColumns, int atomList[][],int numColumns[],int numRotTrans){
 
-		setupPartialNonBondedArrays(numRows, maxNumColumns, atomList, numColumns); //setup nonbonded arrays
+		setupPartialNonBondedArrays(numRows, maxNumColumns, atomList, numColumns,numRotTrans); //setup nonbonded arrays
 
 		if (doSolvationE) //setup dihedral arrays
 			setupPartialSolvationArrays(numRows, maxNumColumns, atomList, numColumns);
 		if(doHBondE)
-			hbondPotential.setupPartialHBondArrays(numRows, maxNumColumns, atomList, numColumns,m);
+			hbondPotential.setupPartialHBondArrays(numRows, maxNumColumns, atomList, numColumns,m,numRotTrans);
 	}
 
 	// Sets up local datastructures to hold lists of the halfNonBonded and nonBonded
@@ -1693,7 +1705,7 @@ public class Amber96ext implements ForceField, Serializable {
 	// For example this is used by SimpleMinimizer to quickly compute nonbonded
 	//  energies in conjunction with calculateEVEnergyPartWithArrays
 	private void setupPartialNonBondedArrays(int numRows, int maxNumColumns, int atomList[][],
-			int numColumns[]){
+			int numColumns[],int numRotTrans){
 
 		int ix5 = -NBTOff;
 		int tempCount = 0, tempIndx = 0;
@@ -1710,6 +1722,10 @@ public class Amber96ext implements ForceField, Serializable {
 		partNBeval = new int[numRows][];
 
 		for(int q=0;q<numRows;q++){
+			boolean isRotTrans = false;
+			if(q >= numRows-numRotTrans)
+				isRotTrans = true;
+			
 			// In the worst case each atom in a column of atomList is involved with
 			//every other atom in the molecule
 			partHalfNonBonded[q] = new double[numColumns[q]*m.numberOfAtoms*NBTOff];
@@ -1727,7 +1743,7 @@ public class Amber96ext implements ForceField, Serializable {
 				ix5 += NBTOff;
 				atomi = (int)halfNonBondedTerms[ix5];
 				atomj = (int)halfNonBondedTerms[ix5 + 1];
-				if ((tempAtomList[atomi] + tempAtomList[atomj]) > 0){
+				if ((tempAtomList[atomi] + tempAtomList[atomj]) > 0 && (!isRotTrans || m.atom[atomi].strandNumber != m.atom[atomj].strandNumber) ){
 					tempIndx = tempCount * NBTOff;
 					partHalfNonBonded[q][tempIndx] = halfNonBondedTerms[ix5];
 					partHalfNonBonded[q][tempIndx+1] = halfNonBondedTerms[ix5 + 1];
@@ -1755,7 +1771,7 @@ public class Amber96ext implements ForceField, Serializable {
 				ix5 += NBTOff;
 				atomi = (int)nonBondedTerms[ix5];
 				atomj = (int)nonBondedTerms[ix5 + 1];
-				if ((tempAtomList[atomi] + tempAtomList[atomj]) > 0){
+				if ((tempAtomList[atomi] + tempAtomList[atomj]) > 0 &&  (!isRotTrans || m.atom[atomi].strandNumber != m.atom[atomj].strandNumber)){
 					tempIndx = tempCount * NBTOff;
 					partNonBonded[q][tempIndx] = nonBondedTerms[ix5];
 					partNonBonded[q][tempIndx+1] = nonBondedTerms[ix5 + 1];
@@ -2107,9 +2123,15 @@ public class Amber96ext implements ForceField, Serializable {
 			Eenergy += coulombTerm;
 			Venergy += vdwTerm;
 			
-			if(debug)
-				System.out.println(m.atom[atomi].moleculeResidueNumber+"_"+m.atom[atomi].name+"_"+m.atom[atomj].moleculeResidueNumber+"_"+m.atom[atomj].name+" "+coulombTerm+" "+vdwTerm);
 			
+			
+			if(debug){
+//				System.out.println(m.atom[atomi].moleculeResidueNumber+"_"+m.atom[atomi].name+"_"+m.atom[atomj].moleculeResidueNumber+"_"+m.atom[atomj].name+" "+coulombTerm+" "+vdwTerm);
+			
+				if(vdwTerm >= 10)
+					System.out.println("Clashing: "+m.atom[atomi].moleculeResidueNumber+"_"+m.atom[atomi].name+"_"+m.atom[atomj].moleculeResidueNumber+"_"+m.atom[atomj].name+" "+coulombTerm+" "+vdwTerm);
+			}
+				
 			if(doSolvationE){
 
 				indI = mapAtomToSolvTerm[atomi];

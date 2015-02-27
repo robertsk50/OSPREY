@@ -1858,6 +1858,13 @@ public class Emat implements Serializable {
 		return null;
 	}
 	
+	public Rotamer getRotamerAtIndex(Index3 index, Molecule m){
+		Residue r = m.residue[resByPos.get(index.pos).get(0)]; //0 assumes there are no superrotamers at this position
+		Rotamer rot = m.strand[r.strandNumber].rcl.getRC(singles.getRot(index)[0]).rot;
+		return rot;
+	}
+	
+	
 //	ArrayList<Rotamer> getRotamers(Molecule m, Index3 rot){
 //		return singles.getTerm(rot).r.getRotamers(m, resByPos.get(rot.pos));
 //	}

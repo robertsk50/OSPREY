@@ -106,7 +106,7 @@ public class ForceFieldEnergy extends EnergyFunction {
         }
 
 
-        a96ff.setupPartialArrays(numRows,maxNumColumns,atomList,numColumns);
+        a96ff.setupPartialArrays(numRows,maxNumColumns,atomList,numColumns,0);
     }
 
 

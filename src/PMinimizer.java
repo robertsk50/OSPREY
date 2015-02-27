@@ -317,7 +317,7 @@ public class PMinimizer extends SimpleMinimizer {
 		double deltaTransStep = strTransStep / numSteps;
 
 		a96ff.setupPartialArrays(totalFlexRes+totalTransRotStrands,MAX_NUM_ATOMS_DISTAL,flexResAtomList,
-				flexResListSize);
+				flexResListSize, totalTransRotStrands);
 
 		//Prepare for checkMonotonic stopping condition
 		double bestEnergy = a96ff.calculateTotalEnergy(m.actualCoordinates,-1)[0];

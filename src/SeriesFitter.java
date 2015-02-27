@@ -181,15 +181,17 @@ public class SeriesFitter {
                 double residTerm = (trueVals[s]-bv)*(trueVals[s]-bv);
 
                 if(Double.isInfinite(residTerm) || Double.isNaN(residTerm)){
-                    System.err.println("ERROR: SeriesFitter.fitSeries gives infinite residual term: "+residTerm);
+                    System.out.println("ERROR: SeriesFitter.fitSeries gives infinite residual term: "+residTerm);
 
+                    System.out.println("Sample Size: "+samp.length+" "+samp[s].size());
+                    
                     System.out.print("Sample: ");
                     for(int dof=0; dof<nd; dof++)
-                        System.err.print(samp[s].get(dof)+" ");
+                        System.out.print(samp[s].get(dof)+" ");
                     System.out.println();
                     
-                    System.err.println(" TRUEVAL="+trueVals[s]+" BV="+bv);
-                    System.err.println("params:");
+                    System.out.println(" TRUEVAL="+trueVals[s]+" BV="+bv);
+                    System.out.println("params:");
                     for(double param : v)
                         System.out.println(param);
 

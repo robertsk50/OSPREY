@@ -853,22 +853,23 @@ public class SimpleMinimizer implements Serializable {
 	protected void doStrTransRot(int strNumber, double strTorque[], double strTrans[], double RotStep, double TransStep, double MaxTrans){
 		
 		double bckpStrCoords[] = backupStrCoord(strNumber); //backup actual ligand coordinates
-		double initE[] = a96ff.calculateTotalEnergy(m.actualCoordinates, -1); //compute energy before translation/rotation
-	
+		
 		//find strand rotTrans index
 		int index = 0;
 		for(int i=0; i<strNumber;i++){
 			if(m.strand[i].rotTrans)
 				index++;
 		}
+		double initE[] = a96ff.calculateTotalEnergy(m.actualCoordinates, totalFlexRes+index); //compute energy before translation/rotation
 		
 		a96ff.calculateGradient(totalFlexRes+index); //calculate the gradient (perhaps eventually just calculate part of the gradient)
 		//a96ff.calculateEVGradientPartWithArrays(ligResNumPP);
 		computeStrTorqueTrans(strNumber, strTorque, strTrans);
 		applyStrTorqueTrans(strNumber, strTorque, RotStep, strTrans, TransStep, MaxTrans);
 		
-		double minE[] = a96ff.calculateTotalEnergy(m.actualCoordinates, -1); //compute energy after translation/rotation
+		double minE[] = a96ff.calculateTotalEnergy(m.actualCoordinates, totalFlexRes+index); //compute energy after translation/rotation
 		//m.saveMolecule("minSingle.pdb", 0.0f);
+		
 		if (initE[0]<=minE[0]) { //restore initial ligand actual coordinates if trans/rot increses energy
 			restoreStrCoord(strNumber, bckpStrCoords);	
 		}
@@ -1324,7 +1325,7 @@ public class SimpleMinimizer implements Serializable {
 					flexResListSize);
 			else*/
 		a96ff.setupPartialArrays(totalFlexRes+totalTransRotStrands,MAX_NUM_ATOMS_DISTAL,flexResAtomList,
-					flexResListSize);
+					flexResListSize,totalTransRotStrands);
 
 		while(!done){
 			

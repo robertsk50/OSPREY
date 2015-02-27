@@ -9,6 +9,12 @@ import java.util.StringTokenizer;
 
 public class HBondEnergy {
 
+	public static final byte DEDR = 1;
+	public static final byte DEDXD = 2;
+	public static final byte DEDXH = 3;
+	public static final byte DEDCHI = 4;
+	public static final byte DEDBAH = 5;
+	
 	public static final byte SP2_HYBRID = 1;
 	public static final byte SP3_HYBRID = 2;
 	public static final byte RING_HYBRID = 3;
@@ -1559,14 +1565,15 @@ public class HBondEnergy {
 				if( Math.acos((fx*vx + fy*vy + fz*vz) / (fmag * vmag)) > 1.57079633 )
 				{ chi = -chi; }
 
-				double chiPenalty = 0.0;
+				double[] chiPenalty = {0.0};
+				
 				if(hbp.accept.hybridization == SP2_HYBRID)
-					chiPenalty = bah_chi_compute_energy_sp2(negcosPhi,chi);
+					bah_chi_compute_energy_sp2(negcosPhi,chi,chiPenalty);
 				else if((hbp.accept.hbacc == HBAccChemType.hbacc_AHX || 
 					hbp.accept.hbacc == HBAccChemType.hbacc_HXL ))
-					chiPenalty = bah_chi_compute_energy_sp3(chi);
+					bah_chi_compute_energy_sp3(chi,chiPenalty);
 				
-				Ehb += chiPenalty;
+				Ehb += chiPenalty[0];
 
 
 			}
@@ -1607,11 +1614,15 @@ public class HBondEnergy {
 	}
 
 	void setupPartialHBondArrays(int numRows, int maxNumColumns,
-			int[][] atomList, int[] numColumns, Molecule m) {
+			int[][] atomList, int[] numColumns, Molecule m, int numRotTrans) {
 
 		partHBlist = new ArrayList[numRows];
 
 		for(int q=0; q<numRows;q++){
+			boolean isRotTrans = false;
+			if(q >= numRows-numRotTrans)
+				isRotTrans = true;
+			
 			partHBlist[q] = new ArrayList<HbondPair>();
 			int[] tempAtomList = new int[m.numberOfAtoms];
 			for(int i=0;i<numColumns[q];i++)
@@ -1620,7 +1631,7 @@ public class HBondEnergy {
 			Iterator<HbondPair> iter = hbondTerms.iterator();
 			while(iter.hasNext()){
 				HbondPair hbp = iter.next();
-				if(tempAtomList[hbp.hydro.moleculeAtomNumber] + tempAtomList[hbp.accept.moleculeAtomNumber] > 0){
+				if(tempAtomList[hbp.hydro.moleculeAtomNumber] + tempAtomList[hbp.accept.moleculeAtomNumber] > 0 && (!isRotTrans || hbp.hydro.strandNumber != hbp.accept.strandNumber)){
 					partHBlist[q].add(hbp);
 				}
 			}
@@ -1649,19 +1660,48 @@ public static double fade_energy(double energy) {
 	return energy;
 }
 
+///@brief Fade the energy smoothly to zero over the energy range [-0.1, 0.1]
+///@detail Because of the additive functional form, in order to make
+///derivative continuous at the boundary of definition, we fade the
+///energy function smoothly to zero.
+///
+/// Check that f(x) = -0.025 + 0.5x - 2.5x^2 satisfies
+///     f(-.1) = -0.025 +   0.5*(-.1) - 2.5*(-.1)^2 = -.1
+///     f( .1) = -0.025 +    0.5*(.1) -  2.5*(.1)^2 = 0
+///    f'(-.1) =  0.5   - 2.5*2*(-.1)               = 1
+///     f'(.1) =  0.5   -  2.5*2*(.1)               = 0
+public static void fade_energy_deriv(double[] energy_derivs) {
+	//Energy should be in the 0 index
+	double energy = energy_derivs[0];
+	if(energy > 0.1){
+		for(int i=0; i<energy_derivs.length;i++)
+			energy_derivs[i] = 0.0;
+	} else if (energy_derivs[0] > -0.1){
+		energy_derivs[0] =  (-0.025 + 0.5*energy - 2.5*energy*energy);
+		for(int i=1; i<energy_derivs.length;i++)
+			energy_derivs[i] *= 5*(0.1-energy);
+	}
+}
 
-	private static double bah_chi_compute_energy_sp3(double chi) {
+	//value and deriv are now returned in the array valDeriv
+	private static void bah_chi_compute_energy_sp3(double chi, double[] valDeriv) {
 		// just add in a penalty directly to the energy sum; the chi-penalty
 		// is only multiplied in for the sp2 term.
 		double max_penalty = 0.25;
 		double cos2ChiShifted = max_penalty * ( 1 + Math.cos(chi)) / 2;
-		return cos2ChiShifted;
+		valDeriv[0] = cos2ChiShifted;
+		
+		if(valDeriv.length >= 2){
+			valDeriv[1] = -1 * max_penalty * Math.sin(chi)/2; //dE_dchi
+		}
 	}
 
 	static final double d = 0.75;
 	static final double m = 1.6;
 	static final double l = .357;
-	static double bah_chi_compute_energy_sp2(double xH, double chi) {
+	//valDeriv returns the value and derivative of the torsional energy
+	//Two derivatives are returned so valDeriv should be length 3
+	static void bah_chi_compute_energy_sp2(double xH, double chi, double valDeriv[]) {
 
 
 		double PI_minus_BAH = Math.acos(xH);
@@ -1682,7 +1722,21 @@ public static double fade_energy(double energy) {
 			G = m-0.5;
 		}
 
-		return (H*F + (1-H)*G);
+		valDeriv[0] = (H*F + (1-H)*G);
+		
+		if(valDeriv.length >= 3){
+			double dH_dchi = (-1 * Math.sin(2*chi));
+			double dF_dBAH=0, dG_dBAH=0;
+			if ( BAH >= Math.PI * 2/3 ) {
+				dF_dBAH = 3 * d/2 * Math.sin(3 * PI_minus_BAH);
+			} else if ( BAH >= Math.PI * (2/3 - l)) {
+				double d_outer_rise_dBAH = ( -1/l * Math.sin(Math.PI - (2*Math.PI/3 - BAH)/l) );
+				dF_dBAH = m/2 * d_outer_rise_dBAH;
+				dG_dBAH = (m - d)/2 * d_outer_rise_dBAH;
+			}
+			valDeriv[1] = F*dH_dchi - G*dH_dchi; //dE_dchi
+			valDeriv[2] = H*dF_dBAH + (1-H)*dG_dBAH; //dE_dBAH
+		}
 	}
 
 	private double getNeighborScale(HBEvalType hbe, Molecule m, Atom donor, Atom accept) {
@@ -2045,10 +2099,490 @@ public static double fade_energy(double energy) {
 		}
 	}
 
-	public void calculateHBondGradient(int curIndex, Molecule m2) {
-		System.out.println("Gradient not implemented yet for this Hbond Function.");
-		System.out.println("Exiting...");
-		System.exit(0);
+	//Using information from
+	//https://salilab.org/modeller/9v6/manual/node436.html
+	public void calculateHBondGradient(int curIndex, Molecule m) {
+
+			int atomix3, atomjx3, atomi, atomj, atomk, atomkx3, atomb=0,atombx3 = 0,atomb2=0,atomb2x3=0,atoml, atomlx3, atomm, atommx3;
+			int ix4;
+			double rij, rij2, rij6, rij10, rij12;
+			double cx, cy, cz, cmag;
+			double dx, dy, dz, ex, ey, ez, dmag, emag,emag2;
+			double theta=0.0, thetadeg;
+			double fx, fy, fz, fmag, gx,gy,gz,gmag;
+			double ux, uy, uz, vx, vy, vz, umag, vmag,vmag2,umag2;
+			double dihed;
+			double negcostheta;
+			double cos2theta,cos4theta, negcosPhi, cos2phi, Ehb;
+			byte donorType, acceptType;
+			byte donorSS, acceptSS;
+
+			double phi=0;
+			double chi=0;
+			
+			double dChi_drHx, dChi_drHy, dChi_drHz, dChi_drB2x, dChi_drB2y, dChi_drB2z;
+			double HAdotBA, BB2dotBA,  dChi_drAx, dChi_drAy, dChi_drAz, dChi_drBx, dChi_drBy, dChi_drBz;
+
+			double dE_dr,dE_dxH,dE_dxD,dE_dchi,dE_dBAH;
+			
+			double[] HAvalDeriv = new double[2];
+			double[] cosThetaValDeriv = new double[2];
+			double[] cosPhiValDeriv = new double[2];
+			double[] chiValDeriv = new double[2];
+			double[] dCosThetaDR = new double[6];
+			double[] dCosPhiDR = new double[6];
+			double[] dChiDR = new double[12];
+
+			double[] coordinates = m.actualCoordinates;
+			
+			ArrayList<HbondPair> hbonds;
+			if(curIndex == -1){
+				hbonds = hbondTerms;
+			}
+			else{
+				hbonds = partHBlist[curIndex];
+			}
+			
+			Iterator<HbondPair> iter = hbonds.iterator();
+
+			while(iter.hasNext()){
+				HbondPair hbp = iter.next();
+
+				HBEvalType hbe = hbp.hbe;
+				atomi = hbp.donor.moleculeAtomNumber;
+				atomj = hbp.hydro.moleculeAtomNumber;
+				atomk = hbp.accept.moleculeAtomNumber;
+
+
+				atomix3 = atomi * 3;
+				atomjx3 = atomj * 3;
+				atomkx3 = atomk * 3;
+
+
+				//H->A
+				dx = coordinates[atomjx3] - coordinates[atomkx3];
+				dy = coordinates[atomjx3 + 1] - coordinates[atomkx3 + 1];
+				dz = coordinates[atomjx3 + 2] - coordinates[atomkx3 + 2];
+				rij2 = dx*dx + dy*dy + dz*dz;
+				dmag = Math.sqrt(rij2);
+
+				rij = dmag;
+				if(dmag < 1.4 || dmag > 3.0){
+					continue; //Only calculate if 1.4<= R <= 3.0 angstroms
+				}
+
+				//D->H
+				cx = coordinates[atomix3] - coordinates[atomjx3];
+				cy = coordinates[atomix3 + 1] - coordinates[atomjx3 + 1];
+				cz = coordinates[atomix3 + 2] - coordinates[atomjx3 + 2];
+				cmag = Math.sqrt(cx*cx + cy*cy + cz*cz);
+				
+				
+				double[] Edelta = {0.0,0.0}; //Hold energy and derivative
+				double[] sDeltaShort = {0.0,0.0}; //Smoothing term
+				double[] sDeltaLong = {0.0,0.0}; //Smoothing term
+
+				AHdist_poly_lookup[hbe.ordinal()].getValueAndDeriv(rij,Edelta); 
+				AHdist_short_fade_lookup[hbe.ordinal()].getSmoothValAndDeriv(rij,sDeltaShort); 
+				AHdist_long_fade_lookup[hbe.ordinal()].getSmoothValAndDeriv(rij,sDeltaLong);
+
+
+				//angle = (float)Math.toDegrees(Math.acos((dx*ex + dy*ey + dz*ez) / (dmag * -emag)));
+				//costheta = (cx*dx + cy*dy + cz*dz) / (cmag * -dmag);
+				negcostheta = (cx*dx + cy*dy + cz*dz) / (cmag * dmag); //DH dot HA
+				//theta = Math.toDegrees(Math.acos(costheta));
+
+				boolean use_cosAHD = (cosBAH_short_poly_lookup[hbe.ordinal()].geoType == HBGeoDimType.hbgd_AHD);
+
+				if(! use_cosAHD)
+					theta = Math.PI - Math.acos(negcostheta);
+
+				double[] EthetaShort = {0.0,0.0};
+				double[] EthetaLong = {0.0,0.0};
+				double[] sTheta = {0.0,0.0}; //Smoothing term
+
+				if(use_cosAHD){
+					 cosAHD_short_poly_lookup[hbe.ordinal()].getValueAndDeriv(negcostheta,EthetaShort);
+					 cosAHD_long_poly_lookup[hbe.ordinal()].getValueAndDeriv(negcostheta,EthetaLong);
+				}else{
+					 cosAHD_short_poly_lookup[hbe.ordinal()].getValueAndDeriv(theta,EthetaShort);
+					 cosAHD_long_poly_lookup[hbe.ordinal()].getValueAndDeriv(theta,EthetaLong);
+				}
+				cosAHD_fade_lookup[hbe.ordinal()].getSmoothValAndDeriv(negcostheta,sTheta);
+
+
+				//Determine Phi
+				//Hydro-Accept-Base
+				Atom base = null;
+				Atom base2 = null;
+
+				for(int i=0; i<hbp.accept.bond.length;i++){
+					if(!m.atom[hbp.accept.bond[i]].elementType.equals("H")){ //Want a heavy atom
+						if(base == null){
+							base = m.atom[hbp.accept.bond[i]];
+							atomb = base.moleculeAtomNumber;
+							atombx3 = atomb*3;
+						}
+						else{
+							base2 = m.atom[hbp.accept.bond[i]];
+							atomb2 = base2.moleculeAtomNumber;
+							atomb2x3 = atomb2*3;
+						}
+					}else if(base2 == null){
+						base2 = m.atom[hbp.accept.bond[i]];
+						atomb2 = base2.moleculeAtomNumber;
+						atomb2x3 = atomb2*3;
+					}
+				}
+
+				//Accept-Base (A->B)
+				if(hbp.accept.hybridization == RING_HYBRID){
+					ex = coordinates[atomkx3] - 0.5*(coordinates[atombx3]+coordinates[atomb2x3]);
+					ey = coordinates[atomkx3 + 1] - 0.5*(coordinates[atombx3 + 1]+coordinates[atomb2x3 + 1]);
+					ez = coordinates[atomkx3 + 2] - 0.5*(coordinates[atombx3 + 2]+coordinates[atomb2x3 + 2]);
+				} else{
+					ex = coordinates[atomkx3] - coordinates[atombx3];
+					ey = coordinates[atomkx3 + 1] - coordinates[atombx3 + 1];
+					ez = coordinates[atomkx3 + 2] - coordinates[atombx3 + 2];
+				}
+				emag2 = ex*ex + ey*ey + ez*ez;
+				emag = Math.sqrt(emag2);
+
+				negcosPhi = (dx*ex + dy*ey + dz*ez) / (dmag * emag);
+				//phi = Math.toDegrees(Math.acos( cosPhi ));
+
+				double[] EphiShort = {0.0,0.0};
+				double[] EphiLong = {0.0,0.0};
+				double[] sPhi = {0.0,0.0}; //Smoothing term
+
+				cosBAH_short_poly_lookup[hbe.ordinal()].getValueAndDeriv(negcosPhi,EphiShort);
+				cosBAH_long_poly_lookup[hbe.ordinal()].getValueAndDeriv(negcosPhi,EphiLong);
+				cosBAH_fade_lookup[hbe.ordinal()].getSmoothValAndDeriv(negcosPhi,sPhi);
+
+				/**** Calculate the derivatives needed for gradient 
+				 * dAH/dr
+				 * dcosTheta/dr
+				 * dcosPhi/dr
+				 */
+				
+				double[] dHA_drH = new double[3]; 
+				
+				//dHA/dr
+				dHA_drH[0] = dx / dmag; dHA_drH[1] = dy / dmag; dHA_drH[2] = dz/dmag;
+				
+				
+				double[] dcosTheta_drA = new double[3]; double[] dcosTheta_drD = new double[3]; double[] dcosTheta_drH=new double[3];
+				//Theta: D-H-A
+				//dcosTheta/dr = 1/|r_ij| * (r_kj/|r_kj| - (r_ij * cos(theta))/|r_ij|) where theta defined by r_ij and r_kj
+				//angle between A-H (-d vector) and D-H (c vector)
+				//d vector is HA and we want AH so multiply by negative 1
+				dcosTheta_drA[0] = (1/dmag) * ( (cx/cmag) - (-dx * -negcostheta)/dmag );
+				dcosTheta_drA[1] = (1/dmag) * ( (cy/cmag) - (-dy * -negcostheta)/dmag );
+				dcosTheta_drA[2] = (1/dmag) * ( (cz/cmag) - (-dz * -negcostheta)/dmag );
+		
+				dcosTheta_drD[0] = (1/cmag) * ( (-dx/dmag) -(cx  * -negcostheta)/cmag );
+				dcosTheta_drD[1] = (1/cmag) * ( (-dy/dmag) -(cy  * -negcostheta)/cmag );
+				dcosTheta_drD[2] = (1/cmag) * ( (-dz/dmag) -(cz  * -negcostheta)/cmag );
+				
+				if(use_cosAHD){ 
+					//if the energy is a function of theta instead of cos theta we multiply by (dtheta/dcostheta) = (dcostheta/dtheta)^-1 = -1/sin(theta)
+					dcosTheta_drA[0] *= -1/Math.sin(theta);
+					dcosTheta_drA[1] *= -1/Math.sin(theta);
+					dcosTheta_drA[2] *= -1/Math.sin(theta);
+					
+					dcosTheta_drD[0] *= -1/Math.sin(theta);
+					dcosTheta_drD[1] *= -1/Math.sin(theta);
+					dcosTheta_drD[2] *= -1/Math.sin(theta);
+				}
+		
+				dcosTheta_drH[0] = -dcosTheta_drA[0] - dcosTheta_drD[0]; 
+				dcosTheta_drH[1] = -dcosTheta_drA[1] - dcosTheta_drD[1];
+				dcosTheta_drH[2] = -dcosTheta_drA[2] - dcosTheta_drD[2];
+				
+				double[] dcosPhi_drH = new double[3]; double[] dcosPhi_drB = new double[3];double[] dcosPhi_drA = new double[3]; 
+				
+				//dcosPhi/dr = 1/|r_ij| * (r_kj/|r_kj| - (r_ij * cos(Phi))/|r_ij|) where Phi defined by r_ij and r_kj
+				//should be angle between H->A (d vector) and Ab -> A (-e vector)
+				
+				dcosPhi_drH[0] = (1/dmag) * ( (-ex/emag) - (dx * -negcostheta)/dmag );
+				dcosPhi_drH[1] = (1/dmag) * ( (-ey/emag) - (dy * -negcostheta)/dmag );
+				dcosPhi_drH[2] = (1/dmag) * ( (-ez/emag) - (dz * -negcostheta)/dmag );
+
+				dcosPhi_drB[0] = (1/emag) * ( (dx/dmag) - (-ex * -negcostheta)/emag );
+				dcosPhi_drB[1] = (1/emag) * ( (dy/dmag) - (-ey * -negcostheta)/emag );
+				dcosPhi_drB[2] = (1/emag) * ( (dz/dmag) - (-ez * -negcostheta)/emag );
+
+				dcosPhi_drA[0] = -dcosPhi_drH[0] - dcosPhi_drB[0];
+				dcosPhi_drA[1] = -dcosPhi_drH[1] - dcosPhi_drB[1];
+				dcosPhi_drA[2] = -dcosPhi_drH[2] - dcosPhi_drB[2];
+				
+				
+				//energy = Pr*FxD*FxH + FSr*(PSxD*FxH + FxD*PSxH) + FLr*(PLxD*FxH + FxD*PLxH);
+				//energy = Pr*FxD*FxH + FSr*(PSxD*FxH + FxD*PSxH) + FLr*(PLxD*FxH + FxD*PLxH);
+
+				Ehb = hbp.multiplier * (Edelta[0]*sTheta[0]*sPhi[0] + sDeltaShort[0]*(EthetaShort[0]*sPhi[0] + sTheta[0]*EphiShort[0]) + sDeltaLong[0]*(EthetaLong[0]*sPhi[0] + sTheta[0]*EphiLong[0]));
+				
+
+	 			double Echi = 0.0;
+	 			dE_dchi = 0.0;
+	 			dE_dBAH = 0.0;
+	 			dChi_drHx=0.0;dChi_drHy=0.0; dChi_drHz=0.0; dChi_drB2x=0.0; dChi_drB2y=0.0; dChi_drB2z=0.0;
+				dChi_drAx=0.0; dChi_drAy=0.0; dChi_drAz=0.0; dChi_drBx=0.0; dChi_drBy=0.0; dChi_drBz=0.0;
+				//Determine chi
+				if(hbp.accept.hybridization == SP2_HYBRID ||
+						(hbp.accept.hbacc == HBAccChemType.hbacc_AHX || 
+						hbp.accept.hbacc == HBAccChemType.hbacc_HXL )){
+					if(base2 == null){
+					for(int i=0; i<base.bond.length;i++){
+						if(m.atom[base.bond[i]].elementType.equals("C") && m.atom[base.bond[i]].moleculeResidueNumber == base.moleculeResidueNumber 
+								&& m.atom[base.bond[i]].moleculeAtomNumber != atomk){ //Doesn't equal the acceptor
+							base2 = m.atom[base.bond[i]];
+						}
+					}	
+					if(base2 == null){
+						for(int i=0; i<base.bond.length;i++){
+							if(m.atom[base.bond[i]].elementType.equals("N") && m.atom[base.bond[i]].moleculeResidueNumber == base.moleculeResidueNumber
+									&& m.atom[base.bond[i]].moleculeAtomNumber != atomk){
+								base2 = m.atom[base.bond[i]];
+							}
+						}
+					}
+					if(base2 == null){ //if it's still equal to null we find the connected atom with the most bonds
+						int maxBonds = -1; //if tied we should recurse, but I don't do that yet
+						int maxAtom = -1;
+						for(int i=0; i<base.bond.length;i++){
+							if(m.atom[base.bond[i]].bond.length > maxBonds){
+								maxBonds = m.atom[base.bond[i]].bond.length;
+								maxAtom = base.bond[i];
+							}
+						}
+						base2 = m.atom[maxAtom];
+
+					}
+					atomb2 = base2.moleculeAtomNumber;
+					atomb2x3 = atomb2*3;
+					}
+
+					//B-B2
+					fx = coordinates[atombx3] - coordinates[atomb2x3];
+					fy = coordinates[atombx3 + 1] - coordinates[atomb2x3 + 1];
+					fz = coordinates[atombx3 + 2] - coordinates[atomb2x3 + 2];
+					fmag = Math.sqrt(fx*fx + fy*fy + fz*fz);
+
+
+					// Cross product: a x b = (aybz-azby, -axbz+azbx, axby-aybx)
+					// 'u' and 'v' are normals to planes
+					// u = f x e, v = e x d
+					double BAx = -ex;
+					double BAy = -ey;
+					double BAz = -ez;
+					ux = fy*BAz - fz*BAy;
+					uy = fz*BAx - fx*BAz;
+					uz = fx*BAy - fy*BAx;
+					umag2 = ux*ux + uy*uy + uz*uz;
+					umag = Math.sqrt(umag2);
+					vx = BAy*dz - BAz*dy;
+					vy = BAz*dx - BAx*dz;
+					vz = BAx*dy - BAy*dx;
+					vmag2 = vx*vx + vy*vy + vz*vz;
+					vmag = Math.sqrt(vmag2);
+					// Dot product again
+					chi = Math.acos((ux*vx + uy*vy + uz*vz) / (umag * vmag));
+
+					// BUT, that doesn't solve the handedness (sign) problem for the dihedral!
+					// To do that, we look at the angle between 'f' and 'v'
+					// Dot product again
+					if( Math.acos((fx*vx + fy*vy + fz*vz) / (fmag * vmag)) > 1.57079633 )
+					{ chi = -chi; }
+
+					double[] chiPenalty = new double[3];
+					if(hbp.accept.hybridization == SP2_HYBRID)
+						bah_chi_compute_energy_sp2(negcosPhi,chi,chiPenalty);
+					else if((hbp.accept.hbacc == HBAccChemType.hbacc_AHX || 
+						hbp.accept.hbacc == HBAccChemType.hbacc_HXL ))
+						bah_chi_compute_energy_sp3(chi,chiPenalty);
+					
+					
+					/**** Derivatives for dChi/dr ****/
+					//r_mj = u and r_nk = v
+					//dChi/drH
+					dChi_drHx = (emag*ux)/(umag2);dChi_drHy = (emag*uy)/(umag2);dChi_drHz = (emag*uz)/(umag2);
+					
+					//dChi/drB2
+					dChi_drB2x = (-emag*vx)/(vmag2);dChi_drB2y = (-emag*vy)/(vmag2);dChi_drB2z = (-emag*vz)/(vmag2);
+					//dChi/drA
+					//Calc r_ij dot rkj (H-A dot B-A) (d dot BA)
+					HAdotBA = (dx*BAx + dy*BAy + dz*BAz) / (dmag*emag);
+					//Calc r_kl dot rkj (B-B2 dot BA) (f dot BA)
+					BB2dotBA = (fx*BAx +fy*BAy +fz*BAz)/(fmag*emag);
+					dChi_drAx = (HAdotBA/emag2 - 1)*dChi_drHx - (BB2dotBA/emag2)*dChi_drB2x;
+					dChi_drAy = (HAdotBA/emag2 - 1)*dChi_drHy - (BB2dotBA/emag2)*dChi_drB2y;
+					dChi_drAz = (HAdotBA/emag2 - 1)*dChi_drHz - (BB2dotBA/emag2)*dChi_drB2z;
+					
+					//dChi/drB
+					dChi_drBx = (BB2dotBA/emag2 - 1)*dChi_drB2x - (HAdotBA/emag2)*dChi_drHx;
+					dChi_drBy = (BB2dotBA/emag2 - 1)*dChi_drB2y - (HAdotBA/emag2)*dChi_drHy;
+					dChi_drBz = (BB2dotBA/emag2 - 1)*dChi_drB2z - (HAdotBA/emag2)*dChi_drHz;
+					
+					Ehb += chiPenalty[0];
+					dE_dchi = chiPenalty[1];
+					dE_dBAH = chiPenalty[2];
+					
+					phi = Math.PI - Math.acos(negcosPhi);
+
+				}
+				
+				//Pr = Edelta
+				//PSxD = EthetaShort
+				//PLxD = EthetaLong
+				//PSxH = EphiShort
+				//PLxH = EphiLong
+				//FxD = sTheta
+				//FxH = sPhi
+				//FSr = sDeltaShort
+				//FLr = sDeltaLong
+				
+				//dE_dr =  dPr*FxD*FxH + dFSr*(PSxD*FxH + FxD*PSxH) + dFLr*(PLxD*FxH + FxD*PLxH);
+				dE_dr = hbp.multiplier * (Edelta[1]*sTheta[0]*sPhi[0] + sDeltaShort[1]*(EthetaShort[0]*sPhi[0]+sTheta[0]*EphiShort[0]) + sDeltaLong[1]*(EthetaLong[0]*sPhi[0]+sTheta[0]*EphiLong[0]) );
+				
+				if(use_cosAHD){
+					//dE_dxD = dFxD     *(Pr       *FxH    +FLr          *PLxH       +FSr           *PSxH        ) + FxH*    (FSr           *dPSxD         +FLr          *dPLxD           );
+					dE_dxD =   sTheta[1]*(Edelta[0]*sPhi[0]+sDeltaLong[0]*EphiLong[0]+sDeltaShort[0]*EphiShort[0]) + sPhi[0]*(sDeltaShort[0]*EthetaShort[1]+sDeltaLong[0]*EthetaLong[1]   ); 
+				} else {
+					/// the fade function is still evaluated in cosine space, so its derivatives have to
+					/// be converted to units of dE/dAHD by multiplying dE/dcosAHD by sin(AHD)
+					/// the polynomial's derivatives, on the other hand, is already in units of dE/dAHD
+					//dE_dxD = dFxD     *(Pr       *FxH    +FLr          *PLxH       +FSr           *PSxH        )*sin(AHD)    + FxH    *(FSr           *dPSxD         +FLr          *dPLxD);
+					dE_dxD =   sTheta[1]*(Edelta[0]*sPhi[0]+sDeltaLong[0]*EphiLong[0]+sDeltaShort[0]*EphiShort[0])*Math.sin(theta) + sPhi[0]*(sDeltaShort[0]*EthetaShort[1]+sDeltaLong[0]*EthetaLong[1]   );
+				}
+				
+				//dE_dxH = dFxH*   (Pr*FxD             + FLr*PLxD                   + FSr*PSxD)                      + FxD*(FSr*dPSxH                        + FLr*dPLxH);
+				dE_dxH =   sPhi[1]*(Edelta[0]*sTheta[0]+ sDeltaLong[0]*EthetaLong[0]+ sDeltaShort[0]*EthetaShort[0]) + sTheta[0]*(sDeltaShort[0]*EphiShort[1]+ sDeltaLong[0]*EphiLong[1]);  
+				
+				double[] energy_derivs = new double[6];
+				energy_derivs[0] = Ehb;
+				energy_derivs[DEDR] = dE_dr;
+				energy_derivs[DEDXD] =  dE_dxD;
+				energy_derivs[DEDXH] =  dE_dxH;
+				energy_derivs[DEDCHI] = dE_dchi;
+				energy_derivs[DEDBAH] = dE_dBAH;
+				
+				fade_energy_deriv(energy_derivs);
+				
+
+				if(energy_derivs[0] >= MAX_HB_ENERGY)
+					continue;
+
+
+				double environmentScale = getNeighborScale(hbe,m,hbp.donor,hbp.accept);
+
+				if(Amber96ext.debug)
+					System.out.println("Acc: " + m.residue[hbp.accept.moleculeResidueNumber].fullName+" Don: "+m.residue[hbp.donor.moleculeResidueNumber].fullName+" "+Ehb+" "+environmentScale+" "+
+						numNeighborsHB[hbp.accept.moleculeResidueNumber]+" "+numNeighborsHB[hbp.donor.moleculeResidueNumber]);
+				
+				for(int i=0; i<energy_derivs.length;i++)
+					energy_derivs[i] *= environmentScale;
+				
+				/***********Update Gradients for the atoms involved in hbond************/
+				/*
+				 * dE_dr: Hydrogen (j) and Acceptor (k)
+				 * dE_dxD (theta): Donor (i) and Hydrogen (j) and Acceptor (k)
+				 * dE_dxH (phi)  : Hydrogen (j) and Acceptor (k) and Base (b)
+				 * dE_dchi (chi) : Hydrogen (j) and Acceptor (k) and Base (b) and Base2 (b2)
+				 * dE_dBAH (BAH) : Base (b) and Hydrogen (j)
+				 * 
+				 */
+				
+				//dE_dr
+				//Hydrogen
+				m.gradient[atomix3] += energy_derivs[DEDR]*dHA_drH[0];
+				m.gradient[atomix3+1] += energy_derivs[DEDR]*dHA_drH[1];
+				m.gradient[atomix3+2] += energy_derivs[DEDR]*dHA_drH[2];
+				//Acceptor
+				m.gradient[atomkx3] += energy_derivs[DEDR]*(-dHA_drH[0]);
+				m.gradient[atomkx3+1] += energy_derivs[DEDR]*(-dHA_drH[1]);
+				m.gradient[atomkx3+2] += energy_derivs[DEDR]*(-dHA_drH[2]);
+				
+				//dE_dxD
+				//Acceptor
+				m.gradient[atomkx3] -= energy_derivs[DEDXD]*dcosTheta_drA[0];
+				m.gradient[atomkx3+1] -= energy_derivs[DEDXD]*dcosTheta_drA[1];
+				m.gradient[atomkx3+2] -= energy_derivs[DEDXD]*dcosTheta_drA[2];
+				//Hydrogen
+				m.gradient[atomjx3] -= energy_derivs[DEDXD]*dcosTheta_drH[0];
+				m.gradient[atomjx3+1] -= energy_derivs[DEDXD]*dcosTheta_drH[1];
+				m.gradient[atomjx3+2] -= energy_derivs[DEDXD]*dcosTheta_drH[2];
+				//Donor
+				m.gradient[atomix3] -= energy_derivs[DEDXD]*dcosTheta_drD[0];
+				m.gradient[atomix3+1] -= energy_derivs[DEDXD]*dcosTheta_drD[1];
+				m.gradient[atomix3+2] -= energy_derivs[DEDXD]*dcosTheta_drD[2];
+				
+				//dE_dxH
+				//Hydrogen
+				m.gradient[atomjx3] -= energy_derivs[DEDXH]*dcosPhi_drH[0];
+				m.gradient[atomjx3+1] -= energy_derivs[DEDXH]*dcosPhi_drH[1];
+				m.gradient[atomjx3+2] -= energy_derivs[DEDXH]*dcosPhi_drH[2];
+				//Acceptor
+				m.gradient[atomkx3] -= energy_derivs[DEDXH]*dcosPhi_drA[0];
+				m.gradient[atomkx3+1] -= energy_derivs[DEDXH]*dcosPhi_drA[1];
+				m.gradient[atomkx3+2] -= energy_derivs[DEDXH]*dcosPhi_drA[2];
+				//Base
+				m.gradient[atombx3] -= energy_derivs[DEDXH]*dcosPhi_drB[0];
+				m.gradient[atombx3+1] -= energy_derivs[DEDXH]*dcosPhi_drB[1];
+				m.gradient[atombx3+2] -= energy_derivs[DEDXH]*dcosPhi_drB[2];
+				
+				//dE_dChi
+				//Hydrogen
+				m.gradient[atomjx3] -= energy_derivs[DEDCHI]*dChi_drHx;
+				m.gradient[atomjx3+1] -= energy_derivs[DEDCHI]*dChi_drHy;
+				m.gradient[atomjx3+2] -= energy_derivs[DEDCHI]*dChi_drHz;
+				//Acceptor
+				m.gradient[atomkx3] -= energy_derivs[DEDCHI]*dChi_drAx;
+				m.gradient[atomkx3+1] -= energy_derivs[DEDCHI]*dChi_drAy;
+				m.gradient[atomkx3+2] -= energy_derivs[DEDCHI]*dChi_drAz;
+				//Base
+				m.gradient[atombx3] -= energy_derivs[DEDCHI]*dChi_drBx;
+				m.gradient[atombx3+1] -= energy_derivs[DEDCHI]*dChi_drBy;
+				m.gradient[atombx3+2] -= energy_derivs[DEDCHI]*dChi_drBz;
+				//Base2
+				m.gradient[atomb2x3] -= energy_derivs[DEDCHI]*dChi_drB2x;
+				m.gradient[atomb2x3+1] -= energy_derivs[DEDCHI]*dChi_drB2y;
+				m.gradient[atomb2x3+2] -= energy_derivs[DEDCHI]*dChi_drB2z;
+				
+				//dE_dBAH (BAH is negative of Phi so we just use the negative derivative and have to multiply by -1/Math.sin(phi)
+				//The negatives cancel so don't include them
+				//Base
+				m.gradient[atombx3] += energy_derivs[DEDBAH]*dcosPhi_drB[0]*(1/Math.sin(phi));
+				m.gradient[atombx3+1] += energy_derivs[DEDBAH]*dcosPhi_drB[1]*(1/Math.sin(phi));
+				m.gradient[atombx3+2] += energy_derivs[DEDBAH]*dcosPhi_drB[2]*(1/Math.sin(phi));
+				//Acceptor
+				m.gradient[atomkx3] += energy_derivs[DEDBAH]*dcosPhi_drA[0]*(1/Math.sin(phi));
+				m.gradient[atomkx3+1] += energy_derivs[DEDBAH]*dcosPhi_drA[1]*(1/Math.sin(phi));
+				m.gradient[atomkx3+2] += energy_derivs[DEDBAH]*dcosPhi_drA[2]*(1/Math.sin(phi));
+				//Hydrogen
+				m.gradient[atombx3] += energy_derivs[DEDBAH]*dcosPhi_drH[0]*(1/Math.sin(phi));
+				m.gradient[atombx3+1] += energy_derivs[DEDBAH]*dcosPhi_drH[1]*(1/Math.sin(phi));
+				m.gradient[atombx3+2] += energy_derivs[DEDBAH]*dcosPhi_drH[2]*(1/Math.sin(phi));
+				
+				
+				
+				//Ehb = hbp.multiplier * sDelta * sTheta * sPhi * (Edelta+Etheta+Ephi+Echi);
+
+				//Ehb = Echi;
+
+				//			if(hbp.donor.strandNumber != hbp.accept.strandNumber){
+				//			if(debug){
+				//				System.out.print("Ehb: "+Ehb+" "+m.residue[hbp.donor.moleculeResidueNumber].fullName+" "+hbp.donor.name+" "+m.residue[hbp.accept.moleculeResidueNumber].fullName+" "+hbp.accept.name+" ");
+				//				System.out.println(Edelta+" ( "+rij+" ) "+Etheta+" ( "+costheta+" ) "+Ephi+" ( "+cosPhi+" ) "+Echi+" ( "+chi+" ) ");
+				//			}
+				//			}
+//				if(updateTerms)
+//					amb96ff.updatePairTerms(hbondScale*Ehb,hbp.donor.moleculeResidueNumber,hbp.accept.moleculeResidueNumber);
+//				energyTerms[4] += Ehb; 
+			}
+
+//			energyTerms[4] *= hbondScale;
+
 		
 	}
 
