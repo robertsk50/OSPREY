@@ -352,10 +352,11 @@ public class Emat implements Serializable {
 		KSParser.outputObject(hasEref,fileName+".hasEref");
 		KSParser.outputObject(hasEntropy,fileName+".hasEntropy");
 
-		//The energy matrix is specific rotamer library so save that rotamer library with the emat
-		m.aaRotLib.save(fileName+".aaRots");
+		//The energy matrix is rotamer library specific so save that rotamer library with the emat
+		if(m.aaRotLib != null)
+			m.aaRotLib.save(fileName+".aaRots");
 		if(m.genRotLib != null)
-		m.genRotLib.save(fileName+".genRots");
+			m.genRotLib.save(fileName+".genRots");
 		
 		//Save the residue conformation libraries;
 		for(Strand s: m.strand)
