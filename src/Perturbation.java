@@ -493,26 +493,37 @@ public abstract class Perturbation implements Serializable {
 
 
     public static double getGenChi1(Molecule m, int molResNum){//Get the generalized chi1 given a molecule residue number
-        //It's static because StrandRCs also uses it to place wild-type rotamers
-        Residue res = m.residue[molResNum];
+    	return getGenChi1(m.residue[molResNum]);
+    }
 
-        if( res.name.equalsIgnoreCase("gly") || ( ! m.strand[res.strandNumber].isProtein ) )
-            return 0;
-        else{
-            String lastAtom = getGenChi1LastAtom(res.name);
-            int lastAtomNum = m.getMoleculeAtomNumber(lastAtom, molResNum);
-            if(lastAtomNum == -1)//This might happen if there's 1HB instead of HB1 in alanine
-                //Regardless, if present, 1HB is a good fourth atom for this dihedral in a strange residue/naming scheme
-                lastAtomNum = m.getMoleculeAtomNumber("1HB",molResNum);
-            if(lastAtomNum == -1){
-                System.err.println("Error: atom names not understood for " + res.fullName);
-                System.exit(1);
-            }
+    public static double getGenChi1(Residue res){//Get the generalized chi1 given a molecule residue number
 
-
-            return m.getTorsion( m.getMoleculeAtomNumber("N", molResNum),
-                    m.getMoleculeAtomNumber("CA", molResNum), m.getMoleculeAtomNumber("CB", molResNum),
-                     lastAtomNum );
+    	String lastAtom = getGenChi1LastAtom(res.name);
+    	Atom N = null;
+    	Atom CB = null;
+    	Atom CA = null;
+    	Atom a4 = null;
+    	
+    	for(Atom a: res.atom){
+    		if(a.name.equalsIgnoreCase("N"))
+    			N = a;
+    		else if(a.name.equalsIgnoreCase("CB"))
+    			CB = a;
+    		else if(a.name.equalsIgnoreCase("CA"))
+    			CA = a;
+    		else if(a.name.equalsIgnoreCase(lastAtom))
+    			a4 = a;
+    	}
+    	
+    	if(lastAtom.equalsIgnoreCase("HB1") && a4 == null){//This might happen if there's 1HB instead of HB1 in alanine
+            								//Regardless, if present, 1HB is a good fourth atom for this dihedral in a strange residue/naming scheme
+    		a4 = res.getAtomByName("1HB");
+    	}
+    	
+    	if(N == null || CB == null || CA == null || a4 == null)
+    		return 0;
+    	else{
+            return a4.torsion(N, CA, CB);
         }
     }
 

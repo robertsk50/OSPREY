@@ -614,7 +614,7 @@ class PDBChemModel {
                             for( Atom at : res.atom )
                                 oldCoord.put(at.name, at.coord);
 
-                            sr.changeResidueType(m, res.strandResidueNumber, res.name, true);
+                            MutUtils.changeResidueType(m, res.strandResidueNumber, res.name, true);
 
 
                             AARotamerType aaType = m.aaRotLib.getAAType(res.name);

@@ -57,7 +57,7 @@ public class Settings implements Serializable {
 			minimizePerts = (new Boolean((String)sParams.getValue("MINIMIZEPERTURBATIONS","false"))).booleanValue();//Allow continuous minimization with respect to perturbation parameters
 			screenOutFile = ((String)sParams.getValue("SCREENOUTFILE","screenOutFileDefaultName.pert"));//Name of file for outputting results of screen (same format as PERTURBATIONFILE)
 			selectPerturbations = (new Boolean((String)sParams.getValue("SELECTPERTURBATIONS","false"))).booleanValue();//Should perturbations be automatically selected?
-			Perturbation.idealizeSC = (new Boolean((String)sParams.getValue("IDEALIZESIDECHAINS","true"))).booleanValue();
+			Perturbation.idealizeSC = (new Boolean((String)sParams.getValue("IDEALIZESIDECHAINS","false"))).booleanValue();
 	
 			useCCD = (new Boolean((String)sParams.getValue("USECCD","true"))).booleanValue();//CCD minimization
 			CCDMinimizer.EConvTol = (new Double((String)sParams.getValue("ECONVTOL","0.01"))).doubleValue();
@@ -209,7 +209,7 @@ public class Settings implements Serializable {
 			approxMinGMEC = (new Boolean((String)sParams.getValue("APPROXMINGMEC", "false"))).booleanValue();
 			lambda = (new Double((String)sParams.getValue("LAMBDA", "0"))).doubleValue();
 			useFlagsAStar = (new Boolean((String)sParams.getValue("USEFLAGSASTAR","false"))).booleanValue();
-			asMethod = ASTARMETHOD.valueOf(sParams.getValue("ASTARMETHOD","ASWCSPREORDER").toUpperCase());
+			asMethod = ASTARMETHOD.valueOf(sParams.getValue("ASTARMETHOD","WCSP").toUpperCase());
 			varOrder = VARIABLEORDER.valueOf(sParams.getValue("VARORDER","MINFSCORE").toUpperCase());
 			numMaxMut = (new Integer((String)sParams.getValue("NUMMAXMUT", "1000"))).intValue();
 			bestE = (new Double((String)sParams.getValue("BESTE","10000000"))).doubleValue();

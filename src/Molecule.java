@@ -2780,14 +2780,16 @@ public class Molecule implements Serializable{
 			rotateAtomList( res.getAtomList(false,true,false,false) , SC_mtx, actualCoordinates[3*CAAtNum],
 					actualCoordinates[3*CAAtNum+1], actualCoordinates[3*CAAtNum+2], false);
 
-			int HANum = res.getAtomNameToMolnum("HA");
-
-			t1 = r.get4thPoint(NCoord, CCoord, CACoord, 1.100f, 107.9f, -118.3f);
-			t2 = r.get4thPoint(CCoord, NCoord, CACoord, 1.100f, 108.1f, 118.2f);
-			double newHA[] = r.subtract( r.scale( r.add(t1,t2) , 0.5f), CACoord);
-			newHA = r.add( r.scale( newHA, 1.100f / r.norm(newHA) ), CACoord );
-
-			System.arraycopy(newHA, 0, actualCoordinates, HANum*3, 3);//Change the HA actualCoordinates
+			if(Perturbation.idealizeSC){
+				int HANum = res.getAtomNameToMolnum("HA");
+		
+				t1 = r.get4thPoint(NCoord, CCoord, CACoord, 1.100f, 107.9f, -118.3f);
+				t2 = r.get4thPoint(CCoord, NCoord, CACoord, 1.100f, 108.1f, 118.2f);
+				double newHA[] = r.subtract( r.scale( r.add(t1,t2) , 0.5f), CACoord);
+				newHA = r.add( r.scale( newHA, 1.100f / r.norm(newHA) ), CACoord );
+		
+				System.arraycopy(newHA, 0, actualCoordinates, HANum*3, 3);//Change the HA actualCoordinates
+			}
 		}
 
 		if(res.name.equalsIgnoreCase("PRO"))//Idealize the CG, CD and ring hydrogen positions

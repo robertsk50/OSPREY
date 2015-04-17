@@ -189,7 +189,7 @@ public class RotMatrix implements Serializable
 
 	// This function constructs a rotation matrix from a rotation in
 	//  axis-angle notation
-	public void getRotMatrix(double fx, double fy, double fz, double angle,
+	public static void getRotMatrix(double fx, double fy, double fz, double angle,
 		double[][] rot_mtx) {
 
 		// First convert the axisangle to a quaternion
@@ -284,7 +284,7 @@ public class RotMatrix implements Serializable
         }
 
 
-        double[] applyRotMatrix(double[][] rm, double[] vec){//Apply rotation matrix rm to vector vec, i.e. compute rm*vec
+        static double[] applyRotMatrix(double[][] rm, double[] vec){//Apply rotation matrix rm to vector vec, i.e. compute rm*vec
             double ans[]=new double[3];
             double val;
             for(int a=0;a<3;a++){
@@ -401,11 +401,11 @@ public class RotMatrix implements Serializable
 
         //A couple of quick vector operations, all in 3-D like the above
 
-        double dot(double[] vec1, double[] vec2){
+        static double dot(double[] vec1, double[] vec2){
             return vec1[0]*vec2[0]+vec1[1]*vec2[1]+vec1[2]*vec2[2];
         }
 
-        double norm(double[] vec){
+        static double norm(double[] vec){
             return (double)Math.sqrt(dot(vec,vec));
         }
 
@@ -413,7 +413,7 @@ public class RotMatrix implements Serializable
             return dot(vec, vec);
         }
 
-        double[] add(double[] vec1,double[] vec2){
+        static double[] add(double[] vec1,double[] vec2){
             double ans[]=new double[3];
             for(int a=0;a<3;a++){
                 ans[a]=vec1[a]+vec2[a];
@@ -421,7 +421,7 @@ public class RotMatrix implements Serializable
             return ans;
         }
 
-        double[] subtract(double[] vec1,double[] vec2){
+        static double[] subtract(double[] vec1,double[] vec2){
             double ans[]=new double[3];
             for(int a=0;a<3;a++){
                 ans[a]=vec1[a]-vec2[a];
@@ -429,7 +429,7 @@ public class RotMatrix implements Serializable
             return ans;
         }
 
-        double[] scale(double[] vec, double scalar){
+        static double[] scale(double[] vec, double scalar){
             double ans[]=new double[3];
             for(int a=0;a<3;a++){
                 ans[a]=vec[a]*scalar;
@@ -437,7 +437,7 @@ public class RotMatrix implements Serializable
             return ans;
         }
 
-        double[] cross(double[] vec1,double[] vec2){
+        static double[] cross(double[] vec1,double[] vec2){
             double ans[]=new double[3];
             ans[0]=vec1[1]*vec2[2]-vec2[1]*vec1[2];
             ans[1]=vec1[2]*vec2[0]-vec2[2]*vec1[0];
@@ -493,8 +493,8 @@ public class RotMatrix implements Serializable
         }
 
 
-        /**
-         * From KiNG's driftwood.r3.Builder:
+   /**
+    * From KiNG's driftwood.r3.Builder:
     * Given three points A, B, and C,
     * construct a line segment from C to D
     * of length len
@@ -503,7 +503,7 @@ public class RotMatrix implements Serializable
     * return D
     * Used in sidechain idealization
     */
-    public double[] get4thPoint(double[] a, double[] b, double[] c, double len, double ang, double dihe)
+    public static double[] get4thPoint(double[] a, double[] b, double[] c, double len, double ang, double dihe)
     {
         double d[] = subtract(b,c);
         d = scale(d, len/norm(d) );

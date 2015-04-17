@@ -102,7 +102,6 @@ public class Residue implements Serializable {
 	public boolean cofactor = false;
 	byte SStype; //Secondary structure type (Set by readDSSP for hbond functionality) Duplicate of the "secondaryStruct" int below that reads PDB entries
 	public boolean lAmino = true;
-	double[] defaultCB; //Store the WT CB coordinates for when mutating back from Gly
 	
 	//DEEPer stuff                       
 	int perts[]=null;             // Perturbations to which this unit is subject (may be empty; this array consists of indices in m.perts, in ascending order)
@@ -128,8 +127,13 @@ public class Residue implements Serializable {
 	final static int LOOP = 2;
 	
 	// PGC 2014: We store the wildtype rotamer coordinates as part of the residue.
+	//Residue wtResidue;
+	String wtAA;
 	Atom wildtypeAtoms[];
-
+	AtomPlacement Hplace; //The distance, angle, and torsion information of the WT hydrogen atom
+	AtomPlacement CBplace; //The distance, angle, and torsion information of the WT C-beta atom
+	double WTGenChi1;
+	
 	/*
 	 * KER: I use these variables to keep track of what this molecule can mutate to. Since I
 	 * want position specific rotamers, each residue has to keep track of the allowed rotamers
@@ -474,7 +478,7 @@ public class Residue implements Serializable {
 			if(includeAmide)
 				listSize += 4;
 			if(includeSC)
-				listSize += atom.length - 7;
+				listSize += atom.length - 8;
 			if(includeCarbonyl)
 				listSize += 2;
 		}
@@ -482,7 +486,7 @@ public class Residue implements Serializable {
 			if(includeAmide)
 				listSize += 2;
 			if(includeSC)
-				listSize += atom.length - 6;
+				listSize += atom.length - 7;
 			if(includeCarbonyl)
 				listSize += 3;
 		}
@@ -490,12 +494,12 @@ public class Residue implements Serializable {
 			if(includeAmide)
 				listSize += 2;
 			if(includeSC)
-				listSize += atom.length - 5;
+				listSize += atom.length - 6;
 			if(includeCarbonyl)
 				listSize += 2;
 		}
 		if(includeCA)
-			listSize += 1;//Same for any kind of residue
+			listSize += 2;//Same for any kind of residue
 
 		if( name.equalsIgnoreCase("PRO") ){
 			//Two more amide atoms; thus also two less sidechain atoms since the
@@ -544,6 +548,8 @@ public class Residue implements Serializable {
 		}
 		if(includeCA){
 			atomList[a] = getAtomByName("CA").moleculeAtomNumber;
+			a++;
+			atomList[a] = getAtomByName("HA").moleculeAtomNumber;
 			a++;
 		}
 		if(includeCarbonyl){
@@ -856,8 +862,7 @@ public class Residue implements Serializable {
 		
 		//Save initial coordinates for WT rotamer
 		saveWTcoords();
-		
-		//resRots = new ResRotamers(rl, this, addOrigRot);
+
 	}
 	
 	/**
@@ -978,12 +983,30 @@ public class Residue implements Serializable {
 	 */
 	public void saveWTcoords(){
 		Atom CA = null;
+		Atom O = null;
+		Atom C = null;
+		Atom N = null;
+		Atom H = null; //proline won't have H
+		Atom CB = null; //glycine won't have CB 
+		Atom HA3 = null;
 		
-		this.wildtypeAtoms = new Atom[this.atom.length];
-		for(int aIx = 0; aIx < this.atom.length; aIx++){
-			this.wildtypeAtoms[aIx] = this.atom[aIx].copy();
-			if(this.atom[aIx].name.equalsIgnoreCase("CA"))
-				CA = this.wildtypeAtoms[aIx];
+		wildtypeAtoms = new Atom[atom.length];
+		for(int aIx = 0; aIx < atom.length; aIx++){
+			wildtypeAtoms[aIx] = atom[aIx].copy();
+			if(atom[aIx].name.equalsIgnoreCase("CA"))
+				CA = wildtypeAtoms[aIx];
+			else if(atom[aIx].name.equalsIgnoreCase("O"))
+				O = wildtypeAtoms[aIx];
+			else if(atom[aIx].name.equalsIgnoreCase("N"))
+				N = wildtypeAtoms[aIx];
+			else if(atom[aIx].name.equalsIgnoreCase("C"))
+				C = wildtypeAtoms[aIx];
+			else if(atom[aIx].name.equalsIgnoreCase("H") || atom[aIx].name.equalsIgnoreCase("H1")) //If N-terminal amino acid this will be H1
+				H = wildtypeAtoms[aIx];
+			else if(atom[aIx].name.equalsIgnoreCase("CB"))
+				CB = wildtypeAtoms[aIx];
+			else if(atom[aIx].name.equalsIgnoreCase("HA3") || atom[aIx].name.equalsIgnoreCase("3HA"))
+				HA3 = wildtypeAtoms[aIx];
 		}
 		
 		double CAx = CA.coord[0];
@@ -1000,9 +1023,32 @@ public class Residue implements Serializable {
 			}
 		}
 		
+		//Set the CB and H placements
+		if(name.equals("PRO")){
+			//Use default ALA values for CB and H
+			Residue ideal = new Amber96PolyPeptideResidue().getResidue("ALA");
+			Atom[] bbAtoms = MutUtils.getBBatoms(ideal);
+			Hplace = new AtomPlacement(bbAtoms[MutUtils.C],bbAtoms[MutUtils.CA],bbAtoms[MutUtils.N],bbAtoms[MutUtils.H]);
+			CBplace = new AtomPlacement(bbAtoms[MutUtils.O],bbAtoms[MutUtils.C],bbAtoms[MutUtils.CA],bbAtoms[MutUtils.CB]);
+		}else if(name.equals("GLY")){
+			Hplace = new AtomPlacement(C, CA, N, H);
+			//Scale HA3
+			double CACB[] = RotMatrix.scale( RotMatrix.subtract( HA3.coord, CA.coord ) , 1.396f );//1.536/1.1
+			Atom scaledCB = new Atom(RotMatrix.add(CA.coord, CACB));
+			CBplace = new AtomPlacement(O,C,CA,scaledCB);
+		}else{
+			try{
+			Hplace = new AtomPlacement(C, CA, N, H);
+			}catch(Exception E){
+				E.printStackTrace();
+			}
+			CBplace = new AtomPlacement(O,C,CA,CB);
+		}
+		
+		WTGenChi1 = Perturbation.getGenChi1(this);
 		
 	}
-	
+
 	/**
 	 * PGC 2014: Set the atom coordinates to the wildtype coordinates. 
 	 * KER: Atom coordinates are stored relative to the CA atom, so we need
@@ -1011,34 +1057,22 @@ public class Residue implements Serializable {
 	 * @return
 	 */
 	public void setResidueToWTcoords(boolean skipBB){
-
-		Atom CA = null;
-		for(Atom a: atom){
-			if(a.name.equalsIgnoreCase("CA")){
-				CA = a;
-				break;
-			}
-		}
-		if(CA == null){
-			System.out.println("Could not find CA for WT rotamer. Using (0,0,0)");
-			double[] zeros = {0.0,0.0,0.0};
-			CA = new Atom(zeros);
-		}
+		
 		
 		int nonBBatoms = 0;
 		int atomsChanged = 0;
-//		System.out.println("Restoring wildtype rotamer coordinates for residue: "+this.fullName);
+		//System.out.println("Restoring wildtype rotamer coordinates for residue: "+this.fullName);
 		try{
 		for(int aIx1 = 0; aIx1 < this.atom.length; aIx1++){
 			if(!this.atom[aIx1].isBBatom || !skipBB ){
 				nonBBatoms++;
 				boolean atomMatched = false;
-				for(int aIx2 = 0; aIx2 < this.wildtypeAtoms.length; aIx2++){
-					if(this.atom[aIx1].isNameEqualTo(this.wildtypeAtoms[aIx2].name)){
-	//					System.out.println(this.atom[aIx1]+" changed to :"+this.wildtypeAtoms[aIx2]);
-						this.atom[aIx1].coord[0] = CA.coord[0] + this.wildtypeAtoms[aIx2].coord[0];
-						this.atom[aIx1].coord[1] = CA.coord[1] + this.wildtypeAtoms[aIx2].coord[1];
-						this.atom[aIx1].coord[2] = CA.coord[2] + this.wildtypeAtoms[aIx2].coord[2];
+				for(int aIx2 = 0; aIx2 < wildtypeAtoms.length; aIx2++){
+					if(this.atom[aIx1].isNameEqualTo(wildtypeAtoms[aIx2].name)){
+						//System.out.println(this.atom[aIx1]+" changed to :"+this.wildtypeAtoms[aIx2]);
+						this.atom[aIx1].coord[0] = wildtypeAtoms[aIx2].coord[0];
+						this.atom[aIx1].coord[1] = wildtypeAtoms[aIx2].coord[1];
+						this.atom[aIx1].coord[2] = wildtypeAtoms[aIx2].coord[2];
 						atomsChanged ++;
 						atomMatched = true;				
 					}				
@@ -1051,7 +1085,7 @@ public class Residue implements Serializable {
 		}catch(Exception E){
 			E.printStackTrace();
 		}
-		if (atomsChanged != nonBBatoms || (!skipBB && (atomsChanged != this.wildtypeAtoms.length || atomsChanged != this.atom.length) ) ){
+		if (atomsChanged != nonBBatoms || (!skipBB && (atomsChanged != wildtypeAtoms.length || atomsChanged != this.atom.length) ) ){
 			System.out.println("Something went wrong when trying to copy atom coordinates");
 			System.exit(1);
 			

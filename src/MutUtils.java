@@ -1,4 +1,5 @@
 
+
 public class MutUtils {
 
 	static final int N = 0;
@@ -30,7 +31,14 @@ public class MutUtils {
                     m.updateCoordinates(localResidue.atom[a].moleculeAtomNumber);
             }
 			
-//			m.updateCoordinates();
+			//BB conformational changes might make this orientation inappropriate though
+	        //So idealize the sidechain to fix it
+	        //This won't return false because it's not a proline
+	        m.idealizeResSidechain(localResidue);
+	
+	        //Finally make sure the (generalized) chi1 is correct
+	        Perturbation.setGenChi1(m, localResidue.moleculeResidueNumber, localResidue.WTGenChi1 );
+
 			return true;
 		}
 		
@@ -159,10 +167,10 @@ public class MutUtils {
 	//  required to maintain our messy molecule datastructure.
 	public static void changeResidueType(Molecule m, int resID, String newResType, boolean addHydrogens, boolean connectResidue, boolean useOldBBatoms) {
 
-		
 		Residue localResidue = m.residue[resID];
 		localResidue.curRC = null;
 		
+		RotMatrix rm = new RotMatrix();
 		
 		int resNum = localResidue.strandResidueNumber;
 		int strandNumber = localResidue.strandNumber;
@@ -171,7 +179,10 @@ public class MutUtils {
 		boolean oldDaa    = false;
 		boolean newResGly = false;
 		boolean oldResGly = false;
-		boolean glyMutation = false;
+		
+		boolean newResPro = false;
+		boolean oldResPro = false;
+		boolean proMutation = false;
 		
 		if (newResType.length() == 4 && newResType.startsWith("D")) {
 			newDaa = true;
@@ -179,12 +190,6 @@ public class MutUtils {
 		if (!localResidue.lAmino){
 			oldDaa = true;
 		}
-		
-		/* KER: Histidine can now take on the forms HIP, HIE, and HID so it should
-		 * be allowed to change between the different types
-		if (isResHis(localResidue.name)&&isResHis(newResType)) // checks if the new and old types are both forms of histidine, if so a mutation is not done
-			return;														// This prevents say HID from reverting into HIS
-		*/
 		
 		// If the old or new residues are glycine then we must do special things as we treat the H as CB
 		if(newResType.equalsIgnoreCase("gly") ||
@@ -197,12 +202,14 @@ public class MutUtils {
 				localResidue.name.equalsIgnoreCase("dgly"))
 				oldResGly = true;
 
-		//Going to allow gly mutations, we have a check earlier for mutations to same residue
-//		if (oldResGly && newResGly)// Nothing to do here, a null mutation
-//			return;
+		//Proline is also a special case:
+		if(localResidue.name.equalsIgnoreCase("pro") || localResidue.name.equalsIgnoreCase("dpro"))
+			oldResPro = true;
+		else if(newResType.equalsIgnoreCase("pro") || newResType.equalsIgnoreCase("dpro"))
+			newResPro = true;
 		
-		glyMutation = newResGly || oldResGly;														
-
+		//glyMutation = newResGly || oldResGly;	
+		proMutation = newResPro || oldResPro;
 		
 		// We assume a standard backbone ordering of: N,CA,C,O
 
@@ -229,27 +236,6 @@ public class MutUtils {
 		at = getBBatoms(localResidue); //for the old residue
 		Atom NOld = at[0]; Atom CAOld = at[1]; Atom COld = at[2]; Atom OOld = at[3]; Atom HOld = at[4]; Atom CBOld = at[5];Atom HAOld = at[6];
 		
-		//If never been mutated we store the default atom values for WT rot
-		if(!localResidue.mutatedOnce){
-			//We now save WTcoords when mutableResidue is initialized
-			//localResidue.saveWTcoords();
-			localResidue.mutatedOnce = true;
-				
-			//Set the default CB value that we will use
-			if(localResidue.defaultCB == null){
-				if(localResidue.name.equalsIgnoreCase("GLY") || 
-						localResidue.name.equalsIgnoreCase("DGLY")){
-					moveCBOldGly(CBOld,CBNew,CAOld,CANew);
-				}
-			
-				localResidue.defaultCB = new double[3];
-				localResidue.defaultCB[0] = CBOld.coord[0];
-				localResidue.defaultCB[1] = CBOld.coord[1];
-				localResidue.defaultCB[2] = CBOld.coord[2];
-			}
-		}
-		
-		
 		//KER: DAA switching residues
 		//There are several scenarios which is complicated by the fact that we use L-aa templates
 		//Now we just use the right template and only have to switch residues when swapping between the types
@@ -262,22 +248,24 @@ public class MutUtils {
 			System.out.println("Switching from D-L or L-D has not been fully tested...Exiting");
 			System.exit(0);
 			// if we are replacing a L-aa with a D-aa we need to align the new CB with the old HA
-//			CBOld = localResidue.atom[HA];				
+			// CBOld = localResidue.atom[HA];				
 		}		
 
-		if (oldResGly){ //mutation from Gly
-			CBOld.coord[0] = localResidue.defaultCB[0];
-			CBOld.coord[1] = localResidue.defaultCB[1];
-			CBOld.coord[2] = localResidue.defaultCB[2];
+		//Reset CB atom for mutation from gly or pro
+		if (oldResGly || oldResPro){ 
+			setOrigAtom(CBOld, OOld, COld, CAOld, localResidue.CBplace);
 		}
 		
+		double newNHLength = 0.0;
+		if(proMutation) //mutation to or from Pro
+			newNHLength = rm.norm( rm.subtract( HNew.coord, NNew.coord ) );//New amide NH or N-CD bond length
 		
 		if(debug){
 			m2.saveMolecule("mutPDB_"+ ctr++ + ".pdb", 0.0,true);
 		}
+		
 		// START ALIGNMENT
 		// Translate N's to overlap
-		//m2.saveMolecule("out1.pdb", 0.0f,true);
 		double Ntrans[] = new double[3];
 		Ntrans[0] = NNew.coord[0] - NOld.coord[0];
 		Ntrans[1] = NNew.coord[1] - NOld.coord[1];
@@ -291,12 +279,11 @@ public class MutUtils {
 		if(debug){
 			m2.saveMolecule("mutPDB_"+ ctr++ + ".pdb", 0.0,true);
 		}
-		//m2.saveMolecule("out2.pdb", 0.0f,true);
-		int numAtoms = -1;
+		
 		int atomList[] = null;
 		double thetaDeg[] = new double[1];
 		double rotAxis[] = new double[3];
-		numAtoms = r.numberOfAtoms;
+		int numAtoms = r.numberOfAtoms;
 		atomList = new int[numAtoms];
 
 		// Rotate CAs to overlap
@@ -310,27 +297,22 @@ public class MutUtils {
 		if(debug){
 			m2.saveMolecule("mutPDB_"+ ctr++ + ".pdb", 0.0,true);
 		}
-		//m2.saveMolecule("out3.pdb", 0.0f,true);
-		// Rotate CBs to overlap - now the residue backbones should be aligned		
-		//m.saveMolecule("out3.pdb", 0.0f,true);
 		
+		// Rotate CBs to overlap - now the residue backbones should be aligned		
 		if ( (!newResGly) && (CBOld.distance(CBNew) > 0.0001) ) { //not a to- or from- Gly mutation
 			getRotationInfoB(CBOld, CAOld, NOld, CBNew, thetaDeg, rotAxis);
 			for(int q=0;q<r.numberOfAtoms;q++)
 				atomList[q] = q;
 			r.rotateResidue(CANew,rotAxis[0],rotAxis[1],rotAxis[2],-thetaDeg[0],atomList,numAtoms);
 		}
-		//m2.saveMolecule("out4.pdb", 0.0f,true);
-		//KER: This seems to be moving the CB atom not to where
-		//KER: the original CB atom was. So I'm going to try to just move the HB atom appropriately
-//		if (oldResGly) //mutation from Gly
-//			alignCBOldGly(CBOld,CBNew,CAOld,CANew,NOld,r);
+		
 		if (newResGly) //mutation to Gly
-			alignCBNewGly(CBOld,CBNew,CAOld,CANew,NOld,HAOld, r,localResidue);
+			alignCBNewGly(CBOld,CBNew,CAOld,CANew,NOld,HAOld, r);
 	
 		if(debug){
 			m2.saveMolecule("mutPDB_"+ ctr++ + ".pdb", 0.0,true);
 		}
+		
 		// Remove hydrogens if we don't want them
 		if (!addHydrogens) {
 			for(int q=0;q<r.numberOfAtoms;q++) {
@@ -347,20 +329,32 @@ public class MutUtils {
 		// 	the CAs, CBs, and CBs are already aligned, but may differ due to differences between the template PPR and the residue backbone in the PDB
 		if (useOldBBatoms){
 			setAtomCoord(CANew,CAOld);
-			if ( !newResGly ){ //not a from/to Gly mutation (Gly does not have a CB)
-				moveCB(m2.residue[0],CBNew,CBOld);
-				//setAtomCoord(CBNew,CBOld);
-			}
+			//Don't count CB as part of the backbone if we're idealizing side chains.
+			//if ( !newResGly && !Perturbation.idealizeSC ){ //not a from/to Gly mutation (Gly does not have a CB)
+			//	moveCB(m2.residue[0],CBNew,CBOld);
+			//}
 		}
 		setAtomCoord(CNew,COld);
 		setAtomCoord(ONew,OOld);
-		if ( addHydrogens  ){
-			if(HOld!=null)
-				setAtomCoord(HNew,HOld);
-			if(HAOld!=null && HANew!=null)
+		
+		//Set the H's for the residue
+		if(addHydrogens){
+			if( newResPro ){ //if mutating to proline rescale the N-CD vector
+				double NVec[] = RotMatrix.subtract(HOld.coord, NOld.coord);//N- to H or CD bond vector
+				NVec = RotMatrix.scale(NVec, newNHLength/rm.norm(NVec) );
+				HNew.coord = RotMatrix.add(NVec, NNew.coord);
+			}
+			else if( oldResPro  ){ //if mutating from proline, set the N-H vector back to the original position
+				setOrigAtom(HNew, COld, CAOld, NOld, localResidue.Hplace);
+			}
+			else { //otherwise, just set the H position to the previous H position
+				if(HOld!=null)
+					setAtomCoord(HNew,HOld);
+			}
+			if(HAOld!=null && HANew!=null) //Set the HA atom to the old value
 				setAtomCoord(HANew,HAOld);
 		}
-		//m2.saveMolecule("out5.pdb", 0.0f,true);
+		
 		if(debug){
 			m2.saveMolecule("mutPDB_"+ ctr++ + ".pdb", 0.0,true);
 		}
@@ -429,10 +423,6 @@ public class MutUtils {
 		
 
 		localResidue.name = r.name; //Will include "D" if a D amino acid
-		//localResidue.fullName = r.name;																 
-		/*if (r.name.length() > 3)
-			localResidue.fullName = new String (r.name.substring(0,3) + " " + localResidue.fullName.substring(4));
-		else*/ 
 		if (localResidue.fullName.length()  > 4)
 			localResidue.fullName = r.name.substring(0,3) + " " + localResidue.fullName.substring(4);
 		else
@@ -521,13 +511,31 @@ public class MutUtils {
 		//m.establishConnectivity(false);
 		m.updateNumAtoms();
 		
-		//curAAType[resNum] = newResType;
-		//curRotNum[resNum] = -1;
 		localResidue.ffAssigned = false;
-		
+
 		// Copy atom coordinates back into actualCoordinates
 		for(int q=0;q<m.numberOfAtoms;q++)
 			m.updateCoordinates(q);
+		
+		//Idealize the sidechain if needed.
+		if(newResPro || Perturbation.idealizeSC){//Idealize the sidechain since proline has an unusual geometry
+			//This is especially important if we are mutating to proline (some bonds are probably way off length then:
+			//the idealization reconstructs the ideal ring given the backbone, CB, and CD coordinates)
+
+			m.idealizeResSidechain(localResidue);//this will also enforce the specified pucker (thus matching the original if we mutated away from and then back to proline)
+			int firstAtom = localResidue.atom[0].moleculeAtomNumber;
+			for(int a=0; a<localResidue.numberOfAtoms; a++)
+				m.resolveCoordinates(firstAtom+a);//Copy the idealized coordinates back into the Atom.coord arrays
+
+			if(!newResPro)//No longer proline, so ring closure is no longer an issue
+				localResidue.validConf = true;
+			
+			if(debug){
+				m.saveMolecule("idealize_"+ctr+".pdb", 0.0);
+			}
+		}
+		
+	
 	}
 	
 	
@@ -557,7 +565,7 @@ public class MutUtils {
 
 
 	//Returns a handle on the backbone N, CA, C, O, H, and CB atoms for residue res
-	private static Atom [] getBBatoms(Residue res){
+	public static Atom [] getBBatoms(Residue res){
 		
 		Atom at[] = new Atom[7];
 		
@@ -570,7 +578,7 @@ public class MutUtils {
 				at[C] = res.atom[q];
 			else if (res.atom[q].name.equalsIgnoreCase("O")||res.atom[q].name.equalsIgnoreCase("O1"))
 				at[O] = res.atom[q];
-			else if (res.atom[q].name.equalsIgnoreCase("H"))
+			else if (res.atom[q].name.equalsIgnoreCase("H") || ( res.atom[q].name.equalsIgnoreCase("CD") && res.name.equalsIgnoreCase("PRO") ))
 				at[H] = res.atom[q];
 			else if (res.atom[q].name.equalsIgnoreCase("CB")||res.atom[q].name.equalsIgnoreCase("HA3")||res.atom[q].name.equalsIgnoreCase("3HA")) //HA3 for gly
 				at[CB] = res.atom[q];
@@ -745,6 +753,15 @@ public class MutUtils {
 		}
 	}
 
+	/**
+	 * Takes in the HA3 location from a glycine and transforms it into the correct 
+	 * location for a CB for the corresponding amino acid.
+	 * 
+	 * @param CBOld HA3 atom that will be converted into a CB location
+	 * @param CBNew The CB atom from the new amino acid template
+	 * @param CAOld The CA atom from the glycine
+	 * @param CANew The CA atom from the new amino acid template
+	 */
 	private static void moveCBOldGly(Atom CBOld, Atom CBNew, Atom CAOld, Atom CANew){
 		double magOld = CBOld.distance(CAOld);
 		double magNew = CBNew.distance(CANew);
@@ -767,6 +784,23 @@ public class MutUtils {
 		CBOld.coord[1] += dirToMove[1];
 		CBOld.coord[2] += dirToMove[2];
 		
+	}
+	
+	/**
+	 * Takes in the a1,a2,a3 location from a residue and the original
+	 * parameters for the placement of an atom and sets the the correct 
+	 * original position of the destAtom
+	 *  
+	 * @param destAtom Atom where the coordinates will be updated atom coords will be set
+	 * @param a1 First  atom in dihedral
+	 * @param a2 Second atom in dihedral
+	 * @param a3 Third  atom in dihedral
+	 */
+	private static void setOrigAtom(Atom destAtom, Atom a1, Atom a2, Atom a3, AtomPlacement atomPlace){
+		double[] coords = RotMatrix.get4thPoint(a1.coord, a2.coord, a3.coord, atomPlace.len, atomPlace.ang, atomPlace.dihe);
+		for(int i=0; i<destAtom.coord.length;i++){
+			destAtom.coord[i] = coords[i];
+		}
 	}
 	
 	//Performs the CB alignment (changes the coordinates of the new residue r) for the new residue when the old residue is Gly
@@ -800,7 +834,8 @@ public class MutUtils {
 	}
 	
 	//Performs the CB alignment (changes the coordinates of the new residue r) when the new residue is Gly
-	private static void alignCBNewGly(Atom CBOld, Atom CBNew, Atom CAOld, Atom CANew, Atom NOld, Atom HAOld, Residue r, Residue localResidue){
+	private static void alignCBNewGly(Atom CBOld, Atom CBNew, Atom CAOld, Atom CANew, Atom NOld, 
+			Atom HAOld, Residue r){
 		
 		//If the new residue is a Gly, we snap the HA2 and HA3 atoms
 		

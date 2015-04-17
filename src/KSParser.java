@@ -3554,24 +3554,24 @@ public class KSParser
 		for (int curResult=0; curResult<numResults; curResult++){
 
 
-			if( doPerturbations && curResult>0 ){//Reload the molecule
-//				mp.m.origMol();
-				mp = loadMolecule(sParams, COMPLEX, neighborList, distCutoff,false);
-				m = mp.m;
-				
-				//Reset all of the residue conformation information in the molecule
-				m.aaRotLib.loadGlobalRots(ematSettings.runNameEMatrixMin+"_COM.dat.aaRots");
-				if(m.genRotLib != null)
-					m.genRotLib.loadGlobalRots(ematSettings.runNameEMatrixMin+"_COM.dat.genRots");
-				if(doPerturbations)
-					PertFileHandler.readPertFile(pertFile, m, strandRot,true);
-				for(Strand strand : m.strand){
-					if(strand.isProtein)
-						strand.rcl.loadGlobalRCs(ematSettings.runNameEMatrixMin+"_COM.dat.rcl_"+strand.number, m.aaRotLib);
-					else
-						strand.rcl.loadGlobalRCs(ematSettings.runNameEMatrixMin+"_COM.dat.rcl_"+strand.number, m.genRotLib);
-				}
-			}
+//			if( doPerturbations && curResult>0 ){//Reload the molecule
+////				mp.m.origMol();
+//				mp = loadMolecule(sParams, COMPLEX, neighborList, distCutoff,false);
+//				m = mp.m;
+//				
+//				//Reset all of the residue conformation information in the molecule
+//				m.aaRotLib.loadGlobalRots(ematSettings.runNameEMatrixMin+"_COM.dat.aaRots");
+//				if(m.genRotLib != null)
+//					m.genRotLib.loadGlobalRots(ematSettings.runNameEMatrixMin+"_COM.dat.genRots");
+//				if(doPerturbations)
+//					PertFileHandler.readPertFile(pertFile, m, strandRot,true);
+//				for(Strand strand : m.strand){
+//					if(strand.isProtein)
+//						strand.rcl.loadGlobalRCs(ematSettings.runNameEMatrixMin+"_COM.dat.rcl_"+strand.number, m.aaRotLib);
+//					else
+//						strand.rcl.loadGlobalRCs(ematSettings.runNameEMatrixMin+"_COM.dat.rcl_"+strand.number, m.genRotLib);
+//				}
+//			}
 
 
 			System.out.print("Starting minimization of result "+(curResult+1)+"..");
@@ -3684,6 +3684,9 @@ public class KSParser
 
 			unMinE[0] -= (totEref - totEntropy);
 			
+			System.out.println("UnMinE: "+unMinE[0]+" "+unMinE[1]+" "+
+					unMinE[2]+" "+unMinE[3]+" "+unMinE[4]+" "+(-totEref)+" "+totEntropy);
+			
 			if (outputPDB){ //save molecule
 				String fName = runName;
 				String filename = String.format("pdbs/%1$s_%2$03d_unmin.pdb",fName,numSaved);
@@ -3714,6 +3717,8 @@ public class KSParser
 			double minE[] = { ef.getEnergy() };
 
 			minE[0] -= (totEref - totEntropy);
+//			System.out.println("MinE: "+minE[0]+" "+minE[1]+" "+
+//					minE[2]+" "+minE[3]+" "+minE[4]+" "+(-totEref)+" "+totEntropy);
 			
 			if (outputPDB){ //save molecule
 				String fName = runName;
@@ -7193,13 +7198,13 @@ public class KSParser
 				for(AARotamerType aaType1 : m.residue[0].AATypesAllowed()) {
 
 //					int AAindex1 = strandRot.getIndexOfNthAllowable(0,q1);
-					strandRot.changeResidueType(m1,0,aaType1.name,true,true);
+					MutUtils.changeResidueType(m1, 0, aaType1.name, true,true);
 //					AARotamerType aaType1 = strandRot.rl.getAAType(AAindex1);
 					
 					for(AARotamerType aaType2 : m.residue[1].AATypesAllowed()) {
 
 //						int AAindex2 = strandRot.getIndexOfNthAllowable(1,q2);
-						strandRot.changeResidueType(m1,1,aaType2.name,true,true);
+						MutUtils.changeResidueType(m1,1,aaType2.name,true,true);
 //						AARotamerType aaType2 = strandRot.rl.getAAType(AAindex2);
 						
 						int numRot1 = aaType1.numRotamers();

@@ -1213,11 +1213,11 @@ public class Atom implements Serializable {
         
         
 
-	//Checks if this is a backbone atom (the atom name is one of N, CA, C, O, OXT, H, H1, H2, H3)
+	//Checks if this is a backbone atom (the atom name is one of N, CA, C, O, OXT, HA, H, H1, H2, H3)
 	public boolean setIsBBatom(){
 		if ( name.equalsIgnoreCase("N") || name.equalsIgnoreCase("CA") || name.equalsIgnoreCase("C") || name.equalsIgnoreCase("O") 
-				|| name.equalsIgnoreCase("OXT") || name.equalsIgnoreCase("H")  
-				 || name.equalsIgnoreCase("H1") || name.equalsIgnoreCase("H2") || name.equalsIgnoreCase("H3") )
+				|| name.equalsIgnoreCase("OXT") || name.equalsIgnoreCase("H") || name.equalsIgnoreCase("H1") 
+				|| name.equalsIgnoreCase("H2") || name.equalsIgnoreCase("H3") || name.equalsIgnoreCase("HA"))
 			return true;
 		else
 			return false;

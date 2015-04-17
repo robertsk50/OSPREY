@@ -522,72 +522,72 @@ public class StrandRCs extends StrandRotamers {
 		}
 
 
-
-		@Override
-		public boolean changeResidueType(Molecule m, int resNum, String newResType, boolean addHydrogens, boolean connectResidue, boolean useOldBBatoms) {
-
-			Residue localRes = m.strand[strandNumber].residue[resNum];
-
-
-			//We will always mutate the unperturbed state because mutations change the backbone conformation
-			//and this might not commute with perturbations
-			//So we undo perturbations affecting or affected by this residue
-			//This part is like applyRC
-			if( localRes.perts.length>0 ){
-
-				int pertInd = localRes.perts.length - 1;//Index in localRes.perts
-				int affectedInd = localRes.affectedPerts.length - 1;//Index in localRes.affectedPerts
-
-				for(int pertNum=m.perts.length-1; pertNum>=localRes.perts[0]; pertNum--){//Undoing perturbations, in reverse order
-					if(pertNum == localRes.perts[pertInd]){
-						m.perts[pertNum].undo();
-						pertInd--;
-					}
-					else if(affectedInd > -1){//Still have affected perturbations to look for
-						if( pertNum == localRes.affectedPerts[affectedInd] ){
-							m.perts[pertNum].undo();
-							affectedInd--;
-						}
-					}
-				}
-			}
-
-
-			//Get the actualCoordinates into the Atom.coord arrays to avoid losing perturbation information
-			m.resolveCoordinates();
-
-			//This uses Atom.coord values but alters both Atom.coord and m.actualCoordinates
-			super.changeResidueType(m, resNum, newResType, addHydrogens, connectResidue, useOldBBatoms);
-
-			curRC[resNum] = -1;
-			//The Perturbation.curState is left the same for each perturbation affecting the residue
-			//ans so the residue's perturbation state is the same as before
-
-			//Reapplying perturbations
-			if( localRes.perts.length>0 ){
-
-				int pertInd = 0;
-				int affectedInd = 0;
-
-				for(int pertNum=0; pertNum<m.perts.length;pertNum++){
-					if(pertNum==localRes.perts[pertInd]){
-						m.perts[pertNum].applyPerturbation(m.perts[pertNum].curParam);
-						if(pertInd < localRes.perts.length - 1)
-							pertInd++;
-					}
-					else if(localRes.affectedPerts.length > 0){
-						if(pertNum==localRes.affectedPerts[affectedInd]){
-							m.perts[pertNum].applyPerturbation(m.perts[pertNum].curParam);
-							if(affectedInd < localRes.affectedPerts.length - 1 )
-								affectedInd++;
-						}
-					}
-				}
-			}
-
-			return true;
-
-		}
+//
+//		@Override
+//		public boolean changeResidueType(Molecule m, int resNum, String newResType, boolean addHydrogens, boolean connectResidue, boolean useOldBBatoms) {
+//
+//			Residue localRes = m.strand[strandNumber].residue[resNum];
+//
+//
+//			//We will always mutate the unperturbed state because mutations change the backbone conformation
+//			//and this might not commute with perturbations
+//			//So we undo perturbations affecting or affected by this residue
+//			//This part is like applyRC
+//			if( localRes.perts.length>0 ){
+//
+//				int pertInd = localRes.perts.length - 1;//Index in localRes.perts
+//				int affectedInd = localRes.affectedPerts.length - 1;//Index in localRes.affectedPerts
+//
+//				for(int pertNum=m.perts.length-1; pertNum>=localRes.perts[0]; pertNum--){//Undoing perturbations, in reverse order
+//					if(pertNum == localRes.perts[pertInd]){
+//						m.perts[pertNum].undo();
+//						pertInd--;
+//					}
+//					else if(affectedInd > -1){//Still have affected perturbations to look for
+//						if( pertNum == localRes.affectedPerts[affectedInd] ){
+//							m.perts[pertNum].undo();
+//							affectedInd--;
+//						}
+//					}
+//				}
+//			}
+//
+//
+//			//Get the actualCoordinates into the Atom.coord arrays to avoid losing perturbation information
+//			m.resolveCoordinates();
+//
+//			//This uses Atom.coord values but alters both Atom.coord and m.actualCoordinates
+//			super.changeResidueType(m, resNum, newResType, addHydrogens, connectResidue, useOldBBatoms);
+//
+//			curRC[resNum] = -1;
+//			//The Perturbation.curState is left the same for each perturbation affecting the residue
+//			//ans so the residue's perturbation state is the same as before
+//
+//			//Reapplying perturbations
+//			if( localRes.perts.length>0 ){
+//
+//				int pertInd = 0;
+//				int affectedInd = 0;
+//
+//				for(int pertNum=0; pertNum<m.perts.length;pertNum++){
+//					if(pertNum==localRes.perts[pertInd]){
+//						m.perts[pertNum].applyPerturbation(m.perts[pertNum].curParam);
+//						if(pertInd < localRes.perts.length - 1)
+//							pertInd++;
+//					}
+//					else if(localRes.affectedPerts.length > 0){
+//						if(pertNum==localRes.affectedPerts[affectedInd]){
+//							m.perts[pertNum].applyPerturbation(m.perts[pertNum].curParam);
+//							if(affectedInd < localRes.affectedPerts.length - 1 )
+//								affectedInd++;
+//						}
+//					}
+//				}
+//			}
+//
+//			return true;
+//
+//		}
 
 
 		/**

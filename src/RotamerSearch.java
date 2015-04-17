@@ -5729,8 +5729,8 @@ public class RotamerSearch implements Serializable
 
 	private void saveConf(EMatrixEntryWIndex[] conf, double energy, String filename, 
 			boolean minimizeBB, boolean doBackrubs) {
-		m.backupAtomCoord();
 		applyRCs(conf);
+		m.backupAtomCoord();
 		if(doMinimization){
 			if(!minimizeBB){
 				if(useCCD)

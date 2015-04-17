@@ -510,17 +510,17 @@ public class StrandRotamers implements Serializable {
 	//  to a residue with name newResType
 	// If addHydrogens is true then hydrogens are added to the new
 	//  residue
-	public boolean changeResidueType(Molecule m, int resNum, String newResType, boolean addHydrogens) {
-
-		// call with connectResidue = true and useOldBBatoms = true
-		return changeResidueType(m,resNum,newResType,addHydrogens,true,true);
-	}
-
-	public boolean changeResidueType(Molecule m, int resNum, String newResType, boolean addHydrogens, boolean connectResidue) {
-
-		// call with useOldBBatoms = true
-		return changeResidueType(m,resNum,newResType,addHydrogens,connectResidue,true);
-	}
+//	public boolean changeResidueType(Molecule m, int resNum, String newResType, boolean addHydrogens) {
+//
+//		// call with connectResidue = true and useOldBBatoms = true
+//		return changeResidueType(m,resNum,newResType,addHydrogens,true,true);
+//	}
+//
+//	public boolean changeResidueType(Molecule m, int resNum, String newResType, boolean addHydrogens, boolean connectResidue) {
+//
+//		// call with useOldBBatoms = true
+//		return changeResidueType(m,resNum,newResType,addHydrogens,connectResidue,true);
+//	}
 
 	// This function changes the residue type (it performs a mutation)
 	// The residue resNum of strand strandNumber of molecule m is changed
@@ -546,386 +546,386 @@ public class StrandRotamers implements Serializable {
 	//
 	// This function is rather complicated due to the bookkeeping
 	//  required to maintain our messy molecule datastructure.
-	// Returns true if mutation was done otherwise returns false
-	public boolean changeResidueType(Molecule m, int resNum, String newResType, boolean addHydrogens, boolean connectResidue, boolean useOldBBatoms) {
-		
-		Residue localResidue = m.strand[strandNumber].residue[resNum];
-
-		RotMatrix rm = new RotMatrix();
-
-		boolean newResGly = false;
-		boolean oldResGly = false;
-		boolean glyMutation = false;
-
-		boolean newResPro = false;
-		boolean oldResPro = false;
-		boolean proMutation = false;
-
-		boolean newDaa    = false;
-		boolean oldDaa    = false;
-		
-		// If the old or new residues are glycine then we must do special things as we treat the H as CB
-		//Proline is also special
-		if(newResType.equalsIgnoreCase("gly") || newResType.equalsIgnoreCase("dgly"))
-			newResGly = true;
-		else if(newResType.equalsIgnoreCase("pro") || newResType.equalsIgnoreCase("dpro"))
-			newResPro = true;
-
-		if(localResidue.name.equalsIgnoreCase("gly") || localResidue.name.equalsIgnoreCase("dgly"))
-			oldResGly = true;
-		else if(localResidue.name.equalsIgnoreCase("pro") || localResidue.name.equalsIgnoreCase("dpro"))
-			oldResPro = true;
-		
-		//Detect whether we are mutating to or from a D-AA
-		if (newResType.length() == 4 && newResType.startsWith("D")) {
-			newDaa = true;
-		}
-		if (!localResidue.lAmino){
-			oldDaa = true;
-		}
-		
-		if (oldResGly && newResGly)// Nothing to do here, a null mutation
-			return false;
-		else if(newResType.equalsIgnoreCase(localResidue.name) && localResidue.mutatedOnce){
-			return false;
-		}
-		
-		glyMutation = newResGly || oldResGly;
-		proMutation = newResPro || oldResPro;
-
-		// We assume a standard backbone ordering of: N,CA,C,O
-
-		int savedMoleculeResidueNumber = localResidue.atom[0].moleculeResidueNumber;
-		int savedStrandResidueNumber = localResidue.atom[0].strandResidueNumber;
-		int savedStrandNumber = localResidue.atom[0].strandNumber;
-		String savedSegID = localResidue.atom[0].segID;
-
-		// Get the new residue from the templates
-		//Amber96PolyPeptideResidue ppr = new Amber96PolyPeptideResidue();//caching this: it's the bottleneck for this whole function
-		Residue r = ppr.getResidue(newResType);
-		if(newDaa)
-			r.reflect();
-
-		// Residue r = ppr.getResidue("Lala");
-		Molecule m2 = new Molecule();
-		m2.addResidue(0,r);
-		m2.establishConnectivity(false);
-
-
-		// First get a handle on the backbone N, CA, C, O, H, and CB atoms
-		Atom at[] = null;
-		at = getBBatoms(r); //for the new residue
-		Atom NNew = at[0]; Atom CANew = at[1]; Atom CNew = at[2]; Atom ONew = at[3]; Atom HNew = at[4]; Atom CBNew = at[5]; Atom HANew = at[6];
-
-		at = getBBatoms(localResidue); //for the old residue
-		Atom NOld = at[0]; Atom CAOld = at[1]; Atom COld = at[2]; Atom OOld = at[3]; Atom HOld = at[4]; Atom CBOld = at[5]; Atom HAOld = at[6];
-
-//		if (oldResGly){ // we didn't find CBOld as Gly doesn't have it; find HA3 and point CBOld to it
-//			for(int q=0;q<localResidue.numberOfAtoms;q++) {
-//				if ( (localResidue.atom[q].name.equalsIgnoreCase("HA3")) || (localResidue.atom[q].name.equalsIgnoreCase("3HA")) )
-//					CBOld = localResidue.atom[q];
+//	// Returns true if mutation was done otherwise returns false
+//	public boolean changeResidueType(Molecule m, int resNum, String newResType, boolean addHydrogens, boolean connectResidue, boolean useOldBBatoms) {
+//		
+//		Residue localResidue = m.strand[strandNumber].residue[resNum];
+//
+//		RotMatrix rm = new RotMatrix();
+//
+//		boolean newResGly = false;
+//		boolean oldResGly = false;
+//		boolean glyMutation = false;
+//
+//		boolean newResPro = false;
+//		boolean oldResPro = false;
+//		boolean proMutation = false;
+//
+//		boolean newDaa    = false;
+//		boolean oldDaa    = false;
+//		
+//		// If the old or new residues are glycine then we must do special things as we treat the H as CB
+//		//Proline is also special
+//		if(newResType.equalsIgnoreCase("gly") || newResType.equalsIgnoreCase("dgly"))
+//			newResGly = true;
+//		else if(newResType.equalsIgnoreCase("pro") || newResType.equalsIgnoreCase("dpro"))
+//			newResPro = true;
+//
+//		if(localResidue.name.equalsIgnoreCase("gly") || localResidue.name.equalsIgnoreCase("dgly"))
+//			oldResGly = true;
+//		else if(localResidue.name.equalsIgnoreCase("pro") || localResidue.name.equalsIgnoreCase("dpro"))
+//			oldResPro = true;
+//		
+//		//Detect whether we are mutating to or from a D-AA
+//		if (newResType.length() == 4 && newResType.startsWith("D")) {
+//			newDaa = true;
+//		}
+//		if (!localResidue.lAmino){
+//			oldDaa = true;
+//		}
+//		
+//		if (oldResGly && newResGly)// Nothing to do here, a null mutation
+//			return false;
+//		else if(newResType.equalsIgnoreCase(localResidue.name) && localResidue.mutatedOnce){
+//			return false;
+//		}
+//		
+//		glyMutation = newResGly || oldResGly;
+//		proMutation = newResPro || oldResPro;
+//
+//		// We assume a standard backbone ordering of: N,CA,C,O
+//
+//		int savedMoleculeResidueNumber = localResidue.atom[0].moleculeResidueNumber;
+//		int savedStrandResidueNumber = localResidue.atom[0].strandResidueNumber;
+//		int savedStrandNumber = localResidue.atom[0].strandNumber;
+//		String savedSegID = localResidue.atom[0].segID;
+//
+//		// Get the new residue from the templates
+//		//Amber96PolyPeptideResidue ppr = new Amber96PolyPeptideResidue();//caching this: it's the bottleneck for this whole function
+//		Residue r = ppr.getResidue(newResType);
+//		if(newDaa)
+//			r.reflect();
+//
+//		// Residue r = ppr.getResidue("Lala");
+//		Molecule m2 = new Molecule();
+//		m2.addResidue(0,r);
+//		m2.establishConnectivity(false);
+//
+//
+//		// First get a handle on the backbone N, CA, C, O, H, and CB atoms
+//		Atom at[] = null;
+//		at = getBBatoms(r); //for the new residue
+//		Atom NNew = at[0]; Atom CANew = at[1]; Atom CNew = at[2]; Atom ONew = at[3]; Atom HNew = at[4]; Atom CBNew = at[5]; Atom HANew = at[6];
+//
+//		at = getBBatoms(localResidue); //for the old residue
+//		Atom NOld = at[0]; Atom CAOld = at[1]; Atom COld = at[2]; Atom OOld = at[3]; Atom HOld = at[4]; Atom CBOld = at[5]; Atom HAOld = at[6];
+//
+////		if (oldResGly){ // we didn't find CBOld as Gly doesn't have it; find HA3 and point CBOld to it
+////			for(int q=0;q<localResidue.numberOfAtoms;q++) {
+////				if ( (localResidue.atom[q].name.equalsIgnoreCase("HA3")) || (localResidue.atom[q].name.equalsIgnoreCase("3HA")) )
+////					CBOld = localResidue.atom[q];
+////			}
+////			if(CBOld == null){
+////				System.out.println("HA3 on "+localResidue.fullName+" couldn't be found. Please check labelling.");
+////				System.out.println("Going to assume we want HA2");
+////				for(int q=0;q<localResidue.numberOfAtoms;q++) {
+////					if ( (localResidue.atom[q].name.equalsIgnoreCase("HA2")) || (localResidue.atom[q].name.equalsIgnoreCase("2HA")) )
+////						CBOld = localResidue.atom[q];
+////				}
+////			}
+////		}
+//		
+//		//If never been mutated we store the default CB and HA values
+//		if(!localResidue.mutatedOnce){
+//			//Set the default CB value that we will use
+//			if(localResidue.defaultCB == null){
+//				if(localResidue.name.equalsIgnoreCase("GLY")){
+//					moveCBOldGly(CBOld,CBNew,CAOld,CANew);
+//				}
+//			
+//				localResidue.defaultCB = new double[3];
+//				localResidue.defaultCB[0] = CBOld.coord[0];
+//				localResidue.defaultCB[1] = CBOld.coord[1];
+//				localResidue.defaultCB[2] = CBOld.coord[2];
 //			}
-//			if(CBOld == null){
-//				System.out.println("HA3 on "+localResidue.fullName+" couldn't be found. Please check labelling.");
-//				System.out.println("Going to assume we want HA2");
-//				for(int q=0;q<localResidue.numberOfAtoms;q++) {
-//					if ( (localResidue.atom[q].name.equalsIgnoreCase("HA2")) || (localResidue.atom[q].name.equalsIgnoreCase("2HA")) )
-//						CBOld = localResidue.atom[q];
+//			
+//			localResidue.mutatedOnce = true;
+//		}
+//		
+//		
+//		if(oldDaa!=newDaa){ //if we are switching a L-aa with a D-aa
+//			System.out.println("Switching from D-L or L-D has not been fully tested...Exiting");
+//			System.exit(0);
+//			// if we are replacing a L-aa with a D-aa we need to align the new CB with the old HA
+//			// CBOld = localResidue.atom[HA];				
+//		}
+//		
+//		if (oldResGly){ //mutation from Gly
+//			CBOld.coord[0] = localResidue.defaultCB[0];
+//			CBOld.coord[1] = localResidue.defaultCB[1];
+//			CBOld.coord[2] = localResidue.defaultCB[2];
+//		}
+//
+//		double newNHLength = rm.norm( rm.subtract( HNew.coord, NNew.coord ) );//New amide NH or N-CD bond length
+//
+//		// START ALIGNMENT
+//		// Translate N's to overlap
+//		try{
+//			double Ntrans[] = new double[3];
+//			Ntrans[0] = NNew.coord[0] - NOld.coord[0];
+//			Ntrans[1] = NNew.coord[1] - NOld.coord[1];
+//			Ntrans[2] = NNew.coord[2] - NOld.coord[2];
+//			for(int q=0;q<r.numberOfAtoms;q++) {
+//				r.atom[q].coord[0] -= Ntrans[0];
+//				r.atom[q].coord[1] -= Ntrans[1];
+//				r.atom[q].coord[2] -= Ntrans[2];
+//			}
+//		}
+//		catch(Exception E){
+//			System.out.println("1");
+//			E.printStackTrace();
+//		}
+//
+//		int numAtoms = -1;
+//		int atomList[] = null;
+//		double thetaDeg[] = new double[1];
+//		double rotAxis[] = new double[3];
+//		numAtoms = r.numberOfAtoms;
+//		atomList = new int[numAtoms];
+//
+//		// Rotate CAs to overlap
+//		if (CAOld.distance(CANew) > 0.0001) {
+//			getRotationInfoA(CAOld, NOld, CANew, thetaDeg, rotAxis);
+//			for(int q=0;q<r.numberOfAtoms;q++)
+//				atomList[q] = q;
+//			r.rotateResidue(NNew,rotAxis[0],rotAxis[1],rotAxis[2],-thetaDeg[0],atomList,numAtoms);
+//		}
+//
+//		// Rotate CBs to overlap - now the residue backbones should be aligned
+//		if ( (!newResGly) && (CBOld.distance(CBNew) > 0.0001) ) { //not a to- or from- Gly mutation
+//			getRotationInfoB(CBOld, CAOld, NOld, CBNew, thetaDeg, rotAxis);
+//			for(int q=0;q<r.numberOfAtoms;q++)
+//				atomList[q] = q;
+//			r.rotateResidue(CANew,rotAxis[0],rotAxis[1],rotAxis[2],-thetaDeg[0],atomList,numAtoms);
+//		}
+//
+////		if (oldResGly) //mutation from Gly
+////			alignCBOldGly(CBOld,CBNew,CAOld,CANew,NOld,r);
+//		if (newResGly) //mutation to Gly
+//			alignCBNewGly(CBOld,CBNew,CAOld,CANew,NOld,r,localResidue);
+//
+//		
+//
+//		// Remove hydrogens if we don't want them
+//		if (!addHydrogens) {
+//			for(int q=0;q<r.numberOfAtoms;q++) {
+//				if (r.atom[q].elementType.equalsIgnoreCase("H"))
+//					m2.deleteAtom(r.atom[q].moleculeAtomNumber);
+//			}
+//		}
+//		else {
+//			// ELSE KEEP ALL HYDROGENS
+//		}
+//
+//		//Make the positions of the new backbone atoms coincide *exactly* with the old ones;
+//		// 	NNew already has the same coordinates as NOld;
+//		// 	the CAs, CBs, and CBs are already aligned, but may differ due to differences between the template PPR and the residue backbone in the PDB
+//		if (useOldBBatoms){
+//			setAtomCoord(CANew,CAOld);
+//			if ( !newResGly ){ //not a from/to Gly mutation (Gly does not have a CB)
+//				moveCB(m2.residue[0],CBNew,CBOld);
+//				//setAtomCoord(CBNew,CBOld);
+//			}
+//		}
+//		setAtomCoord(CNew,COld);
+//		setAtomCoord(ONew,OOld);
+//
+//		if( newResPro || ( oldResPro && addHydrogens ) ){
+//
+//			double NVec[] = rm.subtract(HOld.coord, NOld.coord);//N- to H or CD bond vector
+//			NVec = rm.scale(NVec, newNHLength/rm.norm(NVec) );
+//			HNew.coord = rm.add(NVec, NNew.coord);
+//		}
+//		else if(addHydrogens){
+//			if(HOld != null)
+//				setAtomCoord(HNew,HOld);
+//			if(HAOld!=null && HANew!=null)
+//				setAtomCoord(HANew,HAOld);
+//		}
+//
+//		//////////////////////////////////////////////////////////////////////////////////
+//		if (localResidue.nterm){ //we are changing the nterm residue
+//			//we must add the H1, H2, H3 atoms (and delete the HN atom) to the new residue,
+//			//	since the PPR templates only handle polypeptide residues
+//
+//			Residue r1 = getNtermRes(r,localResidue);
+//
+//			m2 = new Molecule();
+//			m2.addResidue(0, r1);
+//			m2.establishConnectivity(false);
+//		}
+//		if (localResidue.cterm){ //we are changing the cterm residue
+//			//we must add the OXT or H1, H2, H3 atoms (and delete the HN atom) to the new residue,
+//			//	since the PPR templates only handle polypeptide residues
+//
+//			Residue r1 = getCtermRes(r,localResidue);
+//
+//			m2 = new Molecule();
+//			m2.addResidue(0, r1);
+//			m2.establishConnectivity(false);
+//		}
+//		////////////////////////////////////////////////////////////////////////////////
+//
+//
+//		// Copy the new residue information into the old residue
+//		int changeInAtoms = r.numberOfAtoms - localResidue.numberOfAtoms;
+//		int baseChangedAtom = localResidue.atom[0].moleculeAtomNumber;
+//		// first atomnum in next residue
+//		int nextResidueBase = -1;
+//		// the first atomnum in this residue
+//		int thisResidueBase = -1;
+//		// atomnumber of the C in the last residue
+//		int lastResidueC = -1;
+//		// Determine if the residue before and the one after are have sequential
+//		//  residue numbers. If they do and if we're interested in connecting
+//		//  sequential residues then gather information so we can make the
+//		//  appropriate bonds.
+//		boolean connectedResidue = false;
+//		boolean connectNextResidue = false;
+//		boolean connectLastResidue = false;
+//		thisResidueBase = m.strand[strandNumber].residue[resNum].atom[0].moleculeAtomNumber;
+//		nextResidueBase = thisResidueBase + localResidue.numberOfAtoms;
+//
+//		if ((resNum+1) < m.strand[strandNumber].numberOfResidues) {
+//			if (connectResidue)
+//				connectNextResidue = m.residuesAreBBbonded(strandNumber, resNum, strandNumber, resNum+1);
+//		}
+//		if (resNum > 0) {
+//			if (connectResidue)
+//				connectLastResidue = m.residuesAreBBbonded(strandNumber, resNum-1, strandNumber, resNum);			
+//			if (connectLastResidue) {
+//				for(int q=0;q<m.strand[strandNumber].residue[resNum-1].numberOfAtoms;q++) {
+//					if (m.strand[strandNumber].residue[resNum-1].atom[q].name.equalsIgnoreCase("C"))
+//						lastResidueC = m.strand[strandNumber].residue[resNum-1].atom[q].moleculeAtomNumber;
+//				}
+//			}
+//			if (lastResidueC == -1)
+//				connectLastResidue = false;
+//		}
+//
+//
+//		localResidue.name = r.name;
+//
+//		if (localResidue.fullName.length()  > 4)
+//			localResidue.fullName = r.name.substring(0,3) + " " + localResidue.fullName.substring(4);
+//		else
+//			localResidue.fullName = r.name.substring(0,3);
+//		localResidue.numberOfAtoms = r.numberOfAtoms;
+//		localResidue.atom = r.atom;
+//
+//		if(newDaa)
+//			localResidue.lAmino = false;
+//		else
+//			localResidue.lAmino = true;
+//		
+//		for(int j=0;j<localResidue.numberOfAtoms;j++){
+//			localResidue.atom[j].moleculeResidueNumber = savedMoleculeResidueNumber;
+//			localResidue.atom[j].strandResidueNumber = savedStrandResidueNumber;
+//			localResidue.atom[j].strandNumber = savedStrandNumber;
+//			localResidue.atom[j].segID = new String(savedSegID);
+//		}
+//
+//		// Update atoms in residues of this strand after this residue
+//		//  as well as the bookkeeping in the molecule itself
+//		int curAtom = 0;
+//		int linkfrom=-1, linkto=-1;
+//		m.numberOfAtoms += changeInAtoms;
+//		m.numberOfAtomsx3 = m.numberOfAtoms * 3;
+//		m.atom = new Atom[m.numberOfAtoms];
+//		m.actualCoordinates = new double[m.numberOfAtomsx3];
+//		for(int j=0;j<m.numberOfStrands;j++) {
+//			for(int q=0;q<m.strand[j].numberOfResidues;q++) {
+//				for(int w=0;w<m.strand[j].residue[q].numberOfAtoms;w++) {
+//					m.strand[j].residue[q].atom[w].moleculeAtomNumber = curAtom;
+//					m.atom[curAtom++] = m.strand[j].residue[q].atom[w];
+//					int tmpIntAry[];
+//					tmpIntAry = m.strand[j].residue[q].atom[w].bond;
+//					if ((q==resNum) && (j==strandNumber)) {
+//						if (tmpIntAry != null) {
+//							for(int i=0;i<m.strand[j].residue[q].atom[w].bond.length;i++) {
+//								tmpIntAry[i] += baseChangedAtom;
+//							}
+//						}
+//						if (m.strand[j].residue[q].atom[w].name.equalsIgnoreCase("C") && (nextResidueBase != -1) && connectNextResidue) {
+//							// mark the atoms to bond so we can join when we're done
+//							//  we can't join them now as the second atom doesn't
+//							//  yet exist in the atom[] array
+//							connectedResidue = true;
+//							linkfrom = nextResidueBase+changeInAtoms;
+//							linkto = m.strand[j].residue[q].atom[w].moleculeAtomNumber;
+//						}
+//						if (m.strand[j].residue[q].atom[w].name.equalsIgnoreCase("N") && (lastResidueC != -1) && connectLastResidue) {
+//							m.addBondBetween(lastResidueC,m.strand[j].residue[q].atom[w].moleculeAtomNumber);
+//						}
+//					}
+//					else {
+//						if ((tmpIntAry != null) && (nextResidueBase != -1)) {
+//							for(int i=0;i<m.strand[j].residue[q].atom[w].bond.length;i++) {
+//								// Because the position of this residue's backbone C atom can move
+//								//  we have to be careful about simply updating the bond numbers.
+//								// The backbone N of numRes+1 if it bonds back to this residue needs
+//								//  special attention
+//								// Basically if there is a bond to the old residue we'll delete that
+//								//  bond. The only types of bonds into the new residue should be
+//								//  the previous and next peptide bond which we handle ourselves.
+//								if (tmpIntAry[i] >= nextResidueBase)
+//									tmpIntAry[i] += changeInAtoms;
+//								else if (tmpIntAry[i] >= thisResidueBase){
+//									m.strand[j].residue[q].atom[w].deleteBond(i);
+//									tmpIntAry = m.strand[j].residue[q].atom[w].bond;
+//									i--;
+//								}
+//							}
+//						}
+//					}
+//
 //				}
 //			}
 //		}
-		
-		//If never been mutated we store the default CB and HA values
-		if(!localResidue.mutatedOnce){
-			//Set the default CB value that we will use
-			if(localResidue.defaultCB == null){
-				if(localResidue.name.equalsIgnoreCase("GLY")){
-					moveCBOldGly(CBOld,CBNew,CAOld,CANew);
-				}
-			
-				localResidue.defaultCB = new double[3];
-				localResidue.defaultCB[0] = CBOld.coord[0];
-				localResidue.defaultCB[1] = CBOld.coord[1];
-				localResidue.defaultCB[2] = CBOld.coord[2];
-			}
-			
-			localResidue.mutatedOnce = true;
-		}
-		
-		
-		if(oldDaa!=newDaa){ //if we are switching a L-aa with a D-aa
-			System.out.println("Switching from D-L or L-D has not been fully tested...Exiting");
-			System.exit(0);
-			// if we are replacing a L-aa with a D-aa we need to align the new CB with the old HA
-			// CBOld = localResidue.atom[HA];				
-		}
-		
-		if (oldResGly){ //mutation from Gly
-			CBOld.coord[0] = localResidue.defaultCB[0];
-			CBOld.coord[1] = localResidue.defaultCB[1];
-			CBOld.coord[2] = localResidue.defaultCB[2];
-		}
-
-		double newNHLength = rm.norm( rm.subtract( HNew.coord, NNew.coord ) );//New amide NH or N-CD bond length
-
-		// START ALIGNMENT
-		// Translate N's to overlap
-		try{
-			double Ntrans[] = new double[3];
-			Ntrans[0] = NNew.coord[0] - NOld.coord[0];
-			Ntrans[1] = NNew.coord[1] - NOld.coord[1];
-			Ntrans[2] = NNew.coord[2] - NOld.coord[2];
-			for(int q=0;q<r.numberOfAtoms;q++) {
-				r.atom[q].coord[0] -= Ntrans[0];
-				r.atom[q].coord[1] -= Ntrans[1];
-				r.atom[q].coord[2] -= Ntrans[2];
-			}
-		}
-		catch(Exception E){
-			System.out.println("1");
-			E.printStackTrace();
-		}
-
-		int numAtoms = -1;
-		int atomList[] = null;
-		double thetaDeg[] = new double[1];
-		double rotAxis[] = new double[3];
-		numAtoms = r.numberOfAtoms;
-		atomList = new int[numAtoms];
-
-		// Rotate CAs to overlap
-		if (CAOld.distance(CANew) > 0.0001) {
-			getRotationInfoA(CAOld, NOld, CANew, thetaDeg, rotAxis);
-			for(int q=0;q<r.numberOfAtoms;q++)
-				atomList[q] = q;
-			r.rotateResidue(NNew,rotAxis[0],rotAxis[1],rotAxis[2],-thetaDeg[0],atomList,numAtoms);
-		}
-
-		// Rotate CBs to overlap - now the residue backbones should be aligned
-		if ( (!newResGly) && (CBOld.distance(CBNew) > 0.0001) ) { //not a to- or from- Gly mutation
-			getRotationInfoB(CBOld, CAOld, NOld, CBNew, thetaDeg, rotAxis);
-			for(int q=0;q<r.numberOfAtoms;q++)
-				atomList[q] = q;
-			r.rotateResidue(CANew,rotAxis[0],rotAxis[1],rotAxis[2],-thetaDeg[0],atomList,numAtoms);
-		}
-
-//		if (oldResGly) //mutation from Gly
-//			alignCBOldGly(CBOld,CBNew,CAOld,CANew,NOld,r);
-		if (newResGly) //mutation to Gly
-			alignCBNewGly(CBOld,CBNew,CAOld,CANew,NOld,r,localResidue);
-
-		
-
-		// Remove hydrogens if we don't want them
-		if (!addHydrogens) {
-			for(int q=0;q<r.numberOfAtoms;q++) {
-				if (r.atom[q].elementType.equalsIgnoreCase("H"))
-					m2.deleteAtom(r.atom[q].moleculeAtomNumber);
-			}
-		}
-		else {
-			// ELSE KEEP ALL HYDROGENS
-		}
-
-		//Make the positions of the new backbone atoms coincide *exactly* with the old ones;
-		// 	NNew already has the same coordinates as NOld;
-		// 	the CAs, CBs, and CBs are already aligned, but may differ due to differences between the template PPR and the residue backbone in the PDB
-		if (useOldBBatoms){
-			setAtomCoord(CANew,CAOld);
-			if ( !newResGly ){ //not a from/to Gly mutation (Gly does not have a CB)
-				moveCB(m2.residue[0],CBNew,CBOld);
-				//setAtomCoord(CBNew,CBOld);
-			}
-		}
-		setAtomCoord(CNew,COld);
-		setAtomCoord(ONew,OOld);
-
-		if( newResPro || ( oldResPro && addHydrogens ) ){
-
-			double NVec[] = rm.subtract(HOld.coord, NOld.coord);//N- to H or CD bond vector
-			NVec = rm.scale(NVec, newNHLength/rm.norm(NVec) );
-			HNew.coord = rm.add(NVec, NNew.coord);
-		}
-		else if(addHydrogens){
-			if(HOld != null)
-				setAtomCoord(HNew,HOld);
-			if(HAOld!=null && HANew!=null)
-				setAtomCoord(HANew,HAOld);
-		}
-
-		//////////////////////////////////////////////////////////////////////////////////
-		if (localResidue.nterm){ //we are changing the nterm residue
-			//we must add the H1, H2, H3 atoms (and delete the HN atom) to the new residue,
-			//	since the PPR templates only handle polypeptide residues
-
-			Residue r1 = getNtermRes(r,localResidue);
-
-			m2 = new Molecule();
-			m2.addResidue(0, r1);
-			m2.establishConnectivity(false);
-		}
-		if (localResidue.cterm){ //we are changing the cterm residue
-			//we must add the OXT or H1, H2, H3 atoms (and delete the HN atom) to the new residue,
-			//	since the PPR templates only handle polypeptide residues
-
-			Residue r1 = getCtermRes(r,localResidue);
-
-			m2 = new Molecule();
-			m2.addResidue(0, r1);
-			m2.establishConnectivity(false);
-		}
-		////////////////////////////////////////////////////////////////////////////////
-
-
-		// Copy the new residue information into the old residue
-		int changeInAtoms = r.numberOfAtoms - localResidue.numberOfAtoms;
-		int baseChangedAtom = localResidue.atom[0].moleculeAtomNumber;
-		// first atomnum in next residue
-		int nextResidueBase = -1;
-		// the first atomnum in this residue
-		int thisResidueBase = -1;
-		// atomnumber of the C in the last residue
-		int lastResidueC = -1;
-		// Determine if the residue before and the one after are have sequential
-		//  residue numbers. If they do and if we're interested in connecting
-		//  sequential residues then gather information so we can make the
-		//  appropriate bonds.
-		boolean connectedResidue = false;
-		boolean connectNextResidue = false;
-		boolean connectLastResidue = false;
-		thisResidueBase = m.strand[strandNumber].residue[resNum].atom[0].moleculeAtomNumber;
-		nextResidueBase = thisResidueBase + localResidue.numberOfAtoms;
-
-		if ((resNum+1) < m.strand[strandNumber].numberOfResidues) {
-			if (connectResidue)
-				connectNextResidue = m.residuesAreBBbonded(strandNumber, resNum, strandNumber, resNum+1);
-		}
-		if (resNum > 0) {
-			if (connectResidue)
-				connectLastResidue = m.residuesAreBBbonded(strandNumber, resNum-1, strandNumber, resNum);			
-			if (connectLastResidue) {
-				for(int q=0;q<m.strand[strandNumber].residue[resNum-1].numberOfAtoms;q++) {
-					if (m.strand[strandNumber].residue[resNum-1].atom[q].name.equalsIgnoreCase("C"))
-						lastResidueC = m.strand[strandNumber].residue[resNum-1].atom[q].moleculeAtomNumber;
-				}
-			}
-			if (lastResidueC == -1)
-				connectLastResidue = false;
-		}
-
-
-		localResidue.name = r.name;
-
-		if (localResidue.fullName.length()  > 4)
-			localResidue.fullName = r.name.substring(0,3) + " " + localResidue.fullName.substring(4);
-		else
-			localResidue.fullName = r.name.substring(0,3);
-		localResidue.numberOfAtoms = r.numberOfAtoms;
-		localResidue.atom = r.atom;
-
-		if(newDaa)
-			localResidue.lAmino = false;
-		else
-			localResidue.lAmino = true;
-		
-		for(int j=0;j<localResidue.numberOfAtoms;j++){
-			localResidue.atom[j].moleculeResidueNumber = savedMoleculeResidueNumber;
-			localResidue.atom[j].strandResidueNumber = savedStrandResidueNumber;
-			localResidue.atom[j].strandNumber = savedStrandNumber;
-			localResidue.atom[j].segID = new String(savedSegID);
-		}
-
-		// Update atoms in residues of this strand after this residue
-		//  as well as the bookkeeping in the molecule itself
-		int curAtom = 0;
-		int linkfrom=-1, linkto=-1;
-		m.numberOfAtoms += changeInAtoms;
-		m.numberOfAtomsx3 = m.numberOfAtoms * 3;
-		m.atom = new Atom[m.numberOfAtoms];
-		m.actualCoordinates = new double[m.numberOfAtomsx3];
-		for(int j=0;j<m.numberOfStrands;j++) {
-			for(int q=0;q<m.strand[j].numberOfResidues;q++) {
-				for(int w=0;w<m.strand[j].residue[q].numberOfAtoms;w++) {
-					m.strand[j].residue[q].atom[w].moleculeAtomNumber = curAtom;
-					m.atom[curAtom++] = m.strand[j].residue[q].atom[w];
-					int tmpIntAry[];
-					tmpIntAry = m.strand[j].residue[q].atom[w].bond;
-					if ((q==resNum) && (j==strandNumber)) {
-						if (tmpIntAry != null) {
-							for(int i=0;i<m.strand[j].residue[q].atom[w].bond.length;i++) {
-								tmpIntAry[i] += baseChangedAtom;
-							}
-						}
-						if (m.strand[j].residue[q].atom[w].name.equalsIgnoreCase("C") && (nextResidueBase != -1) && connectNextResidue) {
-							// mark the atoms to bond so we can join when we're done
-							//  we can't join them now as the second atom doesn't
-							//  yet exist in the atom[] array
-							connectedResidue = true;
-							linkfrom = nextResidueBase+changeInAtoms;
-							linkto = m.strand[j].residue[q].atom[w].moleculeAtomNumber;
-						}
-						if (m.strand[j].residue[q].atom[w].name.equalsIgnoreCase("N") && (lastResidueC != -1) && connectLastResidue) {
-							m.addBondBetween(lastResidueC,m.strand[j].residue[q].atom[w].moleculeAtomNumber);
-						}
-					}
-					else {
-						if ((tmpIntAry != null) && (nextResidueBase != -1)) {
-							for(int i=0;i<m.strand[j].residue[q].atom[w].bond.length;i++) {
-								// Because the position of this residue's backbone C atom can move
-								//  we have to be careful about simply updating the bond numbers.
-								// The backbone N of numRes+1 if it bonds back to this residue needs
-								//  special attention
-								// Basically if there is a bond to the old residue we'll delete that
-								//  bond. The only types of bonds into the new residue should be
-								//  the previous and next peptide bond which we handle ourselves.
-								if (tmpIntAry[i] >= nextResidueBase)
-									tmpIntAry[i] += changeInAtoms;
-								else if (tmpIntAry[i] >= thisResidueBase){
-									m.strand[j].residue[q].atom[w].deleteBond(i);
-									tmpIntAry = m.strand[j].residue[q].atom[w].bond;
-									i--;
-								}
-							}
-						}
-					}
-
-				}
-			}
-		}
-		if (connectedResidue)
-			m.addBondBetween(linkfrom,linkto);
-
-		// Establish all connectivity including non-bonded interactions
-		//KER: Remember that if you try to get rid of this establishConnectivity, you have to check for connectivity in Amber96ext.calculateTypesWithTemplates
-		m.connectivityValid = false;
-		//m.establishConnectivity(false);
-		m.updateNumAtoms();
-
-		curAAType[resNum] = newResType;
-		curRotNum[resNum] = -1;
-		localResidue.ffAssigned = false;
-
-		// Copy atom coordinates back into actualCoordinates
-		for(int q=0;q<m.numberOfAtoms;q++)
-			m.updateCoordinates(q);
-
-
-		if(proMutation){//Idealize the sidechain since proline has an unusual geometry
-			//This is especially important if we are mutating to proline (some bonds are probably way off length then:
-			//the idealization reconstructs the ideal ring given the backbone, CB, and CD coordinates)
-
-			m.idealizeResSidechain(localResidue);//this will also enforce the specified pucker (thus matching the original if we mutated away from and then back to proline)
-			int firstAtom = localResidue.atom[0].moleculeAtomNumber;
-			for(int a=0; a<localResidue.numberOfAtoms; a++)
-				m.resolveCoordinates(firstAtom+a);//Copy the idealized coordinates back into the Atom.coord arrays
-
-			if(!newResPro)//No longer proline, so ring closure is no longer an issue
-				localResidue.validConf = true;
-		}
-		return true;
-
-	}
-	//Checks if residue res is a form of histidine
+//		if (connectedResidue)
+//			m.addBondBetween(linkfrom,linkto);
+//
+//		// Establish all connectivity including non-bonded interactions
+//		//KER: Remember that if you try to get rid of this establishConnectivity, you have to check for connectivity in Amber96ext.calculateTypesWithTemplates
+//		m.connectivityValid = false;
+//		//m.establishConnectivity(false);
+//		m.updateNumAtoms();
+//
+//		curAAType[resNum] = newResType;
+//		curRotNum[resNum] = -1;
+//		localResidue.ffAssigned = false;
+//
+//		// Copy atom coordinates back into actualCoordinates
+//		for(int q=0;q<m.numberOfAtoms;q++)
+//			m.updateCoordinates(q);
+//
+//
+//		if(proMutation){//Idealize the sidechain since proline has an unusual geometry
+//			//This is especially important if we are mutating to proline (some bonds are probably way off length then:
+//			//the idealization reconstructs the ideal ring given the backbone, CB, and CD coordinates)
+//
+//			m.idealizeResSidechain(localResidue);//this will also enforce the specified pucker (thus matching the original if we mutated away from and then back to proline)
+//			int firstAtom = localResidue.atom[0].moleculeAtomNumber;
+//			for(int a=0; a<localResidue.numberOfAtoms; a++)
+//				m.resolveCoordinates(firstAtom+a);//Copy the idealized coordinates back into the Atom.coord arrays
+//
+//			if(!newResPro)//No longer proline, so ring closure is no longer an issue
+//				localResidue.validConf = true;
+//		}
+//		return true;
+//
+//	}
+//	//Checks if residue res is a form of histidine
 	/*private boolean isResHis(String res){
 
 		if (res.equalsIgnoreCase("HID") || res.equalsIgnoreCase("HIE") || res.equalsIgnoreCase("HIP") || res.equalsIgnoreCase("HIS"))
