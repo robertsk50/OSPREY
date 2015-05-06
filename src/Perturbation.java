@@ -93,7 +93,7 @@ public abstract class Perturbation implements Serializable {
 
     ArrayList<HashMap<String, double[]>> oldCoords;//Old coordinates to revert to upon undoing
 
-    static boolean idealizeSC = true;//Should sidechains be idealized?
+    static boolean idealizeSC = false;//Should sidechains be idealized?
 
     boolean invalidState = false;//Indicates that the perturbation is in an invalid state
     //(e.g. a loop closure adjustment was applied with an impossible parameter)

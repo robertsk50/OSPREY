@@ -61,6 +61,9 @@
 
 import java.io.BufferedReader;
 import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.util.StringTokenizer;
 import java.io.Serializable;
@@ -81,16 +84,29 @@ public class ParamSet implements Serializable {
 		values = new String[initSize];
 	}
 	
-	//Reads in all parameter pairs from the file fName and updates the params[] and values[] arrays
 	public void addParamsFromFile(String fName){
+		try {
+			FileInputStream is = new FileInputStream(fName);
+			addParamsFromFile(is);
+		} catch (FileNotFoundException e) {
+			System.out.println("Couldn't find file: "+fName);
+			e.printStackTrace();
+		} catch (IOException e) {
+			System.out.println("Trouble reading file: "+fName);
+			e.printStackTrace();
+		}
+	}
+	
+	
+	//Reads in all parameter pairs from the file fName and updates the params[] and values[] arrays
+	public void addParamsFromFile(InputStream is) throws IOException{
 		
 		BufferedReader bufread = null;
 		String curLine = null;
 		boolean done = false;
 		
 		// First attempt to open and read the config file
-		try{
-			FileInputStream is = new FileInputStream(fName);
+			//FileInputStream is = new FileInputStream(fName);
 			bufread = new BufferedReader(new InputStreamReader(is));
 
 			curLine = bufread.readLine();
@@ -135,12 +151,7 @@ public class ParamSet implements Serializable {
 			}
 			bufread.close();
 		}
-		catch(Exception ex)
-		{
-			System.out.println("ERROR: An error occurred reading configuration file "+fName);
-			System.exit(1);
-		}
-	}
+		
 	
 	//Returns the index into params[] of the parameter paramName; return -1 if not found
 	private int getParamInd(String paramName){
@@ -171,8 +182,8 @@ public class ParamSet implements Serializable {
 			processRank = MPItoThread.Rank();
 		}
 		catch(Exception e){
-			e.printStackTrace();
-			System.exit(1);			
+			//If we get an error MPI hasn't been set up so we assume we are on rank 0.
+			//Do Nothing and assume we are rank 0.
 		}
 		
 		if (ind>=0){

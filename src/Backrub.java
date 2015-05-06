@@ -55,13 +55,14 @@ import java.util.StringTokenizer;
 
 
 public class Backrub extends Perturbation {
-
+	static boolean  debug = true;
+			
     //This is a backrub, formulated as a perturbation.  It affects three residues.
     //Like the shear, it moves a section of chain between two alpha carbons,
     //and the implementation is based on the shear's.
 
     //There are three matrices used: m=0 for the first peptide link, m=1 for the middle CA and sidechain, m=2 for the second peptide link
-
+	
 
     static double defaultMaxParams[] = {2.5f};
     static double defaultMinParams[] = {-2.5f};
@@ -152,7 +153,7 @@ public class Backrub extends Perturbation {
         rotax = r.subtract( x[1], x[0] );
         r.getRotMatrix( rotax[0], rotax[1], rotax[2], theta, M );
         rm[0] = r.multiplyMatrices( M, rm[1] );
-
+        double theta1 = theta;
 
         theta = getSmallRotAngle(newO2,midCA,anchor2,oldO2,b);
         theta *= b.thetaSmallScale;
@@ -161,6 +162,9 @@ public class Backrub extends Perturbation {
         rotax = r.subtract( x[2], x[1] );
         r.getRotMatrix( rotax[0], rotax[1], rotax[2], theta, M );
         rm[2] = r.multiplyMatrices( M, rm[1] );
+        
+        if(debug)
+        	System.out.println("Applying backrub: "+theta1+" "+param+" "+theta);
     }
 
 

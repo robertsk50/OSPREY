@@ -3112,6 +3112,10 @@ public class Amber96ext implements ForceField, Serializable {
 			return Amber96ext.this;
 		}
 
+		@Override
+		public String toString() {
+			return (pos1+" "+pos2);
+		}
 		
 	}
 	

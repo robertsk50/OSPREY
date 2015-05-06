@@ -94,7 +94,6 @@ public class Amber96PolyPeptideResidue implements Serializable {
 		
 		loadAminoAcidTemplates();
 		
-		
 	}
 	
 	private void loadAminoAcidTemplates() {

@@ -32,7 +32,7 @@ public class MutableResParams implements Serializable {
 		resStrand = new int[numMutPos];
 	}
 	
-	public void addRes(int mutPos, Residue res, RotamerLibrary rl, boolean addOrigRot) {
+	public void addRes(int mutPos, Residue res, RotamerLibrary rl, boolean addOrigRot, Residue prevRes) {
 		res.origMutPos = mutPos;
 		
 		resByPDB.put(res.getResNumberString(), res);
@@ -47,7 +47,7 @@ public class MutableResParams implements Serializable {
 		
 		if(res.isMutable == false){ //If we haven't already set up the mutable res, do it now.
 			res.isMutable = true;
-			res.initializeMutableRes(rl, addOrigRot);
+			res.initializeMutableRes(rl, addOrigRot, prevRes);
 		}
 		
 		

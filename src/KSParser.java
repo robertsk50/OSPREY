@@ -84,6 +84,8 @@ import java.util.HashSet;
 import java.util.Hashtable;
 import java.util.Iterator;
 import java.util.LinkedList;
+import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Random;
 import java.util.Set;
 import java.util.StringTokenizer;
@@ -529,7 +531,7 @@ public class KSParser
 	// end combination code
 
 	//Sets the allowables for AS residue position curPos
-	private void setAllowablesHelper(ParamSet sParams, boolean addWT, Residue r){
+	void setAllowablesHelper(ParamSet sParams, boolean addWT, Residue r){
 		String tempResAllow = (String)sParams.getValue("RESALLOWED"+r.getResNumberString(), "");
 		if(numTokens(tempResAllow) <= 0 && !addWT){
 			System.out.println("Warning: addWT is false, but no amino acid type set. Using WT for residue "+r.fullName);
@@ -1077,7 +1079,7 @@ public class KSParser
 				softvdwMultiplier, minSettings.doPerturbations, minSettings.pertFile, minSettings.minimizePerts, false, false, es,hbonds,mp.strandMut);
 
 
-		rs.setupRCs( minSettings.doPerturbations);
+		RotamerSearch.setupRCs( minSettings.doPerturbations, m, minSettings.pertFile);
 		
 
 		for(int i=0; i<m.numberOfStrands;i++){
@@ -1104,7 +1106,7 @@ public class KSParser
 						kstarSettings.epsilon,stericThresh,softStericThresh,distDepDielect,dielectConst,doDihedE,doSolvationE,solvScale,
 						softvdwMultiplier, minSettings.doPerturbations, minSettings.pertFile, minSettings.minimizePerts, false, false, es,hbonds,mp.strandMut);
 
-				rs.setupRCs(minSettings.doPerturbations);
+				RotamerSearch.setupRCs(minSettings.doPerturbations, m,minSettings.pertFile);
 
 				loadUnboundPairwiseEnergyMatrices(ubParams,rs,ematSettings.runNameEMatrixMin,true,i);
 
@@ -1134,7 +1136,7 @@ public class KSParser
 							kstarSettings.epsilon,stericThresh,softStericThresh,distDepDielect,dielectConst,doDihedE,doSolvationE,solvScale,
 							softvdwMultiplier, minSettings.doPerturbations, minSettings.pertFile, minSettings.minimizePerts, false, false, es,hbonds, mp.strandMut);
 
-					rs.setupRCs(minSettings.doPerturbations);
+					RotamerSearch.setupRCs(minSettings.doPerturbations,mp.m,minSettings.pertFile);
 //				}
 
 				sParams.setValue("PERTURBATIONFILE", strandPertFile);
@@ -2044,7 +2046,10 @@ public class KSParser
 				for(Residue r:mp.m.residue){
 					if(r.isMutable){
 						//Get the molResNum relative to the short molecule
-						strandMut.addRes(ctr, r, m.rotLibForStrand(r.strandNumber), cObj.addOrigRots);
+						Residue prevRes = null;
+						if(mp.m.residuesAreBBbonded(r.moleculeResidueNumber-1,r.moleculeResidueNumber))
+							prevRes = mp.m.residue[r.moleculeResidueNumber-1];
+						strandMut.addRes(ctr, r, m.rotLibForStrand(r.strandNumber), cObj.addOrigRots,prevRes);
 //						allMut[ctr] = m.mapPDBresNumToMolResNum(r.getResNumberString());
 						ctr++;
 					}
@@ -2498,7 +2503,7 @@ public class KSParser
 		boolean doPerturbations = (new Boolean((String)sParams.getValue("DOPERTURBATIONS","false"))).booleanValue();//Triggers DEEPer
 		String pertFile = (String)sParams.getValue("PERTURBATIONFILE","defaultPerturbationFileName.pert");//Input file giving perturbation information
 		boolean minimizePerts = (new Boolean((String)sParams.getValue("MINIMIZEPERTURBATIONS","false"))).booleanValue();//Allow continuous minimization with respect to perturbation parameters
-		Perturbation.idealizeSC = (new Boolean((String)sParams.getValue("IDEALIZESIDECHAINS","true"))).booleanValue();
+		Perturbation.idealizeSC = (new Boolean((String)sParams.getValue("IDEALIZESIDECHAINS","false"))).booleanValue();
 
 
 		boolean addWTRotsSomehow = (new Boolean((String)sParams.getValue("ADDWTROTS","false"))).booleanValue();
@@ -2579,7 +2584,7 @@ public class KSParser
 		}
 
 		if(!mp.loadedFromCache)
-			rs.setupRCs(doPerturbations);
+			RotamerSearch.setupRCs(doPerturbations,rs.m,rs.pertFile);
 
 		//initialize the pairwise energy matrices (full initialization - for all residues in residueMap[], the ligand, and the template)
 		//KER: See if the singles mat has already been computed
@@ -2882,7 +2887,7 @@ public class KSParser
 		}
 
 		if(!mp.loadedFromCache)
-			rs.setupRCs(doPerturbations);
+			RotamerSearch.setupRCs(doPerturbations,rs.m,rs.pertFile);
 
 		//KER: now do all the remaining calculations
 		OneMutation[] mutArray1 = getMutArraySingleEcomp(numberMutable,minimizeBB);
@@ -3457,7 +3462,11 @@ public class KSParser
 		sParams.addParamsFromFile(getToken(s,3)); //read mutation search parameters
 
 		// Pull search parameters
-		String runName = (String)sParams.getValue("RUNNAME");
+		Settings settings = new Settings();
+		
+		//Pull search parameters
+		String runName = Settings.getRunName(sParams);
+		
 		String confResFile = (String)sParams.getValue("CONFRESFILE", "c_"+runName);
 		int numResults = (new Integer((String)sParams.getValue("NUMRESULTS"))).intValue();
 		boolean doMinimize = (new Boolean((String)sParams.getValue("DOMINIMIZE", "false"))).booleanValue();
@@ -3484,14 +3493,11 @@ public class KSParser
 				addOrigRots = true;
 		}
 
-		boolean neighborList = new Boolean(sParams.getValue("NEIGHBORLIST","false"));
-		double distCutoff = 0;
-		if(neighborList){
-			distCutoff = new Float(sParams.getValue("DISTCUTOFF"));
-		}
+		//InteractionGraph Settings
+		Settings.InteractionGraph graphSettings = settings.new InteractionGraph(sParams);
 
 
-		MolParameters mp = loadMolecule(sParams, COMPLEX, neighborList, distCutoff,true);
+		MolParameters mp = loadMolecule(sParams, COMPLEX, graphSettings.neighborList, graphSettings.distCutoff,true);
 		Molecule m = mp.m;
 		int numberMutable = mp.strandMut.numMutPos();
 		MutableResParams strandMut = mp.strandMut;
@@ -3507,7 +3513,6 @@ public class KSParser
 		
 		
 		//Emat Settings (used for eref matrix)
-		Settings settings = new Settings();
 		Settings.Minimization minSettings = settings.new Minimization(sParams);
 		Settings.Emat ematSettings = settings.new Emat(sParams, runName, minSettings.doPerturbations);
 		
@@ -3523,12 +3528,19 @@ public class KSParser
 			eRef = Emat.loadErefMatrix(ematSettings.runNameEMatrixMin+"_COM.dat.eref");
 		}
 		
+		Emat emat = null;
+		boolean printEnergyTerms = true;
+		if(printEnergyTerms){
+			EPICSettings es = new EPICSettings(sParams);
+			emat = loadPairwiseEnergyMatrices(sParams,ematSettings.runNameEMatrixMin,minSettings.doMinimize,-1,es,mp.m, false);
+		}
+		
 		//Load rotamer and residue conformation libraries
 		m.aaRotLib.loadGlobalRots(ematSettings.runNameEMatrixMin+"_COM.dat.aaRots");
 		if(m.genRotLib != null)
 			m.genRotLib.loadGlobalRots(ematSettings.runNameEMatrixMin+"_COM.dat.genRots");
 		if(doPerturbations)
-			PertFileHandler.readPertFile(pertFile, m, strandRot,true);
+			PertFileHandler.readPertFile(pertFile, m,true);
 		for(Strand strand : m.strand){
 			if(strand.isProtein)
 				strand.rcl.loadGlobalRCs(ematSettings.runNameEMatrixMin+"_COM.dat.rcl_"+strand.number, m.aaRotLib);
@@ -3553,32 +3565,9 @@ public class KSParser
 		int numSaved = 0;
 		for (int curResult=0; curResult<numResults; curResult++){
 
-
-//			if( doPerturbations && curResult>0 ){//Reload the molecule
-////				mp.m.origMol();
-//				mp = loadMolecule(sParams, COMPLEX, neighborList, distCutoff,false);
-//				m = mp.m;
-//				
-//				//Reset all of the residue conformation information in the molecule
-//				m.aaRotLib.loadGlobalRots(ematSettings.runNameEMatrixMin+"_COM.dat.aaRots");
-//				if(m.genRotLib != null)
-//					m.genRotLib.loadGlobalRots(ematSettings.runNameEMatrixMin+"_COM.dat.genRots");
-//				if(doPerturbations)
-//					PertFileHandler.readPertFile(pertFile, m, strandRot,true);
-//				for(Strand strand : m.strand){
-//					if(strand.isProtein)
-//						strand.rcl.loadGlobalRCs(ematSettings.runNameEMatrixMin+"_COM.dat.rcl_"+strand.number, m.aaRotLib);
-//					else
-//						strand.rcl.loadGlobalRCs(ematSettings.runNameEMatrixMin+"_COM.dat.rcl_"+strand.number, m.genRotLib);
-//				}
-//			}
-
-
 			System.out.print("Starting minimization of result "+(curResult+1)+"..");
 
 			Amber96ext a96ff = new Amber96ext(m, distDepDielect, dielectConst, doSolvationE, solvScale, softvdwMultiplier,hbonds);
-
-			
 
 			//the starting index for the current result within AAtypes[] and rotNums[]
 			int startInd = numResidues*curResult;
@@ -3604,28 +3593,11 @@ public class KSParser
 			System.out.println("");
 
 
-//			if(doPerturbations){//This has to be done after setting the allowables
-//				PertFileHandler.readPertFile(pertFile, m, strandRot);
-//				for(int str=0;str<numOfStrands;str++){
-//					((StrandRCs)strandRot[str]).addUnperturbedRCs(addWTRot,m);
-//					((StrandRCs)strandRot[str]).countRCs();
-//				}
-//			}
-
 			a96ff.calculateTypesWithTemplates();
 			a96ff.initializeCalculation();
 			a96ff.setNBEval(hElect,hVDW);
-			//TODO: Fix the energy function so we can set each strand
-			//a96ff.setLigandNum((new Integer((String)sParams.getValue("PDBLIGNUM"))).intValue());
 
-//			int curAA[] = new int[m.numberOfResidues];
-//			for(int str=0;str<numOfStrands;str++){
-//				for(int j=0;j<m.strand[str].numberOfResidues;j++){
-//					int molResNum = m.strand[str].residue[j].moleculeResidueNumber;
-//					curAA[molResNum] = strandRot[str].getIndexOfNthAllowable(j,0);
-//				}
-//			}
-
+			
 			SimpleMinimizer simpMin = null;
 			BBMinimizer bbMin = null;
 			BackrubMinimizer brMin = null;
@@ -3674,7 +3646,32 @@ public class KSParser
 			if(!doPerturbations)
 				m.backupAtomCoord();	
 
-			double unMinE[] = a96ff.calculateTotalEnergy(m.actualCoordinates,-1); //the energy before minimization
+			
+			double unMinE[];
+			if(printEnergyTerms){
+				unMinE = a96ff.calculateTotalEnergy(m.actualCoordinates,-1,mutRes); //the energy before minimization
+				
+				Index3[] ematIndices = emat.getConf(confs.get(curResult).rcNums);
+				HashMap<Integer, Integer> revMutRes = new HashMap<Integer,Integer>();
+				for(int q=0; q<mutRes.size();q++){
+					revMutRes.put(mutRes.get(q), q);
+				}
+				
+				Iterator<Entry<Integer,Double>> iter = a96ff.singleE.entrySet().iterator();
+				while(iter.hasNext()){
+					Map.Entry<Integer,Double> entry = iter.next();
+					double eDiff = emat.getSingleMinE(ematIndices[revMutRes.get(entry.getKey())]) - entry.getValue(); 
+					if(Math.abs(eDiff) > 0.1 )
+						System.out.println(entry.getKey()+"("+revMutRes.get(entry.getKey())+") : "+entry.getValue()+" "+emat.getSingleMinE(ematIndices[revMutRes.get(entry.getKey())])+" "+eDiff);
+				}
+//				Iterator<Entry<Amber96ext.Pair,Double>> iterPair = a96ff.pairsE.entrySet().iterator();
+//				while(iterPair.hasNext()){
+//					Map.Entry entry = iterPair.next();
+//					System.out.println(entry.getKey()+" : "+entry.getValue());
+//				}
+			}
+			else
+				unMinE = a96ff.calculateTotalEnergy(m.actualCoordinates,-1); //the energy before minimization
 			double totEref = 0;
 			double totEntropy = 0;
 			if (ematSettings.useEref)
@@ -4186,7 +4183,7 @@ public class KSParser
 			
 				
 			if((!minSettings.selectPerturbations || reload) && !mp.loadedFromCache)
-					rs.setupRCs(minSettings.doPerturbations);
+					RotamerSearch.setupRCs(minSettings.doPerturbations, rs.m, rs.pertFile);
 
 			long startEmat = System.currentTimeMillis();
 			System.out.print("Loading precomputed energy matrix...");
@@ -4992,7 +4989,10 @@ public class KSParser
 					for(int j=0; j<numberOfMutables; j++){
 						String strandMutRes = getToken(strandMutResNum,j+1);
 						Residue r = mp.m.residue[mp.m.mapPDBresNumToMolResNum(strandMutRes)];
-						mp.strandMut.addRes(flatCtr,r,mp.m.rotLibForStrand(strCtr),addOrigRots);
+						Residue prevRes = null;
+						if(mp.m.residuesAreBBbonded(r.moleculeResidueNumber-1,r.moleculeResidueNumber))
+							prevRes = mp.m.residue[r.moleculeResidueNumber-1];
+						mp.strandMut.addRes(flatCtr,r,mp.m.rotLibForStrand(strCtr),addOrigRots,prevRes);
 						if(mp.m.strand[r.strandNumber].isProtein)
 							mp.m.residue[mp.m.mapPDBresNumToMolResNum(strandMutRes)].canMutate = true;
 						flatCtr++;
@@ -8206,7 +8206,7 @@ public class KSParser
 	}
 
 
-	private void selectPerturbations(MolParameters mp, boolean doPerturbations, String pertFile, boolean minimizePerts,
+	public void selectPerturbations(MolParameters mp, boolean doPerturbations, String pertFile, boolean minimizePerts,
 			boolean addWTRot, ParamSet sParams ){
 
 
@@ -8566,7 +8566,7 @@ public class KSParser
 		}
 		
 		if(!minSettings.selectPerturbations || reload)
-			rs.setupRCs(minSettings.doPerturbations);
+			RotamerSearch.setupRCs(minSettings.doPerturbations,rs.m,rs.pertFile);
 		
 		int numSplits = 0;
 
@@ -9061,7 +9061,7 @@ public class KSParser
 		}
 		
 		if((!minSettings.selectPerturbations || reload) && !mp.loadedFromCache)
-			rs.setupRCs(minSettings.doPerturbations);
+			RotamerSearch.setupRCs(minSettings.doPerturbations,rs.m,rs.pertFile);
 		
 		int numSplits = 0;
 

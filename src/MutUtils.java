@@ -1,3 +1,5 @@
+import java.util.HashMap;
+
 
 
 public class MutUtils {
@@ -40,6 +42,18 @@ public class MutUtils {
 	        Perturbation.setGenChi1(m, localResidue.moleculeResidueNumber, localResidue.WTGenChi1 );
 
 			return true;
+		}else if(localResidue.curRC != null && localResidue.curRC.rot.isWTrot){ //We are mutating away from the WT rotamer
+			localResidue.setResidueToTemplcoords(true);
+			
+			for(int a=0;a<localResidue.numberOfAtoms;a++){
+                if( !localResidue.atom[a].isBBatom )
+                    m.updateCoordinates(localResidue.atom[a].moleculeAtomNumber);
+            }
+			
+			//BB conformational changes might make this orientation inappropriate though
+	        //So idealize the sidechain to fix it
+	        //This won't return false because it's not a proline
+	        m.idealizeResSidechain(localResidue);
 		}
 		
 		AARotamerType aaType = rot.aaType;
@@ -218,6 +232,43 @@ public class MutUtils {
 		int savedStrandNumber = localResidue.atom[0].strandNumber;
 		String savedSegID = localResidue.atom[0].segID;
 
+		// first atomnum in next residue
+		int nextResidueBase = -1;
+		// the first atomnum in this residue
+		int thisResidueBase = -1;
+		// atomnumber of the C in the last residue
+		int lastResidueC = -1;
+		int lastResidueO = -1;
+		// Determine if the residue before and the one after are have sequential
+		//  residue numbers. If they do and if we're interested in connecting
+		//  sequential residues then gather information so we can make the
+		//  appropriate bonds.
+		boolean connectedResidue = false;
+		boolean connectNextResidue = false;
+		boolean connectLastResidue = false;
+		thisResidueBase = m.strand[strandNumber].residue[resNum].atom[0].moleculeAtomNumber;
+		nextResidueBase = thisResidueBase + localResidue.numberOfAtoms;
+
+		if ((resNum+1) < m.strand[strandNumber].numberOfResidues) {
+			if (connectResidue)
+				connectNextResidue = m.residuesAreBBbonded(strandNumber, resNum, strandNumber, resNum+1);
+		}
+		if (resNum > 0) {
+			if (connectResidue)
+				connectLastResidue = m.residuesAreBBbonded(strandNumber, resNum-1, strandNumber, resNum);	
+			if (connectLastResidue) {
+				for(int q=0;q<m.strand[strandNumber].residue[resNum-1].numberOfAtoms;q++) {
+					if (m.strand[strandNumber].residue[resNum-1].atom[q].name.equalsIgnoreCase("C"))
+						lastResidueC = m.strand[strandNumber].residue[resNum-1].atom[q].moleculeAtomNumber;
+					if (m.strand[strandNumber].residue[resNum-1].atom[q].name.equalsIgnoreCase("O"))
+						lastResidueO = m.strand[strandNumber].residue[resNum-1].atom[q].moleculeAtomNumber;
+				}
+			}
+			if (lastResidueC == -1)
+				connectLastResidue = false;
+		}
+		
+		
 		// Get the new residue from the templates
  		Amber96PolyPeptideResidue ppr = new Amber96PolyPeptideResidue();
 		Residue r = ppr.getResidue(newResType);
@@ -236,6 +287,7 @@ public class MutUtils {
 		at = getBBatoms(localResidue); //for the old residue
 		Atom NOld = at[0]; Atom CAOld = at[1]; Atom COld = at[2]; Atom OOld = at[3]; Atom HOld = at[4]; Atom CBOld = at[5];Atom HAOld = at[6];
 		
+		localResidue.mutatedOnce = true;
 		//KER: DAA switching residues
 		//There are several scenarios which is complicated by the fact that we use L-aa templates
 		//Now we just use the right template and only have to switch residues when swapping between the types
@@ -253,12 +305,23 @@ public class MutUtils {
 
 		//Reset CB atom for mutation from gly or pro
 		if (oldResGly || oldResPro){ 
-			setOrigAtom(CBOld, OOld, COld, CAOld, localResidue.CBplace);
+			setOrigAtom(CBOld, NOld,COld,CAOld,COld,NOld,CAOld,localResidue.CBplace);
+			setOrigAtom(HAOld, NOld,COld,CAOld,COld,NOld,CAOld,localResidue.HAplace);
 		}
 		
 		double newNHLength = 0.0;
 		if(proMutation) //mutation to or from Pro
 			newNHLength = rm.norm( rm.subtract( HNew.coord, NNew.coord ) );//New amide NH or N-CD bond length
+		
+		//Make the template values match the original pdb values
+		//scale template's N-CA distance to match the original distance
+		scaleCA(NOld,CAOld,NNew,CANew,r);
+		//scale template's CA-CB distance to match the original distance
+		if(!newResGly && !newResPro){
+			assignNCACBangle(CAOld,CBOld,NOld,CANew,CBNew,NNew,r,m2);
+			scaleCB(CAOld,CBOld,CANew,CBNew,r);
+		}
+		
 		
 		if(debug){
 			m2.saveMolecule("mutPDB_"+ ctr++ + ".pdb", 0.0,true);
@@ -345,7 +408,19 @@ public class MutUtils {
 				HNew.coord = RotMatrix.add(NVec, NNew.coord);
 			}
 			else if( oldResPro  ){ //if mutating from proline, set the N-H vector back to the original position
-				setOrigAtom(HNew, COld, CAOld, NOld, localResidue.Hplace);
+				Atom a1;
+				Atom a2;
+				
+				if(connectLastResidue){
+					a1 = m.atom[lastResidueO];
+					a2 = m.atom[lastResidueC];
+				}
+				else{ //Nterminal Residue
+					a1 = COld;
+					a2 = CAOld;
+				}
+					
+				setOrigAtom(HNew, a1, a2, NOld, localResidue.Hplace);
 			}
 			else { //otherwise, just set the H position to the previous H position
 				if(HOld!=null)
@@ -387,40 +462,7 @@ public class MutUtils {
 
 		// Copy the new residue information into the old residue
 		int changeInAtoms = r.numberOfAtoms - localResidue.numberOfAtoms;
-		int baseChangedAtom = localResidue.atom[0].moleculeAtomNumber;
-		// first atomnum in next residue
-		int nextResidueBase = -1;
-		// the first atomnum in this residue
-		int thisResidueBase = -1;
-		// atomnumber of the C in the last residue
-		int lastResidueC = -1;
-		// Determine if the residue before and the one after are have sequential
-		//  residue numbers. If they do and if we're interested in connecting
-		//  sequential residues then gather information so we can make the
-		//  appropriate bonds.
-		boolean connectedResidue = false;
-		boolean connectNextResidue = false;
-		boolean connectLastResidue = false;
-		thisResidueBase = m.strand[strandNumber].residue[resNum].atom[0].moleculeAtomNumber;
-		nextResidueBase = thisResidueBase + localResidue.numberOfAtoms;
-
-		if ((resNum+1) < m.strand[strandNumber].numberOfResidues) {
-			if (connectResidue)
-				connectNextResidue = m.residuesAreBBbonded(strandNumber, resNum, strandNumber, resNum+1);
-		}
-		if (resNum > 0) {
-			if (connectResidue)
-				connectLastResidue = m.residuesAreBBbonded(strandNumber, resNum-1, strandNumber, resNum);	
-			if (connectLastResidue) {
-				for(int q=0;q<m.strand[strandNumber].residue[resNum-1].numberOfAtoms;q++) {
-					if (m.strand[strandNumber].residue[resNum-1].atom[q].name.equalsIgnoreCase("C"))
-						lastResidueC = m.strand[strandNumber].residue[resNum-1].atom[q].moleculeAtomNumber;
-				}
-			}
-			if (lastResidueC == -1)
-				connectLastResidue = false;
-		}
-		
+		int baseChangedAtom = localResidue.atom[0].moleculeAtomNumber;		
 
 		localResidue.name = r.name; //Will include "D" if a D amino acid
 		if (localResidue.fullName.length()  > 4)
@@ -538,7 +580,85 @@ public class MutUtils {
 	
 	}
 	
+	/*
+	 * Modify the N-CA-CB angle to match the old values
+	 * 
+	 */
+	private static void assignNCACBangle(Atom CAsrc, Atom CBsrc, Atom Nsrc, Atom CAdest, Atom CBdest, Atom Ndest, Residue r, Molecule m) {
+
+		m.updateCoordinates();
+		
+		//Now the rotation matrix for the sidechain will give the smallest rotation
+		//that maps CBdest to CBsrc
+		double ABOld[] = RotMatrix.subtract(Ndest.coord, CAdest.coord);
+		double CBOld[] = RotMatrix.subtract(CBdest.coord, CAdest.coord);
+		double ABNew[] = RotMatrix.subtract(Nsrc.coord, CAsrc.coord);
+		double CBNew[] = RotMatrix.subtract(CBsrc.coord, CAsrc.coord);
+		double thetaOld = RotMatrix.getAngle(ABOld, CBOld);
+		double thetaNew = RotMatrix.getAngle(ABNew, CBNew);
+		double theta = thetaNew - thetaOld;
+		double rotax[] = RotMatrix.cross(ABOld, CBOld);
+		double SC_mtx[][];
+
+		if( RotMatrix.norm(rotax) == 0 )//CB already in the ideal position
+			SC_mtx = RotMatrix.identity();
+		else{
+			SC_mtx = new double[3][3];
+			RotMatrix.getRotMatrixRad(rotax[0], rotax[1], rotax[2], theta, SC_mtx);
+		}
+
+		m.rotateAtomList( r.getAtomList(false,true,false,false) , SC_mtx, CAdest.coord[0],
+				CAdest.coord[1], CAdest.coord[2], true);
+	}
+
+
+
+	/**
+	 * Scales the residue's N-CA vector to match the original one
+	 * @param nOld
+	 * @param cAOld
+	 * @param nNew
+	 * @param cANew
+	 * @param r
+	 */
+	private static void scaleCA(Atom Nold, Atom CAold, Atom Nnew, Atom CAnew, Residue r) {
+		double[] CA_N_new = RotMatrix.subtract(CAnew.coord, Nnew.coord);
+		double[] CA_N_old = RotMatrix.subtract(CAold.coord, Nold.coord);
+		double[] diff = RotMatrix.subtract(RotMatrix.scale(CA_N_new, RotMatrix.norm(CA_N_old)/RotMatrix.norm(CA_N_new)),CA_N_new);
 	
+		//Add the difference to every atom other than the N and H atom
+		for(Atom a: r.atom){
+			if(!a.name.equalsIgnoreCase("H") && !a.name.equalsIgnoreCase("N")){
+				a.coord = RotMatrix.add(a.coord, diff);
+			}
+		}
+		
+	}
+	
+	/**
+	 * Scales the residue's CA-CB vector to match the original one
+	 * @param CAold
+	 * @param CBold
+	 * @param CAnew
+	 * @param CBnew
+	 * @param r
+	 */
+	private static void scaleCB(Atom CAold, Atom CBold, Atom CAnew, Atom CBnew, Residue r) {
+		double[] CB_CA_new = RotMatrix.subtract(CBnew.coord, CAnew.coord);
+		double[] CB_CA_old = RotMatrix.subtract(CBold.coord, CAold.coord);
+		double[] diff = RotMatrix.subtract(RotMatrix.scale(CB_CA_new, RotMatrix.norm(CB_CA_old)/RotMatrix.norm(CB_CA_new)),CB_CA_new);
+	
+		//Add the difference to every atom other than the N and H atom
+		for(Atom a: r.atom){
+			if(!a.isBBatom){
+				a.coord = RotMatrix.add(a.coord, diff);
+			}
+		}
+		
+	}
+
+
+
 	/**
 	 * Move the CB atom and all atoms that are downstream of the CB atom
 	 * 
@@ -598,6 +718,18 @@ public class MutUtils {
 		}
 		
 		return at;
+	}
+	
+	//Returns a handle on the backbone N, CA, C, O, H, and CB atoms for residue res
+	public static HashMap<String,Atom> copyAllAtomPos(Residue res){
+		
+		HashMap<String, Atom> atomPos = new HashMap<String, Atom>();
+		
+		for(Atom a: res.atom) {
+			atomPos.put(a.name, a.copy());
+		}
+		
+		return atomPos;
 	}
 	
 	// This function is called when NNew is aligned with NOld. We want
@@ -784,6 +916,25 @@ public class MutUtils {
 		CBOld.coord[1] += dirToMove[1];
 		CBOld.coord[2] += dirToMove[2];
 		
+	}
+	
+	/**
+	 * Takes in the a1,a2,a3 location from a residue and the original
+	 * parameters for the placement of an atom and sets the the correct 
+	 * original position of the destAtom
+	 *  
+	 * @param destAtom Atom where the coordinates will be updated atom coords will be set
+	 * @param a1 First  atom in dihedral
+	 * @param a2 Second atom in dihedral
+	 * @param a3 Third  atom in dihedral
+	 */
+	private static void setOrigAtom(Atom destAtom, Atom a1, Atom a2, Atom a3, Atom a4, Atom a5, Atom a6, AtomPlacement[] atomPlace){
+		double[] coords1 = RotMatrix.get4thPoint(a1.coord, a2.coord, a3.coord, atomPlace[0].len, atomPlace[0].ang, atomPlace[0].dihe);
+		double[] coords2 = RotMatrix.get4thPoint(a4.coord, a5.coord, a6.coord, atomPlace[1].len, atomPlace[1].ang, atomPlace[1].dihe);
+		double[] coords = RotMatrix.scale(RotMatrix.add(coords1, coords2), 0.5f);
+		for(int i=0; i<destAtom.coord.length;i++){
+			destAtom.coord[i] = coords[i];
+		}
 	}
 	
 	/**

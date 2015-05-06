@@ -193,9 +193,9 @@ public class RotMatrix implements Serializable
 		double[][] rot_mtx) {
 
 		// First convert the axisangle to a quaternion
-		double sin_a = (double) Math.sin(angle*3.14159265/180/2);
-		double cos_a = (double) Math.cos(angle*3.14159265/180/2);
-		double tmp = (double) Math.sqrt(fx*fx + fy*fy + fz*fz);
+		double sin_a = Math.sin(angle*Math.PI/180/2);
+		double cos_a = Math.cos(angle*Math.PI/180/2);
+		double tmp = Math.sqrt(fx*fx + fy*fy + fz*fz);
 		double qx = fx / tmp * sin_a;
 		double qy = fy / tmp * sin_a;
 		double qz = fz / tmp * sin_a;
@@ -277,7 +277,7 @@ public class RotMatrix implements Serializable
 	}
 
 
-        public void getRotMatrixRad(double fx, double fy, double fz, double angle,
+        public static void getRotMatrixRad(double fx, double fy, double fz, double angle,
 		double[][] rot_mtx) {//Same as getRotMatrix but takes the angle in radians
 
             getRotMatrix(fx,fy,fz,angle*180/(double)Math.PI,rot_mtx);
@@ -380,7 +380,7 @@ public class RotMatrix implements Serializable
         }
 
 
-        public double[][] identity(){//Return the 3X3 identity matrix
+        public static double[][] identity(){//Return the 3X3 identity matrix
 
             double M[][] = new double[3][3];
 
@@ -455,7 +455,7 @@ public class RotMatrix implements Serializable
         }
 
 
-        double getAngle(double vec1[], double vec2[]){//Get the angle, in radians, between two vectors
+        static double getAngle(double vec1[], double vec2[]){//Get the angle, in radians, between two vectors
 
             double costh = dot(vec1,vec2) / ( norm(vec1) * norm(vec2) );
             if( costh > 1)//It might be slightly over due to numerical error...this means the angle is basically 0
@@ -466,7 +466,7 @@ public class RotMatrix implements Serializable
             return (double) Math.acos( costh );
         }
 
-        double getAngle(double A[], double B[], double C[]){//Get the angle ABC
+        static double getAngle(double A[], double B[], double C[]){//Get the angle ABC
             double BA[] = subtract(A,B);
             double BC[] = subtract(C,B);
             return getAngle(BA,BC);

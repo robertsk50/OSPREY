@@ -685,7 +685,8 @@ public class Molecule implements Serializable{
 
 	// Adds strand (using below fn) - if no name, call it the strandnum
 	public int addStrand(){
-		return(addStrand(new String().valueOf(numberOfStrands)));
+		new String();
+		return(addStrand(String.valueOf(numberOfStrands)));
 	}
 
 	// Adds a new empty strand with name "strandName" to molecule and updates array.
@@ -1848,7 +1849,7 @@ public class Molecule implements Serializable{
 
 		double[][] rot_mtx = new double[3][3];
 		RotMatrix rM = new RotMatrix();
-		rM.getRotMatrix(dx,dy,dz,thetaDeg,rot_mtx);
+		RotMatrix.getRotMatrix(dx,dy,dz,thetaDeg,rot_mtx);
 		rotateStrand(ligStrNum, rot_mtx, cx, cy, cz, updateAtoms);
 	}
 
@@ -1889,7 +1890,7 @@ public class Molecule implements Serializable{
 
 		double[][] rot_mtx = new double[3][3];
 		RotMatrix rM = new RotMatrix();
-		rM.getRotMatrix(dx,dy,dz,thetaDeg,rot_mtx);
+		RotMatrix.getRotMatrix(dx,dy,dz,thetaDeg,rot_mtx);
 
 		int i = residue[resNum].atom[0].moleculeAtomNumber;
 		int baseNum = i * 3;
@@ -1994,7 +1995,7 @@ public class Molecule implements Serializable{
 
 		double[][] rot_mtx = new double[3][3];
 		RotMatrix rM = new RotMatrix();
-		rM.getRotMatrix(dx,dy,dz,thetaDeg,rot_mtx);
+		RotMatrix.getRotMatrix(dx,dy,dz,thetaDeg,rot_mtx);
 
 		rotateAtomList(atomList,rot_mtx,cx,cy,cz,updateAtoms);
 	}
@@ -2011,7 +2012,7 @@ public class Molecule implements Serializable{
 
 		double[][] rot_mtx = new double[3][3];
 		RotMatrix rM = new RotMatrix();
-		rM.getRotMatrix(dx,dy,dz,thetaDeg,rot_mtx);
+		RotMatrix.getRotMatrix(dx,dy,dz,thetaDeg,rot_mtx);
 
 		tx=actualCoordinates[baseNum] - cx;
 		ty=actualCoordinates[baseNum+1] - cy;
@@ -2050,7 +2051,7 @@ public class Molecule implements Serializable{
 
 		double[][] rot_mtx = new double[3][3];
 		RotMatrix rM = new RotMatrix();
-		rM.getRotMatrix(fx,fy,fz,(double) thetaDeg,rot_mtx);
+		RotMatrix.getRotMatrix(fx,fy,fz,(double) thetaDeg,rot_mtx);
 
 		for(int w=0;w<numberOfResidues;w++) {
 			for(int q=0;q<residue[w].numberOfAtoms;q++) {
@@ -2708,11 +2709,11 @@ public class Molecule implements Serializable{
 			}
 
 
-			double t1[] = r.get4thPoint(NCoord, CCoord, CACoord, 1.100f, 109.3f, -121.6f);
-			double t2[] = r.get4thPoint(CCoord, NCoord, CACoord, 1.100f, 109.3f, 121.6f);
+			double t1[] = RotMatrix.get4thPoint(NCoord, CCoord, CACoord, 1.100f, 109.3f, -121.6f);
+			double t2[] = RotMatrix.get4thPoint(CCoord, NCoord, CACoord, 1.100f, 109.3f, 121.6f);
 
-			double newHA[] = r.subtract( r.scale( r.add(t1,t2) , 0.5f), CACoord);
-			newHA = r.add( r.scale( newHA, 1.100f / r.norm(newHA) ), CACoord );
+			double newHA[] = RotMatrix.subtract( RotMatrix.scale( RotMatrix.add(t1,t2) , 0.5f), CACoord);
+			newHA = RotMatrix.add( RotMatrix.scale( newHA, 1.100f / RotMatrix.norm(newHA) ), CACoord );
 
 			System.arraycopy(newHA, 0, actualCoordinates, HANum*3, 3);//Change the HA actualCoordinates
 
@@ -2728,52 +2729,60 @@ public class Molecule implements Serializable{
 				System.exit(1);
 			}
 
-			t1 = r.get4thPoint(NCoord, CCoord, CACoord, 1.100f, 109.3f, 121.6f);
-			t2 = r.get4thPoint(CCoord, NCoord, CACoord, 1.100f, 109.3f, -121.6f);
+			t1 = RotMatrix.get4thPoint(NCoord, CCoord, CACoord, 1.100f, 109.3f, 121.6f);
+			t2 = RotMatrix.get4thPoint(CCoord, NCoord, CACoord, 1.100f, 109.3f, -121.6f);
 
-			newHA = r.subtract( r.scale( r.add(t1,t2) , 0.5f), CACoord);
-			newHA = r.add( r.scale( newHA, 1.100f / r.norm(newHA) ), CACoord );
+			newHA = RotMatrix.subtract( RotMatrix.scale( RotMatrix.add(t1,t2) , 0.5f), CACoord);
+			newHA = RotMatrix.add( RotMatrix.scale( newHA, 1.100f / RotMatrix.norm(newHA) ), CACoord );
 
 			System.arraycopy(newHA, 0, actualCoordinates, HANum*3, 3);//Change the HA actualCoordinates
 		}
 		else{//Will have a C-beta
 
 			double CBCoord[] = getActualCoord(res.getAtomNameToMolnum("CB"));
-
+			double idealCB[];
 			double[] t1, t2;
-
-			if(res.name.equalsIgnoreCase("ALA")) {
-				t1 = r.get4thPoint(NCoord, CCoord, CACoord, 1.536f, 110.1f, 122.9f);
-				t2 = r.get4thPoint(CCoord, NCoord, CACoord, 1.536f, 110.6f, -122.6f);
+			if(Perturbation.idealizeSC){
+				
+				if(res.name.equalsIgnoreCase("ALA")) {
+					t1 = RotMatrix.get4thPoint(NCoord, CCoord, CACoord, 1.536f, 110.1f, 122.9f);
+					t2 = RotMatrix.get4thPoint(CCoord, NCoord, CACoord, 1.536f, 110.6f, -122.6f);
+				}
+				else if(res.name.equalsIgnoreCase("PRO")) {
+					t1 = RotMatrix.get4thPoint(NCoord, CCoord, CACoord, 1.530f, 112.2f, 115.1f);
+					t2 = RotMatrix.get4thPoint(CCoord, NCoord, CACoord, 1.530f, 103.0f, -120.7f);
+				}
+				else if( res.name.equalsIgnoreCase("VAL") || res.name.equalsIgnoreCase("THR") || res.name.equalsIgnoreCase("ILE") ) {
+					t1 = RotMatrix.get4thPoint(NCoord, CCoord, CACoord, 1.540f, 109.1f, 123.4f);
+					t2 = RotMatrix.get4thPoint(CCoord, NCoord, CACoord, 1.540f, 111.5f, -122.0f);
+				}
+				else { // anything else
+					t1 = RotMatrix.get4thPoint(NCoord, CCoord, CACoord, 1.530f, 110.1f, 122.8f);
+					t2 = RotMatrix.get4thPoint(CCoord, NCoord, CACoord, 1.530f, 110.5f, -122.6f);
+				}
+	
+				idealCB = RotMatrix.scale(RotMatrix.add(t1, t2), 0.5f);
+			}else{
+				//Use the CB length/angle/dihed from the original PDB
+				
+				t1 = RotMatrix.get4thPoint(NCoord, CCoord, CACoord, res.CBplace[0].len, res.CBplace[0].ang, res.CBplace[0].dihe);
+				t2 = RotMatrix.get4thPoint(CCoord, NCoord, CACoord, res.CBplace[1].len, res.CBplace[1].ang, res.CBplace[1].dihe);
+				idealCB = RotMatrix.scale(RotMatrix.add(t1, t2), 0.5f);
 			}
-			else if(res.name.equalsIgnoreCase("PRO")) {
-				t1 = r.get4thPoint(NCoord, CCoord, CACoord, 1.530f, 112.2f, 115.1f);
-				t2 = r.get4thPoint(CCoord, NCoord, CACoord, 1.530f, 103.0f, -120.7f);
-			}
-			else if( res.name.equalsIgnoreCase("VAL") || res.name.equalsIgnoreCase("THR") || res.name.equalsIgnoreCase("ILE") ) {
-				t1 = r.get4thPoint(NCoord, CCoord, CACoord, 1.540f, 109.1f, 123.4f);
-				t2 = r.get4thPoint(CCoord, NCoord, CACoord, 1.540f, 111.5f, -122.0f);
-			}
-			else { // anything else
-				t1 = r.get4thPoint(NCoord, CCoord, CACoord, 1.530f, 110.1f, 122.8f);
-				t2 = r.get4thPoint(CCoord, NCoord, CACoord, 1.530f, 110.5f, -122.6f);
-			}
-
-			double idealCB[] = r.scale(r.add(t1, t2), 0.5f);
 
 			//Now the rotation matrix for the sidechain will give the smallest rotation
 			//that maps CBCoord to idealCB
-			double ABOld[] = r.subtract(CBCoord, CACoord);
-			double ABNew[] = r.subtract(idealCB, CACoord);
-			double theta = r.getAngle( ABOld, ABNew );
-			double rotax[] = r.cross(ABOld, ABNew);
+			double ABOld[] = RotMatrix.subtract(CBCoord, CACoord);
+			double ABNew[] = RotMatrix.subtract(idealCB, CACoord);
+			double theta = RotMatrix.getAngle( ABOld, ABNew );
+			double rotax[] = RotMatrix.cross(ABOld, ABNew);
 			double SC_mtx[][];
 
-			if( r.norm(rotax) == 0 )//CB already in the ideal position
-				SC_mtx = r.identity();
+			if( RotMatrix.norm(rotax) == 0 )//CB already in the ideal position
+				SC_mtx = RotMatrix.identity();
 			else{
 				SC_mtx = new double[3][3];
-				r.getRotMatrixRad(rotax[0], rotax[1], rotax[2], theta, SC_mtx);
+				RotMatrix.getRotMatrixRad(rotax[0], rotax[1], rotax[2], theta, SC_mtx);
 			}
 
 			int CAAtNum = res.getAtomNameToMolnum("CA");
@@ -2783,10 +2792,10 @@ public class Molecule implements Serializable{
 			if(Perturbation.idealizeSC){
 				int HANum = res.getAtomNameToMolnum("HA");
 		
-				t1 = r.get4thPoint(NCoord, CCoord, CACoord, 1.100f, 107.9f, -118.3f);
-				t2 = r.get4thPoint(CCoord, NCoord, CACoord, 1.100f, 108.1f, 118.2f);
+				t1 = RotMatrix.get4thPoint(NCoord, CCoord, CACoord, 1.100f, 107.9f, -118.3f);
+				t2 = RotMatrix.get4thPoint(CCoord, NCoord, CACoord, 1.100f, 108.1f, 118.2f);
 				double newHA[] = r.subtract( r.scale( r.add(t1,t2) , 0.5f), CACoord);
-				newHA = r.add( r.scale( newHA, 1.100f / r.norm(newHA) ), CACoord );
+				newHA = RotMatrix.add( RotMatrix.scale( newHA, 1.100f / RotMatrix.norm(newHA) ), CACoord );
 		
 				System.arraycopy(newHA, 0, actualCoordinates, HANum*3, 3);//Change the HA actualCoordinates
 			}
@@ -2848,25 +2857,25 @@ public class Molecule implements Serializable{
 
 
 		//First adjust the bond angles
-		double ncd[] = r.subtract( CDCoord, NCoord );
-		double canhat[] = r.subtract( NCoord, CACoord );//Unit vector in CA --> N direction
+		double ncd[] = RotMatrix.subtract( CDCoord, NCoord );
+		double canhat[] = RotMatrix.subtract( NCoord, CACoord );//Unit vector in CA --> N direction
 		double vhat[] = r.perpendicularComponent(ncd, canhat);
-		canhat = r.scale( canhat, 1/r.norm(canhat) );
-		vhat = r.scale( vhat, 1/r.norm(vhat) );
-		ncd = r.scale( r.add( r.scale( canhat, -(double)Math.cos(CANCD_ideal) ) ,
-				r.scale( vhat, (double)Math.sin(CANCD_ideal) ) ), r.norm(ncd) );
-		CDCoord = r.add( ncd , NCoord );
+		canhat = RotMatrix.scale( canhat, 1/RotMatrix.norm(canhat) );
+		vhat = RotMatrix.scale( vhat, 1/RotMatrix.norm(vhat) );
+		ncd = RotMatrix.scale( RotMatrix.add( RotMatrix.scale( canhat, -(double)Math.cos(CANCD_ideal) ) ,
+				RotMatrix.scale( vhat, (double)Math.sin(CANCD_ideal) ) ), RotMatrix.norm(ncd) );
+		CDCoord = RotMatrix.add( ncd , NCoord );
 
 		System.arraycopy( CDCoord, 0, actualCoordinates, 3*CDNum, 3 );//Store the new CD coordinates
 
-		double cbcg[] = r.subtract( CGCoord, CBCoord );
-		double cacbhat[] = r.subtract( CBCoord, CACoord );
+		double cbcg[] = RotMatrix.subtract( CGCoord, CBCoord );
+		double cacbhat[] = RotMatrix.subtract( CBCoord, CACoord );
 		double what[] = r.perpendicularComponent(cbcg, cacbhat);
-		cacbhat = r.scale( cacbhat, 1/r.norm(cacbhat) );//Unit vector in CA --> CB direction
-		what = r.scale( what, 1/r.norm(what) );
-		cbcg = r.scale( r.add( r.scale( cacbhat, -(double)Math.cos(CACBCG_ideal) ) ,
-				r.scale( what, (double)Math.sin(CACBCG_ideal) ) ), r.norm(cbcg) );
-		CGCoord = r.add( cbcg , CBCoord );
+		cacbhat = RotMatrix.scale( cacbhat, 1/RotMatrix.norm(cacbhat) );//Unit vector in CA --> CB direction
+		what = RotMatrix.scale( what, 1/RotMatrix.norm(what) );
+		cbcg = RotMatrix.scale( RotMatrix.add( RotMatrix.scale( cacbhat, -(double)Math.cos(CACBCG_ideal) ) ,
+				RotMatrix.scale( what, (double)Math.sin(CACBCG_ideal) ) ), RotMatrix.norm(cbcg) );
+		CGCoord = RotMatrix.add( cbcg , CBCoord );
 
 		System.arraycopy( CGCoord, 0, actualCoordinates, 3*CGNum, 3 );//Store the new CG coordinates (their torsion will be modified later)
 
@@ -2874,20 +2883,20 @@ public class Molecule implements Serializable{
 		//Now calculate chi1.
 
 		double dir2[] = r.perpendicularComponent( canhat , cacbhat);
-		dir2 = r.scale( dir2 , 1/r.norm(dir2) );
-		double dir3[] = r.cross( cacbhat , dir2 );
-		double dBG = r.norm(cbcg);
+		dir2 = RotMatrix.scale( dir2 , 1/RotMatrix.norm(dir2) );
+		double dir3[] = RotMatrix.cross( cacbhat , dir2 );
+		double dBG = RotMatrix.norm(cbcg);
 		double sina = (double)Math.sin(CACBCG_ideal);
 		double cosa = (double)Math.cos(CACBCG_ideal);
 		//The position of CG will be given by CBCoord + dBG*(-cosa*cacbhat + sina*(dir2*cos(chi1)+dir3*sin(chi1)))
 
-		double CGCD = r.norm( r.subtract( idealPro.getAtomByName("CD").coord , idealPro.getAtomByName("CG").coord ) );
+		double CGCD = RotMatrix.norm( RotMatrix.subtract( idealPro.getAtomByName("CD").coord , idealPro.getAtomByName("CG").coord ) );
 		//We now get chi1 by making the CG-CD distance be chi1
 
-		double[] cbcd = r.subtract( CDCoord, CBCoord );
-		double r1 = r.dot( cbcd , cacbhat );
-		double r2 = r.dot( cbcd , dir2 );
-		double r3 = r.dot( cbcd , dir3 );
+		double[] cbcd = RotMatrix.subtract( CDCoord, CBCoord );
+		double r1 = RotMatrix.dot( cbcd , cacbhat );
+		double r2 = RotMatrix.dot( cbcd , dir2 );
+		double r3 = RotMatrix.dot( cbcd , dir3 );
 
 		double A = ( (r1+cosa*dBG)*(r1+cosa*dBG) + r2*r2 + r3*r3 + dBG*dBG*sina*sina - CGCD*CGCD ) / (2*dBG*sina);
 		double R = (double)Math.sqrt( r2*r2 + r3*r3 );
@@ -2947,9 +2956,9 @@ public class Molecule implements Serializable{
 
 		RotMatrix rm = new RotMatrix();
 
-		double HBDist = rm.norm( rm.subtract( idealPro.getAtomByName("HB2").coord , idealPro.getAtomByName("CB").coord ) );//CB-HB2 (or, assumed, CB-HB1 distance) (HB2 is nice because both HB1/2 and HB2/3 nomenclatures have it)
-		double HGDist = rm.norm( rm.subtract( idealPro.getAtomByName("HG2").coord , idealPro.getAtomByName("CG").coord ) );
-		double HDDist = rm.norm( rm.subtract( idealPro.getAtomByName("HD2").coord , idealPro.getAtomByName("CD").coord ) );
+		double HBDist = RotMatrix.norm( RotMatrix.subtract( idealPro.getAtomByName("HB2").coord , idealPro.getAtomByName("CB").coord ) );//CB-HB2 (or, assumed, CB-HB1 distance) (HB2 is nice because both HB1/2 and HB2/3 nomenclatures have it)
+		double HGDist = RotMatrix.norm( RotMatrix.subtract( idealPro.getAtomByName("HG2").coord , idealPro.getAtomByName("CG").coord ) );
+		double HDDist = RotMatrix.norm( RotMatrix.subtract( idealPro.getAtomByName("HD2").coord , idealPro.getAtomByName("CD").coord ) );
 
 
 		double CACoord[] = getActualCoord( res.getAtomNameToMolnum("CA") );
@@ -2958,36 +2967,36 @@ public class Molecule implements Serializable{
 		double CDCoord[] = getActualCoord( res.getAtomNameToMolnum("CD") );
 		double NCoord[] = getActualCoord( res.getAtomNameToMolnum("N") );
 
-		double CACB[] = rm.subtract(CBCoord,CACoord);
-		double CBCG[] = rm.subtract(CGCoord,CBCoord);
-		double CGCD[] = rm.subtract(CDCoord,CGCoord);
-		double CDN[] = rm.subtract(NCoord,CDCoord);
+		double CACB[] = RotMatrix.subtract(CBCoord,CACoord);
+		double CBCG[] = RotMatrix.subtract(CGCoord,CBCoord);
+		double CGCD[] = RotMatrix.subtract(CDCoord,CGCoord);
+		double CDN[] = RotMatrix.subtract(NCoord,CDCoord);
 
 
-		double BBisector[] = rm.average( CACB, rm.scale(CBCG,-1) );//Bisector of the HB1-CB-HB2 angle
-		double BPerpendicular[] = rm.cross( CACB, CBCG );//Perpendicular to the CA-CB-CG plane
-		double GBisector[] = rm.average( CBCG, rm.scale(CGCD,-1) );//Bisector of the HB1-CB-HB2 angle
-		double GPerpendicular[] = rm.cross( CBCG, CGCD );//Perpendicular to the CA-CB-CG plane
-		double DBisector[] = rm.average( CGCD, rm.scale(CDN,-1) );//Bisector of the HB1-CB-HB2 angle
-		double DPerpendicular[] = rm.cross( CGCD, CDN );//Perpendicular to the CA-CB-CG plane
+		double BBisector[] = rm.average( CACB, RotMatrix.scale(CBCG,-1) );//Bisector of the HB1-CB-HB2 angle
+		double BPerpendicular[] = RotMatrix.cross( CACB, CBCG );//Perpendicular to the CA-CB-CG plane
+		double GBisector[] = rm.average( CBCG, RotMatrix.scale(CGCD,-1) );//Bisector of the HB1-CB-HB2 angle
+		double GPerpendicular[] = RotMatrix.cross( CBCG, CGCD );//Perpendicular to the CA-CB-CG plane
+		double DBisector[] = rm.average( CGCD, RotMatrix.scale(CDN,-1) );//Bisector of the HB1-CB-HB2 angle
+		double DPerpendicular[] = RotMatrix.cross( CGCD, CDN );//Perpendicular to the CA-CB-CG plane
 
 		//We scale these vectors so they can be used as components of the C-H bond vectors
-		BBisector = rm.scale( BBisector, HBDist * (double)Math.cos(HBAngle/2) / rm.norm(BBisector) );
-		GBisector = rm.scale( GBisector, HGDist* (double)Math.cos(HGAngle/2) / rm.norm(GBisector) );
-		DBisector = rm.scale( DBisector, HDDist* (double)Math.cos(HDAngle/2) / rm.norm(DBisector) );
-		BPerpendicular = rm.scale( BPerpendicular, HBDist * (double)Math.sin(HBAngle/2) / rm.norm(BPerpendicular) );
-		GPerpendicular = rm.scale( GPerpendicular, HGDist * (double)Math.sin(HGAngle/2) / rm.norm(GPerpendicular) );
-		DPerpendicular = rm.scale( DPerpendicular, HDDist * (double)Math.sin(HDAngle/2) / rm.norm(DPerpendicular) );
+		BBisector = RotMatrix.scale( BBisector, HBDist * (double)Math.cos(HBAngle/2) / RotMatrix.norm(BBisector) );
+		GBisector = RotMatrix.scale( GBisector, HGDist* (double)Math.cos(HGAngle/2) / RotMatrix.norm(GBisector) );
+		DBisector = RotMatrix.scale( DBisector, HDDist* (double)Math.cos(HDAngle/2) / RotMatrix.norm(DBisector) );
+		BPerpendicular = RotMatrix.scale( BPerpendicular, HBDist * (double)Math.sin(HBAngle/2) / RotMatrix.norm(BPerpendicular) );
+		GPerpendicular = RotMatrix.scale( GPerpendicular, HGDist * (double)Math.sin(HGAngle/2) / RotMatrix.norm(GPerpendicular) );
+		DPerpendicular = RotMatrix.scale( DPerpendicular, HDDist * (double)Math.sin(HDAngle/2) / RotMatrix.norm(DPerpendicular) );
 
 
 		//Calculate the hydrogen coordinates
 		//Using the AMBER hydrogen-naming system (HB1, HB2 etc. as in the AA templates)
-		double HB1Coord[] = rm.add( CBCoord, rm.add(BBisector, BPerpendicular) );
-		double HB2Coord[] = rm.add( CBCoord, rm.subtract(BBisector, BPerpendicular) );
-		double HG1Coord[] = rm.add( CGCoord, rm.add(GBisector, GPerpendicular) );
-		double HG2Coord[] = rm.add( CGCoord, rm.subtract(GBisector, GPerpendicular) );
-		double HD1Coord[] = rm.add( CDCoord, rm.subtract(DBisector, DPerpendicular) );
-		double HD2Coord[] = rm.add( CDCoord, rm.add(DBisector, DPerpendicular) );
+		double HB1Coord[] = RotMatrix.add( CBCoord, RotMatrix.add(BBisector, BPerpendicular) );
+		double HB2Coord[] = RotMatrix.add( CBCoord, RotMatrix.subtract(BBisector, BPerpendicular) );
+		double HG1Coord[] = RotMatrix.add( CGCoord, RotMatrix.add(GBisector, GPerpendicular) );
+		double HG2Coord[] = RotMatrix.add( CGCoord, RotMatrix.subtract(GBisector, GPerpendicular) );
+		double HD1Coord[] = RotMatrix.add( CDCoord, RotMatrix.subtract(DBisector, DPerpendicular) );
+		double HD2Coord[] = RotMatrix.add( CDCoord, RotMatrix.add(DBisector, DPerpendicular) );
 
 
 		if( res.getAtomByName("HB1") != null ){//HB1-HB2 naming

@@ -234,7 +234,10 @@ public class CompareEmats {
 					for(int j=0; j<numberOfMutables; j++){
 						String strandMutRes = getToken(strandMutResNum,j+1);
 						Residue r = mp.m.residue[mp.m.mapPDBresNumToMolResNum(strandMutRes)];
-						mp.strandMut.addRes(flatCtr,r,mp.m.rotLibForStrand(strCtr),addOrigRots);
+						Residue prevRes = null;
+						if(mp.m.residuesAreBBbonded(r.moleculeResidueNumber-1,r.moleculeResidueNumber))
+							prevRes = mp.m.residue[r.moleculeResidueNumber-1];
+						mp.strandMut.addRes(flatCtr,r,mp.m.rotLibForStrand(strCtr),addOrigRots,prevRes);
 						if(mp.m.strand[r.strandNumber].isProtein)
 							mp.m.residue[mp.m.mapPDBresNumToMolResNum(strandMutRes)].canMutate = true;
 						flatCtr++;

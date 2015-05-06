@@ -57,7 +57,7 @@ import java.util.*;
 
 public class PertFileHandler {
 
-	public static void readPertFile(String fileName, Molecule m, StrandRotamers strandRot[], boolean loadRCs){
+	public static void readPertFile(String fileName, Molecule m, boolean loadRCs){
 		//Read the perturbation file and sets up the perturbations and residue conformations indicated in it
 
 		int numStrands = m.numberOfStrands;//This should also be strandRot.length
@@ -148,7 +148,7 @@ public class PertFileHandler {
 								
 								//KER: Set up the ResidueConformationLibrary
 								Rotamer rot = rl.getAARot(AAName, RCInfo[a][1]);
-								ResidueConformation rc = ((StrandRCs)strandRot[strandNumber]).rcl.addResidueConformation(rot, RCInfo[a][2], res.strandResidueNumber);
+								ResidueConformation rc = m.strand[strandNumber].rcl.addResidueConformation(rot, RCInfo[a][2], res.strandResidueNumber);
 								res.setAllowable(rc);
 							}
 							numRCsRead++;

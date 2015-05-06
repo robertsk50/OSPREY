@@ -112,5 +112,18 @@ public class AARotamerType implements Serializable{
 		return templRot;
 	}
 	
+	@Override
+	public String toString() {
+		return name;
+	}
+	
+	public Rotamer wtRotamer(String mutRes){
+		for(Rotamer r: rotamers){
+			if(r.isWTrot && r.resSpecificRot.equals(mutRes))
+				return r;
+		}
+		
+		return null;
+	}
 	
 }

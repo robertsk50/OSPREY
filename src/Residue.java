@@ -129,9 +129,11 @@ public class Residue implements Serializable {
 	// PGC 2014: We store the wildtype rotamer coordinates as part of the residue.
 	//Residue wtResidue;
 	String wtAA;
-	Atom wildtypeAtoms[];
+	Atom wildtypeAtoms[]; //The atom positions loaded from the pdb
+	Atom templateAtoms[]; //The atom positions of the template residue (used as backup for the wildtype atom positions are used)
 	AtomPlacement Hplace; //The distance, angle, and torsion information of the WT hydrogen atom
-	AtomPlacement CBplace; //The distance, angle, and torsion information of the WT C-beta atom
+	AtomPlacement CBplace[]; //The distance, angle, and torsion information of the WT C-beta atom
+	AtomPlacement HAplace[]; //The distance, angle, and torsion information of the WT HA atom
 	double WTGenChi1;
 	
 	/*
@@ -850,7 +852,7 @@ public class Residue implements Serializable {
 	 * knows that it can mutate and stores the rotamers that it's
 	 * allowed to mutate to.
 	 */
-	public void initializeMutableRes(RotamerLibrary rl, boolean addOrigRot){
+	public void initializeMutableRes(RotamerLibrary rl, boolean addOrigRot, Residue prevRes){
 		if(defaultAA == null)
 			defaultAA = name;
 		this.rl = rl;
@@ -861,7 +863,7 @@ public class Residue implements Serializable {
 		allowedRCs = new ArrayList<ResidueConformation>();
 		
 		//Save initial coordinates for WT rotamer
-		saveWTcoords();
+		saveWTcoords(prevRes);
 
 	}
 	
@@ -981,7 +983,7 @@ public class Residue implements Serializable {
 	 * @param 
 	 * @return
 	 */
-	public void saveWTcoords(){
+	public void saveWTcoords(Residue prevRes){
 		Atom CA = null;
 		Atom O = null;
 		Atom C = null;
@@ -989,6 +991,10 @@ public class Residue implements Serializable {
 		Atom H = null; //proline won't have H
 		Atom CB = null; //glycine won't have CB 
 		Atom HA3 = null;
+		Atom HA = null;
+		
+		Atom prevO = null;
+		Atom prevC = null;
 		
 		wildtypeAtoms = new Atom[atom.length];
 		for(int aIx = 0; aIx < atom.length; aIx++){
@@ -1007,7 +1013,57 @@ public class Residue implements Serializable {
 				CB = wildtypeAtoms[aIx];
 			else if(atom[aIx].name.equalsIgnoreCase("HA3") || atom[aIx].name.equalsIgnoreCase("3HA"))
 				HA3 = wildtypeAtoms[aIx];
+			else if(atom[aIx].name.equalsIgnoreCase("HA") || atom[aIx].name.equalsIgnoreCase("HA2") || atom[aIx].name.equalsIgnoreCase("2HA"))
+				HA = wildtypeAtoms[aIx];
 		}
+		
+		if(prevRes != null){ //Should only be null if the previous residue 
+			for(int aIx = 0; aIx < prevRes.atom.length; aIx++){
+				if(prevRes.atom[aIx].name.equalsIgnoreCase("O"))
+					prevO = prevRes.atom[aIx];
+				else if(prevRes.atom[aIx].name.equalsIgnoreCase("C"))
+					prevC = prevRes.atom[aIx];
+			}
+		}
+				
+		//Initialize Atom Placements
+		CBplace = new AtomPlacement[2];
+		HAplace = new AtomPlacement[2];
+		
+		//Set the CB and H placements
+		if(name.equals("PRO")){
+			//Use default ALA values for CB and H
+			Residue ideal = new Amber96PolyPeptideResidue().getResidue("ALA");
+			Atom[] bbAtoms = MutUtils.getBBatoms(ideal);
+			if(prevRes != null)
+				Hplace = new AtomPlacement("O","C", "N",1.1, 126.9, 180); //Took these values from PyMOL
+			else
+				Hplace = new AtomPlacement(bbAtoms[MutUtils.C],bbAtoms[MutUtils.CA],bbAtoms[MutUtils.N],bbAtoms[MutUtils.H]);
+			CBplace[0] = new AtomPlacement(bbAtoms[MutUtils.N],bbAtoms[MutUtils.C],bbAtoms[MutUtils.CA],bbAtoms[MutUtils.CB]);
+			CBplace[1] = new AtomPlacement(bbAtoms[MutUtils.C],bbAtoms[MutUtils.N],bbAtoms[MutUtils.CA],bbAtoms[MutUtils.CB]);
+		}else if(name.equals("GLY")){
+			if(prevRes != null)
+				Hplace = new AtomPlacement(prevO,prevC,N,H);
+			else
+				Hplace = new AtomPlacement(C, CA, N, H);
+			//Scale HA3
+			double CACB[] = RotMatrix.scale( RotMatrix.subtract( HA3.coord, CA.coord ) , 1.396f );//1.536/1.1
+			Atom scaledCB = new Atom(RotMatrix.add(CA.coord, CACB));
+			CBplace[0] = new AtomPlacement(N,C,CA,scaledCB);
+			CBplace[1] = new AtomPlacement(C,N,CA,scaledCB);
+		}else{
+			if(prevRes != null)
+				Hplace = new AtomPlacement(prevO,prevC,N,H);
+			else
+				Hplace = new AtomPlacement(C, CA, N, H);
+			
+			CBplace[0] = new AtomPlacement(N,C,CA,CB);
+			CBplace[1] = new AtomPlacement(C,N,CA,CB);
+		}
+		HAplace[0] = new AtomPlacement(N,C,CA,HA); //All residues have an HA atom
+		HAplace[1] = new AtomPlacement(C,N,CA,HA);
+		
+		WTGenChi1 = Perturbation.getGenChi1(this);
 		
 		double CAx = CA.coord[0];
 		double CAy = CA.coord[1];
@@ -1023,32 +1079,43 @@ public class Residue implements Serializable {
 			}
 		}
 		
-		//Set the CB and H placements
-		if(name.equals("PRO")){
-			//Use default ALA values for CB and H
-			Residue ideal = new Amber96PolyPeptideResidue().getResidue("ALA");
-			Atom[] bbAtoms = MutUtils.getBBatoms(ideal);
-			Hplace = new AtomPlacement(bbAtoms[MutUtils.C],bbAtoms[MutUtils.CA],bbAtoms[MutUtils.N],bbAtoms[MutUtils.H]);
-			CBplace = new AtomPlacement(bbAtoms[MutUtils.O],bbAtoms[MutUtils.C],bbAtoms[MutUtils.CA],bbAtoms[MutUtils.CB]);
-		}else if(name.equals("GLY")){
-			Hplace = new AtomPlacement(C, CA, N, H);
-			//Scale HA3
-			double CACB[] = RotMatrix.scale( RotMatrix.subtract( HA3.coord, CA.coord ) , 1.396f );//1.536/1.1
-			Atom scaledCB = new Atom(RotMatrix.add(CA.coord, CACB));
-			CBplace = new AtomPlacement(O,C,CA,scaledCB);
-		}else{
-			try{
-			Hplace = new AtomPlacement(C, CA, N, H);
-			}catch(Exception E){
-				E.printStackTrace();
-			}
-			CBplace = new AtomPlacement(O,C,CA,CB);
-		}
-		
-		WTGenChi1 = Perturbation.getGenChi1(this);
-		
 	}
 
+	/**
+	 * PGC 2014: Save the coordinates of all the atoms in the 
+	 * current residue to use as the template rotamer;
+	 * KER: Store the coordinates relative to the CA atom, so we can just put them on the current
+	 * backbone conformations.
+	 * @param 
+	 * @return
+	 */
+	public void saveTemplatecoords(){
+		Atom CA = null;
+
+		templateAtoms = new Atom[atom.length];
+		for(int aIx = 0; aIx < atom.length; aIx++){
+			templateAtoms[aIx] = atom[aIx].copy();
+			if(atom[aIx].name.equalsIgnoreCase("CA"))
+				CA = templateAtoms[aIx];
+		}
+	
+		if(CA == null){
+			System.out.println("Wasn't able to find CA atom in residue: "+name+" when saving WT coords.");
+			//System.exit(0);
+		}else{
+			double CAx = CA.coord[0];
+			double CAy = CA.coord[1];
+			double CAz = CA.coord[2];
+		
+			for(Atom a: this.templateAtoms){
+				a.coord[0] -= CAx;
+				a.coord[1] -= CAy;
+				a.coord[2] -= CAz;
+			}
+		}
+		
+	}
+	
 	/**
 	 * PGC 2014: Set the atom coordinates to the wildtype coordinates. 
 	 * KER: Atom coordinates are stored relative to the CA atom, so we need
@@ -1058,6 +1125,9 @@ public class Residue implements Serializable {
 	 */
 	public void setResidueToWTcoords(boolean skipBB){
 		
+		saveTemplatecoords(); //Save template coords before setting new atom positions
+		
+		Atom CA = getAtomByName("CA");
 		
 		int nonBBatoms = 0;
 		int atomsChanged = 0;
@@ -1070,9 +1140,9 @@ public class Residue implements Serializable {
 				for(int aIx2 = 0; aIx2 < wildtypeAtoms.length; aIx2++){
 					if(this.atom[aIx1].isNameEqualTo(wildtypeAtoms[aIx2].name)){
 						//System.out.println(this.atom[aIx1]+" changed to :"+this.wildtypeAtoms[aIx2]);
-						this.atom[aIx1].coord[0] = wildtypeAtoms[aIx2].coord[0];
-						this.atom[aIx1].coord[1] = wildtypeAtoms[aIx2].coord[1];
-						this.atom[aIx1].coord[2] = wildtypeAtoms[aIx2].coord[2];
+						this.atom[aIx1].coord[0] = wildtypeAtoms[aIx2].coord[0] + CA.coord[0];
+						this.atom[aIx1].coord[1] = wildtypeAtoms[aIx2].coord[1] + CA.coord[1];
+						this.atom[aIx1].coord[2] = wildtypeAtoms[aIx2].coord[2] + CA.coord[2];
 						atomsChanged ++;
 						atomMatched = true;				
 					}				
@@ -1091,6 +1161,75 @@ public class Residue implements Serializable {
 			
 		}
 	}	
+	
+	/**
+	 * PGC 2014: Set the atom coordinates to the wildtype coordinates. 
+	 * KER: Atom coordinates are stored relative to the CA atom, so we need
+	 * to find the CA atom and add the coordinates to it.
+	 * @param skipBB Don't change the BB atoms (if BB has moved we don't want to move it)
+	 * @return
+	 */
+	public void setResidueToTemplcoords(boolean skipBB){
+		
+		Atom CA = getAtomByName("CA");
+		
+		int nonBBatoms = 0;
+		int atomsChanged = 0;
+		//System.out.println("Restoring wildtype rotamer coordinates for residue: "+this.fullName);
+		try{
+		for(int aIx1 = 0; aIx1 < this.atom.length; aIx1++){
+			if(!this.atom[aIx1].isBBatom || !skipBB ){
+				nonBBatoms++;
+				boolean atomMatched = false;
+				for(int aIx2 = 0; aIx2 < templateAtoms.length; aIx2++){
+					if(this.atom[aIx1].isNameEqualTo(templateAtoms[aIx2].name)){
+						//System.out.println(this.atom[aIx1]+" changed to :"+this.wildtypeAtoms[aIx2]);
+						this.atom[aIx1].coord[0] = templateAtoms[aIx2].coord[0] + CA.coord[0];
+						this.atom[aIx1].coord[1] = templateAtoms[aIx2].coord[1] + CA.coord[1];
+						this.atom[aIx1].coord[2] = templateAtoms[aIx2].coord[2] + CA.coord[2];
+						atomsChanged ++;
+						atomMatched = true;				
+					}				
+				}
+				if(!atomMatched){
+					System.out.println("Couldn't find a match for "+this.atom[aIx1].name);
+				}
+			}
+		}
+		}catch(Exception E){
+			E.printStackTrace();
+		}
+		if (atomsChanged != nonBBatoms || (!skipBB && (atomsChanged != templateAtoms.length || atomsChanged != this.atom.length) ) ){
+			System.out.println("Something went wrong when trying to copy atom coordinates");
+			System.exit(1);
+			
+		}
+	}
+	
+	/**
+	 * Returns the perturbation ids and whether the perturbation
+	 * is turned on or off for a given pertState
+	 * @param pertState pertState to return info for
+	 * @return
+	 */
+	public PertPair[] pertsForPertState(int pertState){
+		PertPair[] pertPairs = new PertPair[perts.length];
+		int ctr = 0;
+		for(int pert: perts){
+			pertPairs[ctr] = new PertPair(pert,pertStates[pertState][ctr]);
+			ctr++;
+		}
+		return pertPairs;
+	}
 
+	class PertPair{
+		int pertID; //The actual perturbation
+		int status; //what state the perturbation is in
+		
+		public PertPair(int pertID, int status) {
+			this.pertID = pertID;
+			this.status = status;
+		}
+	}
 	
 }

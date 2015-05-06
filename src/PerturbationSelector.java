@@ -194,7 +194,7 @@ public class PerturbationSelector {
         for(int str=0; str<m.numberOfStrands; str++){
 //            if(addWTRot)
 //                sRC[str].storeWTRotamers(m);
-            sRC[str].addUnperturbedRCs(m);
+            StrandRCs.addUnperturbedRCs(m,str);
         }
 
 

@@ -1,5 +1,7 @@
+import java.io.Serializable;
 
-public class AtomPlacement {
+
+public class AtomPlacement implements Serializable {
 	String a1Name;
 	String a2Name;
 	String a3Name;
@@ -26,5 +28,10 @@ public class AtomPlacement {
 		this.len = a3.distance(a4);
 		this.ang = a4.angle(a2, a3);
 		this.dihe = a4.torsion(a1, a2, a3);
+	}
+	
+	@Override
+	public String toString() {
+		return ("Atoms: "+a1Name+" "+a2Name+" "+a3Name+" d: "+len+" a: "+ang+" t: "+dihe);
 	}
 }

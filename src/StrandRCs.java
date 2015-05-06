@@ -114,23 +114,6 @@ public class StrandRCs extends StrandRotamers {
 
 
 	public void countRCs(){//Set up numRCs and RCOffsets
-		//            for(int resNum=0;resNum<numberOfResidues;resNum++){
-		//                for(int AA=0;AA<getNumAllowable(resNum);AA++){
-		//                    int curAA = getIndexOfNthAllowable(resNum,AA);
-		//                    numRCs[resNum][curAA] = RCRots[resNum][curAA].length;
-		//                }
-		//
-		////                for(int curAA=0; curAA<rl.getNumAAallowed(); curAA++){//Get RCOffsets for all amino acids (allowed at this residue or not) to facilitate counting
-		////                    //numRCs will just be 0 for AAs not allowed at this residue
-		////                    if(curAA == 0){
-		////                        if( resNum > 0 )
-		////                            RCOffsets[resNum][curAA] = RCOffsets[resNum-1][rl.getNumAAallowed()-1] + numRCs[resNum-1][rl.getNumAAallowed()-1];
-		////                    }
-		////                    else
-		////                        RCOffsets[resNum][curAA] = RCOffsets[resNum][curAA-1] + numRCs[resNum][curAA-1];
-		////                }
-		//            }
-
 		totNumRCs = rcl.allRCs.size();//RCOffsets[numberOfResidues-1][rl.getNumAAallowed()-1] + numRCs[numberOfResidues-1][rl.getNumAAallowed()-1];
 	}
 
@@ -200,7 +183,7 @@ public class StrandRCs extends StrandRotamers {
 	//            }
 	//        }
 
-	public void addUnperturbedRCs(Molecule m){
+	public static void addUnperturbedRCs(Molecule m, int strandNumber){
 		//Adds in RCs that are unperturbed rotamers
 		//If addWTRot is true then creates an unperturbed rotamer for the WT rotameric state
 
@@ -208,7 +191,7 @@ public class StrandRCs extends StrandRotamers {
 			if(res.isMutable){
 				for(AARotamerType aaType: res.AATypesAllowed()){
 					for(Rotamer r: aaType.getPosSpecRot(res.getResNumberString())){
-						ResidueConformation rc = rcl.addResidueConformation(r, 0, res.strandResidueNumber); //All Unperturbed RCs have pertState = 0 
+						ResidueConformation rc = m.strand[strandNumber].rcl.addResidueConformation(r, 0, res.strandResidueNumber); //All Unperturbed RCs have pertState = 0 
 						res.setAllowable(rc);		
 					}
 				}

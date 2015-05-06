@@ -388,22 +388,22 @@ public class RotamerSearch implements Serializable
 
 	//Set up perturbations and residue conformations (RCs) for DEEPer
 	//This should be called after the allowable AAs are set
-	public void setupRCs(boolean doPerturbations){
+	public static void setupRCs(boolean doPerturbations, Molecule m, String pertFile){
 
 		if(doPerturbations)
-			PertFileHandler.readPertFile(pertFile, m, strandRot,true);
+			PertFileHandler.readPertFile(pertFile, m, true);
 
-		for (int str=0;str<numberOfStrands;str++){
+		for (int str=0;str<m.numberOfStrands;str++){
 
-			StrandRCs sr = (StrandRCs)strandRot[str];
+//			StrandRCs sr = (StrandRCs)strandRot[str];
 
 			//Could be a problem here!  Ligand needs storage regardless because of rotation/translation!!
 			//Should handle this by reversing translation/rotation
 			//			if(addWTRot)
 			//				sr.storeWTRotamers(m);
 
-			sr.addUnperturbedRCs(m);
-			sr.countRCs();
+			StrandRCs.addUnperturbedRCs(m,str);
+//			sr.countRCs();
 		}
 
 	}
