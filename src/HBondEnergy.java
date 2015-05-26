@@ -2551,19 +2551,20 @@ public static void fade_energy_deriv(double[] energy_derivs) {
 				
 				//dE_dBAH (BAH is negative of Phi so we just use the negative derivative and have to multiply by -1/Math.sin(phi)
 				//The negatives cancel so don't include them
-				//Base
-				m.gradient[atombx3] += energy_derivs[DEDBAH]*dcosPhi_drB[0]*(1/Math.sin(phi));
-				m.gradient[atombx3+1] += energy_derivs[DEDBAH]*dcosPhi_drB[1]*(1/Math.sin(phi));
-				m.gradient[atombx3+2] += energy_derivs[DEDBAH]*dcosPhi_drB[2]*(1/Math.sin(phi));
-				//Acceptor
-				m.gradient[atomkx3] += energy_derivs[DEDBAH]*dcosPhi_drA[0]*(1/Math.sin(phi));
-				m.gradient[atomkx3+1] += energy_derivs[DEDBAH]*dcosPhi_drA[1]*(1/Math.sin(phi));
-				m.gradient[atomkx3+2] += energy_derivs[DEDBAH]*dcosPhi_drA[2]*(1/Math.sin(phi));
-				//Hydrogen
-				m.gradient[atombx3] += energy_derivs[DEDBAH]*dcosPhi_drH[0]*(1/Math.sin(phi));
-				m.gradient[atombx3+1] += energy_derivs[DEDBAH]*dcosPhi_drH[1]*(1/Math.sin(phi));
-				m.gradient[atombx3+2] += energy_derivs[DEDBAH]*dcosPhi_drH[2]*(1/Math.sin(phi));
-				
+				if(phi != 0){ //Only include in gradient if phi was calculated
+					//Base
+					m.gradient[atombx3] += energy_derivs[DEDBAH]*dcosPhi_drB[0]*(1/Math.sin(phi));
+					m.gradient[atombx3+1] += energy_derivs[DEDBAH]*dcosPhi_drB[1]*(1/Math.sin(phi));
+					m.gradient[atombx3+2] += energy_derivs[DEDBAH]*dcosPhi_drB[2]*(1/Math.sin(phi));
+					//Acceptor
+					m.gradient[atomkx3] += energy_derivs[DEDBAH]*dcosPhi_drA[0]*(1/Math.sin(phi));
+					m.gradient[atomkx3+1] += energy_derivs[DEDBAH]*dcosPhi_drA[1]*(1/Math.sin(phi));
+					m.gradient[atomkx3+2] += energy_derivs[DEDBAH]*dcosPhi_drA[2]*(1/Math.sin(phi));
+					//Hydrogen
+					m.gradient[atombx3] += energy_derivs[DEDBAH]*dcosPhi_drH[0]*(1/Math.sin(phi));
+					m.gradient[atombx3+1] += energy_derivs[DEDBAH]*dcosPhi_drH[1]*(1/Math.sin(phi));
+					m.gradient[atombx3+2] += energy_derivs[DEDBAH]*dcosPhi_drH[2]*(1/Math.sin(phi));
+				}
 				
 				
 				//Ehb = hbp.multiplier * sDelta * sTheta * sPhi * (Edelta+Etheta+Ephi+Echi);

@@ -1000,7 +1000,7 @@ public class BakerHBond {
 				m.gradient[atomHx3+2] += dChiDR[1]*chiValDeriv[Poly1DOld.DERIV]*newMult;
 
 
-
+			
 			}
 
 			//Add AHdist gradient

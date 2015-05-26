@@ -209,7 +209,7 @@ public class Settings implements Serializable {
 			approxMinGMEC = (new Boolean((String)sParams.getValue("APPROXMINGMEC", "false"))).booleanValue();
 			lambda = (new Double((String)sParams.getValue("LAMBDA", "0"))).doubleValue();
 			useFlagsAStar = (new Boolean((String)sParams.getValue("USEFLAGSASTAR","false"))).booleanValue();
-			asMethod = ASTARMETHOD.valueOf(sParams.getValue("ASTARMETHOD","ASWCSPREORDER").toUpperCase());
+			asMethod = ASTARMETHOD.valueOf(sParams.getValue("ASTARMETHOD","ASWCSP").toUpperCase());
 			varOrder = VARIABLEORDER.valueOf(sParams.getValue("VARORDER","MINFSCORE").toUpperCase());
 			numMaxMut = (new Integer((String)sParams.getValue("NUMMAXMUT", "1000"))).intValue();
 			bestE = (new Double((String)sParams.getValue("BESTE","10000000"))).doubleValue();
