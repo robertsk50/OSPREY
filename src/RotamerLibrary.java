@@ -318,7 +318,7 @@ public class RotamerLibrary implements Serializable {
 			}
 			
 			if(canMutate)
-				MutUtils.changeResidueType(curM,molNum,aaTypes[i].name,true);
+				//MutUtils.changeResidueType(curM,molNum,aaTypes[i].name,true);
 			printStream.print(aaTypes[i].name + " ");
 			System.out.println(aaTypes[i].name + " ");
 			//for(Rotamer rot: aaTypes[i].rotamers){ 
@@ -614,7 +614,230 @@ public class RotamerLibrary implements Serializable {
 		return newRot;
 	}
 	
+		// PGC 2015: Load the Dunbrack Rotamers for each residue.  This function clears all rotamers from the 
+	//   Backbone independent rotamer library except  the wildtype rotamer.
+	// 	The array allflexibleResidues contains all residues.  This is needed to compute phi and psi.  
+	public void loadDunbrackRots(Residue allResidues[]){
+		
+		// We need to remove all previous rotamers EXCEPT Ala and Gly.  It is convenient, however, to keep the wildtype rotamers, so that we do not have to add them again.		
+		for (AARotamerType aatype : aaTypes){  // Each amino acid type stores rotamers
+			aatype.clearTEMPLRotamers(); // Only backbone independent rotamers, different from Ala and gly are cleared.
+		}
+		// We will place all new rotamers in this arraylist
+		ArrayList<Rotamer> dunbrackAllRots = new ArrayList<Rotamer>();
+		// Also store wildtype rotamers in a different list for easier access.
+		ArrayList<Rotamer> wtRots = new ArrayList<Rotamer>();
+		for (Rotamer r: this.allRotamers){ // And we also store all rotamers in a RotamerLibrary class variable
+			if(r.aaType.name.equals("ALA") || r.aaType.name.equals("GLY") || r.isWTrot){// Maintain the wildtype rotamer and GLY and ALA.
+				r.rlIndex = dunbrackAllRots.size();
+				dunbrackAllRots.add(r);
+			}
+			if(r.isWTrot){
+				wtRots.add(r);
+			}
+		}
+		this.allRotamers = null;
+		// Add rotamers for every mutable residue.
+		for(int resIx = 0; resIx < allResidues.length; resIx++){
+			Residue residue = allResidues[resIx];
+
+			
+			if(residue.isMutable){				
+				Residue previousRes = allResidues[resIx-1];
+				Residue nextRes = allResidues[resIx+1];
+				// Now add the dunbrack rotamers.
+				ArrayList<Rotamer> rotamersForThisResidue = addDunbrackRotamers(residue, previousRes, nextRes);
+				// Now, find the rotamer from the dunbrack library that is closest to the wildtype for this rotamer, and assign its probability to the wildtype rotamer. 
+				// Search for the wildtype rotamer for this residue
+				Rotamer wtRotForThisRes = null;
+				for(Rotamer r: wtRots){
+					if(r.isWTrot && (r.resSpecificRot.equals(residue.getResNumberString()))){
+						wtRotForThisRes = r;
+					}
+				}
+				// Only do this if the wildtype rotamer was included.
+				if(wtRotForThisRes != null){
+					int indexOfSmallestRMSD = -1;
+					double smallestRMSD = Double.POSITIVE_INFINITY;
+					// Compute the RMSD (with respect to dihedrals) of each rotamer with the wildtype rotamer, but ignore those residues of different amino acid identity.
+					for(int rIx = 0; rIx < rotamersForThisResidue.size(); rIx++){							
+						Rotamer r = rotamersForThisResidue.get(rIx);
+						if(r.aaType.name.equals(wtRotForThisRes.aaType.name)){
+							double myrmsd = Util.RootMeanSquareDihedrals(wtRotForThisRes.values, r.values);
+							if(myrmsd < smallestRMSD){
+								smallestRMSD = myrmsd;
+								indexOfSmallestRMSD = rIx;
+							}							
+						}
+					}
+					// We limit the RMSD so that this is a completely different rotamer, we don't remove any rotamers.
+					if(smallestRMSD < EnvironmentVars.REMOVE_CLOSEST_ROTAMER_RMS_CUTOFF){
+						// Assign the probability of the closest rotamer to the wildtype rotamer.
+						wtRotForThisRes.rotamerProbability = (rotamersForThisResidue.get(indexOfSmallestRMSD)).rotamerProbability;
+						if(EnvironmentVars.REMOVE_CLOSEST_ROTAMER_WT_ROTAMER){
+							// Remove the rotamer closest to this rotamer.
+							rotamersForThisResidue.remove(indexOfSmallestRMSD);
+						}
+
+					}
+						
+					
+				}
+				// Add all remaining rotamers.
+				for(Rotamer r: rotamersForThisResidue){
+					AARotamerType myAAtype = getAAType(r.aaType.name);
+					r.aaIndex = myAAtype.rotamers.size();
+					myAAtype.addRot(r);
+					r.rlIndex = dunbrackAllRots.size();
+					dunbrackAllRots.add(r);
+				}
+			}
+			
+		}
+		// Convert the arraylist to an array.
+		this.allRotamers = dunbrackAllRots.toArray(new Rotamer[0]);
+		
+		
+	}	
+	// PGC 2015: Add all Dunbrack rotamers for residue res.  The previous and next residues are used to compute the backbone angles..  This function computes the phi and psi angles using 
+	//   the hydrogen and the oxygen in the residue (i.e. instead of using the atoms of the previous and next residues).
+	public ArrayList<Rotamer> addDunbrackRotamers(Residue res, Residue previousRes, Residue nextRes){
+		// Get the backbone phi and psi
+		Atom Cprev = previousRes.getAtomByName("C");
+		Atom N = res.getAtomByName("N");
+		Atom CA = res.getAtomByName("CA");
+		Atom C = res.getAtomByName("C");
+		Atom Nnext = nextRes.getAtomByName("N");
+		// We first compute the backbone phi and psi angles because we need them to find the rotamers for this residue in the Dunbrack Library.		
+		double Cprev_N_CA_C_torsion = C.torsion(Cprev, N, CA) ;
+		double wtphi = Cprev_N_CA_C_torsion;
 	
+		double N_CA_C_Nnext_torsion = Nnext.torsion(N, CA, C);
+		double wtpsi = N_CA_C_Nnext_torsion;
+	
+		ArrayList<Rotamer> newDunbrackRotamersForThisResidue = new ArrayList<Rotamer>();
+		// Now we search the dunbrack rotamer library for the backbone of the wildtype residue, and add all rotamers in it.
+		// Read the file name for the Dunbrack Backbone dependent rotamer library. 
+		try{
+			// Read in the dunbrack library for each residue.
+			FileInputStream is = new FileInputStream( EnvironmentVars.dunbrackRotamerLibraryLocation);
+			BufferedReader bufread = new BufferedReader(new InputStreamReader(is));
+			String curLine = null;
+			// Create an arraylist with the allowed amino acids at this residue.
+			ArrayList<String> allowedAAatThisResAsString = new ArrayList<String>();
+			for(AARotamerType aart: res.AATypesAllowed()){
+				allowedAAatThisResAsString.add(aart.name);
+			}
+			// Round the wildtype phi and wildtype psi to the closest backbone grid (by dividing by 10, rounding, and multiplying by 10 again).
+			long wtRoundedPhi = 10* Math.round(wtphi/10.0);
+			long wtRoundedPsi = 10* Math.round(wtpsi/10.0);
+			// Parse the whole file
+			while((curLine = bufread.readLine())!= null){
+				// Skip comment lines: those that start with #
+				if(!curLine.startsWith("#")){
+					// Convert the line into a char array.
+					char dbLine [] = curLine.toCharArray(); 
+					// First three letters are the amino acid.
+					String aaNameNewRot = ""+dbLine[0]+dbLine[1]+dbLine[2];
+					// Check that the amino acid is allowed for this position.					
+					if(allowedAAatThisResAsString.contains(aaNameNewRot)) {
+						// Search for the backbone phi and psi for this rotamer.
+						// Phi is in chars 5, 6, 7, and 8 
+						String phiForThisEntryAsStr = ""+dbLine[5]+dbLine[6]+dbLine[7]+dbLine[8];
+						int phiForThisEntry = Integer.valueOf(phiForThisEntryAsStr.trim());
+						// Psi is in chars 10, 11, 12, 13
+						String psiForThisEntryAsStr = ""+dbLine[10]+dbLine[11]+dbLine[12]+dbLine[13];
+						int psiForThisEntry = Integer.valueOf(psiForThisEntryAsStr.trim());
+						if(phiForThisEntry == wtRoundedPhi && psiForThisEntry == wtRoundedPsi){	// We matched a backbone.
+							// Fetch the amino acid type AARotamerType object;							
+							AARotamerType myAAtype = getAAType(aaNameNewRot);
+							// Parse the rotamer probability which is located at position 37 to 44.
+							String probabilityStr = ""+dbLine[37]+dbLine[38]+dbLine[39]+dbLine[40]+dbLine[41]+dbLine[42]+dbLine[43]+dbLine[44];
+							double myProbability = Double.parseDouble(probabilityStr.trim());
+							// Parse the dihedrals in the new rotamer from the dunbrack rotamer library.
+							int myNumDihedrals = myAAtype.numDihedrals();
+							// The dihedrals of the new rotamer in the rotamer library.
+							double myDihedrals[] = new double[myNumDihedrals]; 
+							// The first char for each of the dihedrals is, respectively at 47, 55, 63, 71
+							int dihedralIndices [] = {47, 55, 63, 71}; 
+							for (int chi = 0; chi < myNumDihedrals; chi++){
+								String dihedralStr = ""+dbLine[dihedralIndices[chi]]+dbLine[dihedralIndices[chi]+1]+dbLine[dihedralIndices[chi]+2]+
+										dbLine[dihedralIndices[chi]+3]+dbLine[dihedralIndices[chi]+4]+dbLine[dihedralIndices[chi]+5];
+								myDihedrals[chi] = Double.parseDouble(dihedralStr.trim());
+							}							
+							// Add a new Rotamer.	
+							if(myProbability >= EnvironmentVars.DUNBRACK_PROBABILTY_CUTOFF){
+								Rotamer newRot = new Rotamer(myAAtype.rotamers.size(), myDihedrals, myAAtype, 0, res.getResNumberString(), false, myProbability);
+								newDunbrackRotamersForThisResidue.add(newRot);
+								
+								// Add the rotamer diversified by Chi1 in one standard deviation.
+								if ( EnvironmentVars.DIVERSIFY_DUNBRACK_ROTAMERS_CHI1){
+									// The standard deviation is in fields: 83, 84, 85, 86									
+									String standardDeviationChi1Str =  ""+dbLine[83]+dbLine[84]+dbLine[85]+dbLine[86];
+									double standardDeviationChi1 = Double.parseDouble(standardDeviationChi1Str);
+									// First -Chi1
+									// We need a new array for the dihedrals
+									double mydihedrals_minusStdDev_Chi1[] = new double[myNumDihedrals];
+									for (int dih = 0; dih < myNumDihedrals; dih++){
+										mydihedrals_minusStdDev_Chi1[dih] = myDihedrals[dih];
+									}
+									if(mydihedrals_minusStdDev_Chi1[0]-standardDeviationChi1 < -180 ){ 
+										mydihedrals_minusStdDev_Chi1[0] = mydihedrals_minusStdDev_Chi1[0]-standardDeviationChi1+360;
+									}
+									else{
+										mydihedrals_minusStdDev_Chi1[0] -=  standardDeviationChi1;
+									}
+									Rotamer newRot_MinusStdDev_Chi1 = new Rotamer(myAAtype.rotamers.size(), mydihedrals_minusStdDev_Chi1, myAAtype, 0, res.getResNumberString(), false, myProbability);
+									newDunbrackRotamersForThisResidue.add(newRot_MinusStdDev_Chi1);
+									// Now +chi1
+									double mydihedrals_plusStdDev_Chi1[] = new double[myNumDihedrals];
+									for (int dih = 0; dih < myNumDihedrals; dih++){
+										mydihedrals_plusStdDev_Chi1[dih] = myDihedrals[dih];
+									}									
+									if(mydihedrals_plusStdDev_Chi1[0]+standardDeviationChi1 > 180 ){ 
+										mydihedrals_plusStdDev_Chi1[0] = mydihedrals_plusStdDev_Chi1[0]+standardDeviationChi1-360;
+									}
+									else{
+										mydihedrals_plusStdDev_Chi1[0] +=  standardDeviationChi1;
+									}
+									Rotamer newRot_PlusStdDev_Chi1 = new Rotamer(myAAtype.rotamers.size(), mydihedrals_plusStdDev_Chi1, myAAtype, 0, res.getResNumberString(), false, myProbability);
+									newDunbrackRotamersForThisResidue.add(newRot_PlusStdDev_Chi1);
+
+								}
+
+									
+							}
+						}
+					}
+				}
+			}
+			is.close();
+		}
+		catch(Exception e){
+			System.out.println("Problem reading the dunbrack rotamer library.");
+			System.exit(1);
+		}
+
+		return newDunbrackRotamersForThisResidue;
+	}	
+	// PGC 2015: Add rotamers for the Dunbrack library; rotamers have the probability field.  
+	//	 Returns null if rotamer could not be added.
+	public Rotamer addRotamer(String AAname, String pdbNum,double[] dihedVals, boolean isWTrot, double rotamerProbability){
+
+		AARotamerType aaType = getAAType(AAname);
+		Rotamer newRot = new Rotamer(aaType.rotamers.size(), dihedVals, aaType, allRotamers.length,pdbNum,isWTrot, rotamerProbability);
+
+		if(aaType.addRot(newRot)){
+			Rotamer[] newArray = new Rotamer[allRotamers.length+1];
+			System.arraycopy(allRotamers, 0, newArray, 0, allRotamers.length);
+			newArray[newArray.length-1] = newRot;
+			allRotamers = newArray;
+	
+			return newRot;
+		}else{
+			return null;
+		}
+	}
 	public Rotamer addOrigRot(Residue res){
 		Rotamer wtRot = null;
 		if( !res.addedOrigRot){
@@ -629,6 +852,36 @@ public class RotamerLibrary implements Serializable {
 					diheds[i] = res.atom[atoms[3]].torsion(res.atom[atoms[0]], res.atom[atoms[1]], res.atom[atoms[2]]);
 				}
 				wtRot = addRotamer(res.name, res.getResNumberString(), diheds, true); 
+				// PGC 2015: Set to true to diversify X1 or X1,X2				
+				boolean X1diversify = false;
+				boolean X2diversify = false;
+				// PGC2015: Optionally, add the rotamers with +9 and -9 degrees for X1.
+				if(X1diversify || (X2diversify && numDiheds == 1)){
+					for (double offset = -9; offset <= 9; offset += 18){
+						double tmpDiheds []= new double[numDiheds];
+						for(int i=0; i<numDiheds; i++){						
+							tmpDiheds[i] = diheds[i];
+						}
+						tmpDiheds[0] += offset;
+						addRotamer(res.name, res.getResNumberString(), tmpDiheds, true);
+					}		
+				}
+				// PGC2015: Optionally, add the rotamers with +9 and -9 degrees for X1 and X2.
+				if(numDiheds > 1 && X2diversify){
+					for (double offset1 = -9; offset1 <= 9; offset1 += 9){
+						for (double offset2 = -9; offset2 <= 9; offset2 += 9){
+							double tmpDiheds []= new double[numDiheds];
+							for(int i=0; i<numDiheds; i++){						
+								tmpDiheds[i] = diheds[i];
+							}
+							tmpDiheds[0] += offset1;
+							tmpDiheds[1] += offset2;
+							if (offset1 != 0 || offset2 != 0){
+								addRotamer(res.name, res.getResNumberString(), tmpDiheds, false);
+							}
+						}
+					}
+				}
 			}
 			res.addedOrigRot = true;
 		}

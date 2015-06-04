@@ -32,7 +32,8 @@ public class Rotamer implements Serializable{
 	int aaIndex;
 	int rlIndex;
 	int parent;
-	
+	// PGC 2015: energy is used to store the internal energy of this rotamer with respect to its probability.  
+	double rotamerProbability = 1.0;
 	
 	public Rotamer(int rotAAIndex,double[] vals, AARotamerType aaType, int rlIndex, String pdbNum, boolean isWTrot) {
 		aaIndex = rotAAIndex;
@@ -61,6 +62,31 @@ public class Rotamer implements Serializable{
 		this.aaType = aaType;
 		this.resSpecificRot = pdbNum;
 		this.isWTrot = isWTrot;
+		
+		if(minimizationWidth == null){
+			//KER: for now we set the minimization width to the default
+			if(vals != null){
+				this.minimizationWidth = new double[values.length];
+				for(int i=0; i<this.minimizationWidth.length;i++){
+					this.minimizationWidth[i] = DEFAULTMINWIDTH;
+				}
+			}
+		}
+		else
+			this.minimizationWidth = minimizationWidth;
+		
+	}
+	
+	// Constructor for dunbrack rotamers that have probabilities.  
+	public Rotamer(int rotAAIndex, double[] vals, AARotamerType aaType, int rlIndex, String pdbNum, boolean isWTrot, double aRotamerProbability) {
+		aaIndex = rotAAIndex;
+		this.rlIndex = rlIndex;
+		this.parent = rlIndex;
+		values = vals;
+		this.aaType = aaType;
+		this.resSpecificRot = pdbNum;
+		this.isWTrot = isWTrot;
+		this.rotamerProbability = aRotamerProbability;
 		
 		if(minimizationWidth == null){
 			//KER: for now we set the minimization width to the default

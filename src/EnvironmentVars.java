@@ -104,6 +104,19 @@ public class EnvironmentVars {
 	
     public static boolean autoFix = true;//Should structures being read in be autofixed?
 
+	// PGC 2015: Use the Dunbrack Rotamer library
+	public static boolean USE_DUNBRACK_ROTAMER_LIBRARY = true;
+	public static String dunbrackRotamerLibraryLocation = "/usr/project/dlab/Users/pablo/devel/osprey-GIT/OSPREY/dataFiles/ALL.bbdep.rotamers.lib";
+	// Only accept rotamers tha that have a higher probability than this: 
+	public static double DUNBRACK_PROBABILTY_CUTOFF = 0.001;
+	// Remove the rotamer that is closest to the wildtype rotamer to avoid "double" counting.
+	public static boolean REMOVE_CLOSEST_ROTAMER_WT_ROTAMER = true;
+	// If we are removing the closest rotamer to the wildtype rotamer, set a cutoff of Dihedral RMSD
+	public static double REMOVE_CLOSEST_ROTAMER_RMS_CUTOFF = 30;
+	// Diversify dunbrack rotamers by Chi1
+	public static boolean DIVERSIFY_DUNBRACK_ROTAMERS_CHI1 = false;
+	// Use dunbrack rotamer probabilities as energies.
+	public static boolean USE_DUNBRACK_ROTAMER_PROBABILITIES = false;
     
     
     

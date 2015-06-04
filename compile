@@ -1,0 +1,18 @@
+#!/bin/bash
+javac src/mpi/*.java -d bin/mpi
+export CLASSPATH=$CLASSPATH:bin/mpi:$GUROBI_HOME/lib/gurobi.jar
+export CLASSPATH=$CLASSPATH:/usr/project/dlab/Users/pablo/osprey-prod/osprey-EPIC/lib/architecture-rules-3.0.0-M1.jar
+export CLASSPATH=$CLASSPATH:/usr/project/dlab/Users/pablo/osprey-prod/osprey-EPIC/lib/colt-1.2.0.jar
+export CLASSPATH=$CLASSPATH:/usr/project/dlab/Users/pablo/osprey-prod/osprey-EPIC/lib/commons-beanutils-1.6.jar
+export CLASSPATH=$CLASSPATH:/usr/project/dlab/Users/pablo/osprey-prod/osprey-EPIC/lib/commons-collections-2.1.jar
+export CLASSPATH=$CLASSPATH:/usr/project/dlab/Users/pablo/osprey-prod/osprey-EPIC/lib/commons-digester-1.6.jar
+export CLASSPATH=$CLASSPATH:/usr/project/dlab/Users/pablo/osprey-prod/osprey-EPIC/lib/commons-io-1.4.jar
+export CLASSPATH=$CLASSPATH:/usr/project/dlab/Users/pablo/osprey-prod/osprey-EPIC/lib/commons-lang-2.5.jar
+export CLASSPATH=$CLASSPATH:/usr/project/dlab/Users/pablo/osprey-prod/osprey-EPIC/lib/commons-logging-1.1.1.jar
+export CLASSPATH=$CLASSPATH:/usr/project/dlab/Users/pablo/osprey-prod/osprey-EPIC/lib/commons-math3-3.0.jar
+export CLASSPATH=$CLASSPATH:/usr/project/dlab/Users/pablo/osprey-prod/osprey-EPIC/lib/jdepend-2.9.1.jar
+export CLASSPATH=$CLASSPATH:/usr/project/dlab/Users/pablo/osprey-prod/osprey-EPIC/lib/joptimizer.jar
+export CLASSPATH=$CLASSPATH:/usr/project/dlab/Users/pablo/osprey-prod/osprey-EPIC/lib/junit-3.8.1.jar
+export CLASSPATH=$CLASSPATH:/usr/project/dlab/Users/pablo/osprey-prod/osprey-EPIC/lib/log4j-1.2.14.jar
+export CLASSPATH=$CLASSPATH:/usr/project/dlab/Users/pablo/osprey-prod/osprey-EPIC/lib/xml-apis-1.0.b2.jar
+javac -g src/*.java -d bin

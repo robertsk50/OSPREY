@@ -32,7 +32,19 @@ public class AARotamerType implements Serializable{
 	public void clearRotamers(){
 		rotamers = new ArrayList<Rotamer>();
 	}
-	
+		
+	// PGC 2015: Clear all rotamers that are not wildtype rotamers.  
+	public void clearTEMPLRotamers() {
+		ArrayList<Rotamer> tempRotamers = new ArrayList<Rotamer>();
+		for(Rotamer r: rotamers){
+			if(r.aaType.name.equals("ALA") || r.aaType.name.equals("GLY") || r.isWTrot){ // Maintain wildtype, ala and gly
+				r.aaIndex = tempRotamers.size();
+				tempRotamers.add(r);
+			}			
+		}
+		rotamers = tempRotamers;
+		
+	}
 	
 	// Add a new rotamer, provided it is not already in our list.
 	// PGC 2014: Optionally add a rotamer only if it one of its dihedrals are DEFAULTMINWIDTH from another rotamer.

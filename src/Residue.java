@@ -918,6 +918,10 @@ public class Residue implements Serializable {
 		AATypesAllowed = new ArrayList<AARotamerType>();
 		allowedRCs = new ArrayList<ResidueConformation>();
 	}
+	/** PGC 2014: Clear only the allowed RCs that are accessible to this residue.  **/
+	public void clearAllowableRCs(){
+		allowedRCs = new ArrayList<ResidueConformation>();
+	}
 
 	/**
 	 * Be very careful about using this function. Should only be used

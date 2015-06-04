@@ -418,7 +418,21 @@ public class KSParser
 		EnvironmentVars.setForcefld(rParams.getValue("FORCEFIELD","AMBER"));
 		double entropyScale = (new Double((String)rParams.getValue("ENTROPYSCALE","0.0"))).doubleValue();
 		EnvironmentVars.setEntropyScale(entropyScale);
-
+		
+		// PGC 2015: Use the Dunbrack Rotamer library
+		EnvironmentVars.USE_DUNBRACK_ROTAMER_LIBRARY = (new Boolean((String)rParams.getValue("USE_DUNBRACK_ROTAMER_LIBRARY","false"))).booleanValue();;
+		EnvironmentVars.dunbrackRotamerLibraryLocation = EnvironmentVars.dataDir+(rParams.getValue("DunbrackRotamer","ALL.bbdep.rotamers.lib"));
+		// Only accept rotamers tha that have a higher probability than this: 
+		EnvironmentVars.DUNBRACK_PROBABILTY_CUTOFF = (new Double((String)rParams.getValue("DUNBRACK_PROBABILTY_CUTOFF","0.001"))).doubleValue();
+		// Remove the rotamer that is closest to the wildtype rotamer to avoid "double" counting; only works for DUNBRACk
+		EnvironmentVars.REMOVE_CLOSEST_ROTAMER_WT_ROTAMER = (new Boolean((String)rParams.getValue("REMOVE_CLOSEST_ROTAMER_WT_ROTAMER","true"))).booleanValue();
+		// If we are removing the closest rotamer to the wildtype rotamer, set a cutoff of Dihedral RMSD
+		EnvironmentVars.REMOVE_CLOSEST_ROTAMER_RMS_CUTOFF = (new Double((String)rParams.getValue("REMOVE_CLOSEST_ROTAMER_RMS_CUTOFF","30"))).doubleValue();
+		// Diversify dunbrack rotamers by Chi1
+		EnvironmentVars.DIVERSIFY_DUNBRACK_ROTAMERS_CHI1 = (new Boolean((String)rParams.getValue("DIVERSIFY_DUNBRACK_ROTAMERS_CHI1","false"))).booleanValue();
+		// Use dunbrack rotamer probabilities as energies.
+		EnvironmentVars.USE_DUNBRACK_ROTAMER_PROBABILITIES = (new Boolean((String)rParams.getValue("USE_DUNBRACK_ROTAMER_PROBABILITIES","false"))).booleanValue();
+		
 		EnvironmentVars.setLocalDir(rParams.getValue("LOCALDIR","./"));
 
 		double hbondScale = (new Double((String)rParams.getValue("HBONDSCALE","0"))).doubleValue();
@@ -584,6 +598,8 @@ public class KSParser
 			int numInStrand = molEndNum-molStartNum+1;
 			//strandLength[i] = numInStrand;
 			Residue myStrand[] = new Residue[numInStrand];
+			
+			// Remove residues in the "other" strand.			
 			for (int j=(numInStrand-1); j>=0; j--){
 				myStrand[j] = m.residue[molStartNum+j]; // pull out the ligand
 				m.deleteResidue(molStartNum+j);
@@ -1021,7 +1037,8 @@ public class KSParser
 			System.out.println("** Resuming Search **");
 			System.out.println("     resuming from file: "+resumeFilename);
 		}
-
+		
+        // The molecule is first loaded to ....
 		MolParameters mp = loadMolecule(sParams, COMPLEX, graphSettings.neighborList, graphSettings.distCutoff,true);
 		//KER: This is a placeholder so I don't have to change all the variables in the code
 		Molecule m = mp.m;
@@ -1128,7 +1145,21 @@ public class KSParser
 				for(int resID:mp.strandMut.allMut){
 						setAllowablesHelper(sParams, addWT, mp.m.residue[resID]);
 				}
+							
 				
+				// PGC 2015: Load the Dunbrack backbone dependent rotamer library.  
+				//  This command will remove all TEMPL rotamers that were loaded in the setupMolSystem function (but not the wildtype rotamers)
+			if(EnvironmentVars.USE_DUNBRACK_ROTAMER_LIBRARY){
+				mp.m.loadDunbrackRots();
+				// Clear all the residue conformations.
+				mp.m.strand[0].rcl.allRCs = new ArrayList<ResidueConformation>();
+				// Also clear all residue conformations for each residue.
+				for(int resID:mp.strandMut.allMut){
+					mp.m.residue[resID].clearAllowableRCs();			
+				}
+			}
+			
+			
 //				if(rs==null || minSettings.selectPerturbations){//MH: this can happen if we just handled a special unbound-strand structure
 					rs = new RotamerSearch(mp.m,mp.strandMut.numMutPos(), mp.strandsPresent,hElect,hVDW,hSteric,true,true,
 							kstarSettings.epsilon,stericThresh,softStericThresh,distDepDielect,dielectConst,doDihedE,doSolvationE,solvScale,
@@ -1157,6 +1188,25 @@ public class KSParser
 		sParams.setValue("PERTURBATIONFILE", minSettings.pertFile);
 		mp = loadMolecule(sParams, COMPLEX, graphSettings.neighborList, graphSettings.distCutoff,true);
 //		m = setupMolSystem(m,sParams,strandPresent,strandLimits);
+						
+		// PGC 2015: Load the Dunbrack backbone dependent rotamer library.  
+		//  This command will remove all TEMPL rotamers that were loaded in the loadMolecule function (but not the wildtype rotamers)
+		if(EnvironmentVars.USE_DUNBRACK_ROTAMER_LIBRARY){
+			mp.m.loadDunbrackRots();
+			// Clear all the residue conformations.
+			mp.m.strand[0].rcl.allRCs = new ArrayList<ResidueConformation>();
+			mp.m.strand[1].rcl.allRCs = new ArrayList<ResidueConformation>();
+			// Also clear all residue conformations for each residue.
+			for(int resID:mp.strandMut.allMut){
+				mp.m.residue[resID].clearAllowableRCs();			
+			}
+		}
+		
+		if(graphSettings.neighborList){
+			mp.m.genDistNeighborList(graphSettings.distCutoff);
+			mp.m.dumpNeighborList();
+		}	
+		
 		rs = new RotamerSearch(m,numberMutable, strandsPresent,hElect,hVDW,hSteric,true,true,
 				kstarSettings.epsilon,stericThresh,softStericThresh,distDepDielect,dielectConst,doDihedE,doSolvationE,solvScale,
 				softvdwMultiplier, minSettings.doPerturbations, minSettings.pertFile, minSettings.minimizePerts, false, false, es,hbonds,mp.strandMut);
@@ -4124,7 +4174,6 @@ public class KSParser
 
 		//Setup the molecule system
 		MolParameters mp = loadMolecule(sParams,curStrForMatrix, graphSettings.neighborList, graphSettings.distCutoff,true);
-
 		
 		boolean reload=false;
 
@@ -4153,6 +4202,7 @@ public class KSParser
 //				reloadMolecule(mp, sParams, curStrForMatrix, neighborList, distCutoff, pertFile);
 				mp = loadMolecule(sParams,curStrForMatrix,graphSettings.neighborList,graphSettings.distCutoff,false);
 //				mp.m.origMol();
+
 			}
 			else if(minSettings.doPerturbations)
 				reload = true;
@@ -4183,6 +4233,22 @@ public class KSParser
 			if((!minSettings.selectPerturbations || reload) && !mp.loadedFromCache)
 					rs.setupRCs(minSettings.doPerturbations);
 
+			
+			// PGC 2015: Load the Dunbrack backbone dependent rotamer library.  
+			//  This command will remove all TEMPL rotamers that were loaded in the loadMolecule function (but not the wildtype rotamers)
+			if(EnvironmentVars.USE_DUNBRACK_ROTAMER_LIBRARY){
+				mp.m.loadDunbrackRots();
+				// Clear all the residue conformations.
+				mp.m.strand[0].rcl.allRCs = new ArrayList<ResidueConformation>();
+				mp.m.strand[1].rcl.allRCs = new ArrayList<ResidueConformation>();
+				// Also clear all residue conformations for each residue.
+				for(int resID:mp.strandMut.allMut){
+					mp.m.residue[resID].clearAllowableRCs();			
+				}
+				rs.setupRCs(minSettings.doPerturbations);
+			}
+
+			
 			long startEmat = System.currentTimeMillis();
 			System.out.print("Loading precomputed energy matrix...");
 			Emat emat = loadPairwiseEnergyMatrices(sParams,ematSettings.runNameEMatrixMin,minSettings.doMinimize,curStrForMatrix,es,mp.m, false);
@@ -4908,6 +4974,10 @@ public class KSParser
 		loadMutationParams(sParams, mp);
 
 		if(neighborList){
+			// PGC 2015: If we are using the Dunbrack library, then distance cutoffs are not performed using an arginine mutation.
+			if(EnvironmentVars.USE_DUNBRACK_ROTAMER_LIBRARY){
+				System.out.println("Distance cutoffs are being used, as well as the Dunbrack rotamer library.  For now, when Dunbrack rotamers are used, the distance cutoffs do not mutate to arginine to find the minimum distance.");				
+			}
 			mp.m.genDistNeighborList(distCutoff);
 			mp.m.dumpNeighborList();
 		}

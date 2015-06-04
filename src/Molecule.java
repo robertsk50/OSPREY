@@ -3278,6 +3278,7 @@ public class Molecule implements Serializable{
 	 * 
 	 * This should only be called when all of the allowed AAtypes
 	 * for all of the residues has already been set.
+	 * PGC 2015: If the dunbrack rotamer library is used, use a distance cutoff instead.
 	 */
 	public void genDistNeighborList(double Dcut){
 		neighborList = new boolean[residue.length][residue.length];
@@ -3285,7 +3286,7 @@ public class Molecule implements Serializable{
 		ArrayList<Rotamer> argRots = null;
 		//First mutate all mutable residues to ARG (longest/most flexible AA)
 		for(int i=0; i<residue.length;i++){
-			if(residue[i].isMutable){
+			if(residue[i].isMutable && !EnvironmentVars.USE_DUNBRACK_ROTAMER_LIBRARY){
 				if(strand[residue[i].strandNumber].isProtein){
 					MutUtils.changeResidueType(this, i, "ARG", true, true);
 					if(argRots == null)
@@ -3305,21 +3306,21 @@ public class Molecule implements Serializable{
 			Residue r1 = residue[i];
 			neighborList[i][i] = true;
 			int numRot1 = 1; 
-			if(r1.isMutable)
+			if(r1.isMutable && !EnvironmentVars.USE_DUNBRACK_ROTAMER_LIBRARY)
 				numRot1 = rotsForPos.get(i).size(); 
 			for(int j = i+1; j<residue.length;j++){
 				Residue r2 = residue[j];
 				int numRot2 = 1;
-				if(r2.isMutable)
+				if(r2.isMutable && !EnvironmentVars.USE_DUNBRACK_ROTAMER_LIBRARY)
 					numRot2 = rotsForPos.get(j).size();
 
 				int rot1=0;
 				boolean areNeighbors = false;
 				while(!areNeighbors && rot1 < numRot1){
-					if(r1.isMutable)
+					if(r1.isMutable && !EnvironmentVars.USE_DUNBRACK_ROTAMER_LIBRARY)
 						MutUtils.applyRotamer(this, rotsForPos.get(i).get(rot1), r1);
 					for(int rot2=0; rot2<numRot2;rot2++){
-						if(r2.isMutable)
+						if(r2.isMutable && !EnvironmentVars.USE_DUNBRACK_ROTAMER_LIBRARY)
 							MutUtils.applyRotamer(this, rotsForPos.get(j).get(rot2), r2);
 						if(r1.getDistCountH(r2, true) <= Dcut){
 							areNeighbors = true;
@@ -3403,6 +3404,12 @@ public class Molecule implements Serializable{
 
 	public ResidueConformation getRC(int molResNum, int globalResidueConfID) {
 		return strand[residue[molResNum].strandNumber].rcl.getRC(globalResidueConfID);
+	}
+
+	// PGC 2015: Load the dunbrack rotamers to the rotamer library element.
+	public void loadDunbrackRots() {
+		aaRotLib.loadDunbrackRots(residue);
+		
 	}
 
 //	public void copyMutableInfo(Molecule mol) {
