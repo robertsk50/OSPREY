@@ -607,9 +607,9 @@ public class MutationManager
 												pairEMatrixMin.pairs.E[p2][a2][r2][p1][a1][r1] = tmpPairs.E[p1][a1][r1][p2][a2][r2]; //Set Symmetric entry
 												if(cObj.doDih){
 													pairEMatrixMin.pairs.rotDih1[p1][a1][r1][p2][a2][r2] = tmpPairs.rotDih1[p1][a1][r1][p2][a2][r2];
-													pairEMatrixMin.pairs.rotDih1[p2][a2][r2][p1][a1][r1] = tmpPairs.rotDih1[p1][a1][r1][p2][a2][r2];
+													pairEMatrixMin.pairs.rotDih1[p2][a2][r2][p1][a1][r1] = tmpPairs.rotDih2[p1][a1][r1][p2][a2][r2];
 													pairEMatrixMin.pairs.rotDih2[p1][a1][r1][p2][a2][r2] = tmpPairs.rotDih2[p1][a1][r1][p2][a2][r2];
-													pairEMatrixMin.pairs.rotDih2[p2][a2][r2][p1][a1][r1] = tmpPairs.rotDih2[p1][a1][r1][p2][a2][r2];
+													pairEMatrixMin.pairs.rotDih2[p2][a2][r2][p1][a1][r1] = tmpPairs.rotDih1[p1][a1][r1][p2][a2][r2];
 													pairEMatrixMin.pairs.maxE[p1][a1][r1][p2][a2][r2] = tmpPairs.maxE[p1][a1][r1][p2][a2][r2];
 													pairEMatrixMin.pairs.maxE[p2][a2][r2][p1][a1][r1] = tmpPairs.maxE[p1][a1][r1][p2][a2][r2];
 												}

@@ -4235,7 +4235,7 @@ public class RotamerSearch implements Serializable
 
 
 		//Get the reduced min energy matrix
-		Emat arpMatrixRed = arpMatrix.unprunedMatrix();
+		//Emat arpMatrixRed = arpMatrix.unprunedMatrix();
 
 
 		//Declaring the logPS output here prevents opening an empty file and returning

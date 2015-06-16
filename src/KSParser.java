@@ -2680,6 +2680,7 @@ public class KSParser
 		mutArray = getMutArrayPairEcomp(numberMutable,minimizeBB,pairsEmat);
 
 		mutMan = new MutationManager(null,mutArray,true);
+		mutMan.setDoDih(doDih);
 		mutMan.setMolecule(m);
 		mutMan.setMinScheme(minScheme);
 		mutMan.setStrandMut(strandMut);
