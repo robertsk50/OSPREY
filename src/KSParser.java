@@ -2818,6 +2818,10 @@ public class KSParser
 //				for(int p2=p1+1; p2<mutMan.getMinEmatrix().numMutPos();p2++)
 //					mutMan.getMinEmatrix().pairs.delete(minEMatrixName+"_"+p1+"_"+p2);
 			//Save Full matrix
+			//Add Eref before Saving
+			boolean useEref = (new Boolean((String)sParams.getValue("USEEREF", "true"))).booleanValue();
+			addErefAndEntropy(useEref,mutMan.getMinEmatrix(),m);
+			
 			mutMan.getMinEmatrix().save(minEMatrixName,m);
 		}
 		
@@ -4886,6 +4890,20 @@ public class KSParser
 		}
 		if(EnvironmentVars.useEntropy && !emat.hasEntropy)
 			rs.addEntropyTerm();
+	}
+	
+	private static void addErefAndEntropy(boolean useEref, Emat emat, Molecule m) {
+		if(useEref){
+			if(emat.eRef == null){
+				System.out.println("Reference energies turned on but not calculated");
+				System.out.println("Exiting....");
+				System.exit(0);
+			}
+			if( !emat.hasEref)
+				RotamerSearch.addEref(emat,m,emat.eRef, -1, null);
+		}
+		if(EnvironmentVars.useEntropy && !emat.hasEntropy)
+			RotamerSearch.addEntropyTerm(emat, m, -1, null);
 	}
 
 	//KER: If addWT isn't true and there is only one AA type for a mutable
