@@ -328,6 +328,10 @@ public class Emat implements Serializable {
 	public void save(String fileName, Molecule m){
 		//writeToFile(fileName);
 		write(fileName, m);
+		
+		if(EnvironmentVars.SAVE_HUMAN_READABLE_EMAT)
+			saveHumanReadable(fileName, m);
+		
 	}
 
 
@@ -425,6 +429,70 @@ public class Emat implements Serializable {
 
 	}
 
+	
+	public void saveHumanReadable(String fileName, Molecule m){
+		try{
+			FileOutputStream fileOutputStream = new FileOutputStream(fileName+".txt");
+			BufferedOutputStream bufferedOutputStream = new BufferedOutputStream( fileOutputStream );
+			PrintStream logPS = new PrintStream( bufferedOutputStream );
+			
+			//Print the mutable positions 
+			logPS.println("resByPos "+resByPos.size());
+			Iterator<ArrayList<Integer>> iter = resByPos.iterator();
+			while(iter.hasNext()){
+				ArrayList<Integer> positions = iter.next();
+				for(int pos:positions){
+					logPS.print(m.residue[pos].getResNumberString()+" ");
+				}
+				logPS.println("");
+			}
+			logPS.flush();
+			
+			//Print Templ Energy
+			logPS.println("TEMPL");
+			logPS.println(templ_E);
+			
+			//Print Intra Energies
+			//Format: POS E ROT
+			logPS.println("INTRAE");
+			SinglesIterator rotiter = singlesIterator();
+			while(rotiter.hasNext()){
+				EMatrixEntryWIndex emeWI = rotiter.next();
+				for(int i:emeWI.index){
+					logPS.print(i+" ");
+				}
+				logPS.print(emeWI.eme.getString());
+				ResidueConformation curRC1 = getRCs(m, emeWI.rot1index3()).get(0);
+				logPS.println(curRC1.rot.summaryStr());
+			}
+			logPS.flush();
+			
+			//Print PairE
+			logPS.println("PAIRE");
+			PairsIterator pairiter = pairsIterator();
+			while(pairiter.hasNext()){
+				EMatrixEntryWIndex emeWI = pairiter.next();
+				//if(emeWI.eme.minE() < Double.POSITIVE_INFINITY){
+				for(int i:emeWI.index){
+					logPS.print(i+" ");
+				}
+				logPS.print(emeWI.eme.getString());
+				//Find which residue in order to get strand number
+				//Indexes of 0 assume that we aren't using super rotamers
+				
+				ResidueConformation curRC1 = getRCs(m, emeWI.rot1index3()).get(0);
+				ResidueConformation curRC2 = getRCs(m, emeWI.rot2index3()).get(0);
+				logPS.println(curRC1.rot.summaryStr()+" "+curRC2.rot.summaryStr());
+				
+			}
+			logPS.flush();
+			
+		}catch (Exception ex) {
+			ex.printStackTrace();
+			System.out.println("ERROR: An exception occured while writing emat file");
+		}
+	}
+	
 	public void writeToFile(String fileName){
 		try {
 			FileOutputStream fileOutputStream = new FileOutputStream(fileName);

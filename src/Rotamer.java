@@ -139,4 +139,13 @@ public class Rotamer implements Serializable{
 		
 	}
 	
+	/**
+	 * Print out a summary of the rotamer (used for human readable emat)
+	 * @return
+	 */
+	public String summaryStr(){
+		String s="";
+		s += aaType.name+" "+aaIndex;
+		return s;
+	}
 }

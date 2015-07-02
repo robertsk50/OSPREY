@@ -118,7 +118,8 @@ public class EnvironmentVars {
 	// Use dunbrack rotamer probabilities as energies.
 	public static boolean USE_DUNBRACK_ROTAMER_PROBABILITIES = false;
     
-    
+	//Save Human Readable Emat
+	public static boolean SAVE_HUMAN_READABLE_EMAT = false;
     
     public static boolean useMPLP = false;
     public static int MPLP_iterations = 100;

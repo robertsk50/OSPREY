@@ -433,6 +433,8 @@ public class KSParser
 		// Use dunbrack rotamer probabilities as energies.
 		EnvironmentVars.USE_DUNBRACK_ROTAMER_PROBABILITIES = (new Boolean((String)rParams.getValue("USE_DUNBRACK_ROTAMER_PROBABILITIES","false"))).booleanValue();
 		
+		EnvironmentVars.SAVE_HUMAN_READABLE_EMAT = (new Boolean((String)rParams.getValue("SAVE_HUMAN_READABLE_EMAT","false"))).booleanValue();
+		
 		EnvironmentVars.setLocalDir(rParams.getValue("LOCALDIR","./"));
 
 		double hbondScale = (new Double((String)rParams.getValue("HBONDSCALE","0"))).doubleValue();
@@ -2818,7 +2820,7 @@ public class KSParser
 			//Save Full matrix
 			mutMan.getMinEmatrix().save(minEMatrixName,m);
 		}
-
+		
 		System.out.println("DONE: Pairwise energy matrix precomputation..");
 	}
 	
