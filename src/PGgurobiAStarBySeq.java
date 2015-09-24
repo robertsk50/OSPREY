@@ -363,10 +363,23 @@ public class PGgurobiAStarBySeq extends AStar{
 
 			expNode = (PGQueueNode) curExpansion.getMin();//get the current min node
 
-			if (expNode==null || expNode.fScore > upperE){//the queue is empty
+			if ((expNode==null || expNode.fScore > upperE) && numRunning == 0){//the queue is empty
 				return null; //so return a sequence of -1's to flag the stop of the search
+			}else if(expNode == null && numRunning > 0){
+				PGQueueNode[] node = new PGQueueNode[1];
+				try {
+					Object s = MPItoThread.Recv(node, 0, 1, ThreadMessage.OBJECT, ThreadMessage.ANY_SOURCE, ThreadMessage.ANY_TAG);
+				} catch (MPIException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				} catch (InterruptedException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+				curExpansion.insert(node[0]);
+				countNodes++;
+				numRunning--;
 			}
-
 			else { //the queue is not empty
 
 				printState(expNode);
