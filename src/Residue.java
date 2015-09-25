@@ -88,6 +88,7 @@ public class Residue implements Serializable {
 
 	String name = "";			// The short residue name "GLU"
 	String fullName = "";	// The long version of the residue name ie "GLU A  47"
+	String defaultName = ""; //The long version of the WT residue name ie "GLU A 47"
 	int	numberOfAtoms=0;	// Number of atoms
 	int	moleculeResidueNumber=-1;	// The molecule relative residue number
 	int	strandResidueNumber=-1;		// The strand relative residue number

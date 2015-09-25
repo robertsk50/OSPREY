@@ -532,7 +532,7 @@ public class KSParser
 	private void setAllowablesHelper(ParamSet sParams, boolean addWT, Residue r){
 		String tempResAllow = (String)sParams.getValue("RESALLOWED"+r.getResNumberString(), "");
 		if(numTokens(tempResAllow) <= 0 && !addWT){
-			System.out.println("Warning: addWT is false, but no amino acid type set. Using WT for residue "+r.fullName);
+			System.out.println("Warning: addWT is false, but no amino acid type set. Using WT for residue "+r.defaultName);
 			r.setAllowable(r.defaultAA);
 		}
 		for(int q=0;q<numTokens(tempResAllow);q++)

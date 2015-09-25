@@ -169,6 +169,7 @@ class PDBChemModel {
 					newResidue = new Residue();
 					newResidue.name = residueName;
 					newResidue.fullName = fullResidueName;
+					newResidue.defaultName = fullResidueName;
 					lastResidueName = fullResidueName;
 					residueNumber++;
 				}
